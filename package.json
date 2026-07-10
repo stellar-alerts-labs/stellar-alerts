@@ -5,5 +5,8 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
 }

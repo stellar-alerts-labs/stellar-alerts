@@ -3,3 +3,6 @@ node_modules
 dist
 build
 .next
+
+dev.db
+*.db
