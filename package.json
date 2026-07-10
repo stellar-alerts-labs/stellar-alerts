@@ -6,6 +6,10 @@
   "workspaces": [
     "apps/*"
   ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=api",
+    "dev:web": "npm run dev --workspace=web"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3"
   }
