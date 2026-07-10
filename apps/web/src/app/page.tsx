@@ -4,10 +4,12 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { WatcherForm } from '@/components/WatcherForm';
 import { WatchList } from '@/components/WatchList';
+import { PaymentHistory } from '@/components/PaymentHistory';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [token, setToken] = useState('stub-token-123');
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
   if (status === 'loading') {
     return <div className="p-8">Loading session...</div>;
@@ -15,24 +17,32 @@ export default function Home() {
 
   if (session) {
     return (
-      <div className="p-8 space-y-4">
-        <h1 className="text-2xl font-bold">Welcome, {session.user?.name}</h1>
-        <p>Email: {session.user?.email}</p>
-        <button 
-          onClick={() => signOut()}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Sign Out
-        </button>
+      <div className="p-8 space-y-8">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold">Welcome, {session.user?.name}</h1>
+          <p>Email: {session.user?.email}</p>
+          <button 
+            onClick={() => signOut()}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+          >
+            Sign Out
+          </button>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
             <WatcherForm />
           </div>
           <div>
-            <WatchList />
+            <WatchList onSelect={setSelectedWallet} />
           </div>
         </div>
+
+        {selectedWallet && (
+          <div className="mt-8">
+            <PaymentHistory walletId={selectedWallet} />
+          </div>
+        )}
       </div>
     );
   }

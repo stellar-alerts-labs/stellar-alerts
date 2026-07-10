@@ -9,7 +9,7 @@ type WatchItem = {
   createdAt: string;
 };
 
-export function WatchList() {
+export function WatchList({ onSelect }: { onSelect?: (address: string) => void }) {
   const [watches, setWatches] = useState<WatchItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +48,11 @@ export function WatchList() {
       <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md border border-gray-200 dark:border-gray-700">
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {watches.map((watch) => (
-            <li key={watch.id}>
+            <li 
+              key={watch.id}
+              className={onSelect ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors' : ''}
+              onClick={() => onSelect?.(watch.address)}
+            >
               <div className="px-4 py-4 sm:px-6 flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
