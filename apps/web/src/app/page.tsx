@@ -2,6 +2,7 @@
 
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useState } from 'react';
+import { WatcherForm } from '@/components/WatcherForm';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -18,10 +19,12 @@ export default function Home() {
         <p>Email: {session.user?.email}</p>
         <button 
           onClick={() => signOut()}
-          className="bg-red-500 text-white px-4 py-2 rounded"
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
         >
           Sign Out
         </button>
+
+        <WatcherForm />
       </div>
     );
   }
