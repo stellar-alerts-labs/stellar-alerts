@@ -10,13 +10,24 @@ export function WatcherForm() {
     e.preventDefault();
     setStatus('Submitting...');
     
-    // Stub API call
-    console.log('Stub API Call to /payments/watch with data:', { address });
-    
-    setTimeout(() => {
-      setStatus('Successfully submitted! (Stub)');
-      setAddress('');
-    }, 500);
+    try {
+      const res = await fetch('http://localhost:3001/payments/watch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStatus('Successfully submitted!');
+        setAddress('');
+      } else {
+        setStatus(`Error: ${data.error || 'Failed to submit'}`);
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus('Network error occurred.');
+    }
   };
 
   return (

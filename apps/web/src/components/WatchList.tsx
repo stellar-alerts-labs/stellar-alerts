@@ -14,27 +14,21 @@ export function WatchList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Stub fetch to /payments/watches
     const fetchWatches = async () => {
       setLoading(true);
-      // Simulate network latency
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setWatches([
-        {
-          id: '1',
-          address: 'GAQOOUC...',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          address: 'GCEPI...',
-          status: 'pending',
-          createdAt: new Date().toISOString(),
+      try {
+        const res = await fetch('http://localhost:3001/payments/watches');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.watches) {
+            setWatches(data.watches);
+          }
         }
-      ]);
-      setLoading(false);
+      } catch (e) {
+        console.error('Failed to fetch watches', e);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchWatches();

@@ -13,6 +13,34 @@ export class PaymentsService {
       paymentCount: 0,
     };
   }
+
+  async addWatch(address: string) {
+    console.log(`[PaymentsService] Adding watch for address ${address}`);
+    return {
+      id: Math.random().toString(36).substring(7),
+      address,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  async getWatches() {
+    console.log(`[PaymentsService] Fetching all watches`);
+    return [
+      {
+        id: '1',
+        address: 'GAQOOUC...',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        address: 'GCEPI...',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      }
+    ];
+  }
 }
 
 export const paymentsService = new PaymentsService();

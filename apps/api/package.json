@@ -13,6 +13,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.0",
     "@prisma/client": "^6.19.3",
     "fastify": "^5.10.0",
     "stellar-sdk": "^13.3.0",
