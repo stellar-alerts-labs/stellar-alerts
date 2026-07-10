@@ -30,7 +30,7 @@ export async function runWatcher() {
             const existing = await prisma.payment.findUnique({ where: { txHash } });
             if (!existing) {
               console.log(`[WatcherWorker] New payment found for wallet ${wallet.id}: ${amount} ${asset}`);
-              await prisma.payment.create({
+              const payment = await prisma.payment.create({
                 data: {
                   walletId: wallet.id,
                   txHash,
@@ -42,7 +42,8 @@ export async function runWatcher() {
                 }
               });
 
-              // TODO: push to notification queue (Task 12)
+              const { enqueueNotificationJob } = require('../queues/notification.queue');
+              await enqueueNotificationJob(payment.id);
             }
           }
         }
