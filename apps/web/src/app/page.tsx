@@ -3,6 +3,7 @@
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { WatcherForm } from '@/components/WatcherForm';
+import { WatchList } from '@/components/WatchList';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -24,7 +25,14 @@ export default function Home() {
           Sign Out
         </button>
 
-        <WatcherForm />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <WatcherForm />
+          </div>
+          <div>
+            <WatchList />
+          </div>
+        </div>
       </div>
     );
   }
