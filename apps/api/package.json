@@ -15,6 +15,7 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "fastify": "^5.10.0",
+    "stellar-sdk": "^13.3.0",
     "zod": "^4.4.3"
   }
 }
