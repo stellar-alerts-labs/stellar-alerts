@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
+import { notificationsRoutes } from './modules/notifications/notifications.routes';
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -15,6 +16,7 @@ export const buildApp = async () => {
   app.register(authRoutes);
   app.register(walletsRoutes);
   app.register(paymentsRoutes);
+  app.register(notificationsRoutes);
 
   return app;
 };
