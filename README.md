@@ -17,5 +17,6 @@ This project uses a modern monorepo architecture with the following core technol
 For a complete breakdown of the system design, data models, and backend/frontend structure, please refer to the [Architecture Document](ARCHITECTURE.md).
 
 ## Current Status
-**Status: Under Construction**
-The project is currently in the early stages of development. We are setting up the monorepo structure and laying the groundwork for the core tracking features. See the [Roadmap](ROADMAP.md) (coming soon) for more details.
+The core backend (auth, wallet connect, Stellar testnet watcher, Telegram notifications, payments API) and frontend (landing page, login, onboarding, dashboard, notification settings) are built and working.
+
+See the [Roadmap](ROADMAP.md) for more details.
