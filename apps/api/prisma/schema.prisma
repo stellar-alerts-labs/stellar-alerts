@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String                   @id @default(cuid())
+  email       String                   @unique
+  createdAt   DateTime                 @default(now())
+  wallets     Wallet[]
+  notifyPrefs NotificationPreference?
+}
+
+model Wallet {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  publicKey  String     @unique
+  label      String?
+  createdAt  DateTime   @default(now())
+  payments   Payment[]
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  txHash      String   @unique
+  fromAddress String
+  amount      Decimal
+  asset       String
+  memo        String?
+  receivedAt  DateTime
+  createdAt   DateTime @default(now())
+}
+
+model NotificationPreference {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id])
+  telegramChatId  String?
+  telegramEnabled Boolean @default(false)
+  emailEnabled    Boolean @default(true)
+  whatsappNumber  String?
+  whatsappEnabled Boolean @default(false)
+}

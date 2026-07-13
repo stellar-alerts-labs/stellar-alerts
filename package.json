@@ -1,0 +1,12 @@
+{
+  "name": "stellar-alerts",
+  "version": "1.0.0",
+  "description": "Stellar Payment Tracker",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
+}
