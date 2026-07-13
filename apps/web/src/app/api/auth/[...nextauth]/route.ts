@@ -8,7 +8,7 @@ const handler = NextAuth({
       credentials: {
         token: { label: "Token", type: "text", placeholder: "Magic Link Token" }
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         if (!credentials?.token) return null;
         
         try {

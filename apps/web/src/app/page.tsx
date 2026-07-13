@@ -8,7 +8,7 @@ import { PaymentHistory } from '@/components/PaymentHistory';
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [token, setToken] = useState('stub-token-123');
+  const [token, setToken] = useState('');
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
   if (status === 'loading') {
