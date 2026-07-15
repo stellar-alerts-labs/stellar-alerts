@@ -6,3 +6,5 @@ build
 
 dev.db
 *.db
+
+apps/**/.env.local
