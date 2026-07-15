@@ -43,6 +43,12 @@ export async function walletsRoutes(app: FastifyInstance) {
     return reply.status(201).send({ success: true, wallet });
   });
 
+  app.get('/wallets', async (request, reply) => {
+    const userId = (request as any).user.id;
+    const wallets = await walletsService.getWallets(userId);
+    return reply.send({ success: true, wallets });
+  });
+
   app.delete('/wallets/:id', async (request, reply) => {
     const parsed = deleteWalletSchema.safeParse(request.params);
     if (!parsed.success) {

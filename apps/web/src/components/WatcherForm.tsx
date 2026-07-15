@@ -1,20 +1,30 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 export function WatcherForm() {
   const [address, setAddress] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('Submitting...');
     
+    if (!session || !(session as any).accessToken) {
+      setStatus('Error: You must be logged in.');
+      return;
+    }
+
     try {
-      const res = await fetch('http://localhost:3001/payments/watch', {
+      const res = await fetch('http://localhost:3001/wallets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(session as any).accessToken}`
+        },
+        body: JSON.stringify({ publicKey: address, label: 'Watched Wallet' })
       });
       
       const data = await res.json();
