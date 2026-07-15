@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { stellar } from '../lib/stellar';
-
-const prisma = new PrismaClient();
 
 export async function runWatcher() {
   console.log('[WatcherWorker] Starting Stellar testnet watcher...');

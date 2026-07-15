@@ -1,14 +1,31 @@
+import { prisma } from '../../lib/prisma';
+
 export class WalletsService {
   async addWallet(userId: string, publicKey: string, label?: string) {
-    // TODO: Actually insert into DB using Prisma
-    console.log(`[WalletsService] Added wallet ${publicKey} for user ${userId}`);
-    return { id: 'fake-wallet-id', userId, publicKey, label };
+    console.log(`[WalletsService] Adding wallet ${publicKey} for user ${userId}`);
+    const wallet = await prisma.wallet.create({
+      data: {
+        userId,
+        publicKey,
+        label,
+      },
+    });
+    return wallet;
   }
 
   async removeWallet(id: string) {
-    // TODO: Actually remove from DB
-    console.log(`[WalletsService] Removed wallet ${id}`);
-    return { success: true };
+    console.log(`[WalletsService] Removing wallet ${id}`);
+    try {
+      await prisma.wallet.delete({
+        where: { id },
+      });
+      return { success: true };
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        throw new Error('Wallet not found');
+      }
+      throw error;
+    }
   }
 }
 

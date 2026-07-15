@@ -31,22 +31,4 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const summary = await paymentsService.getPaymentsSummary(parsed.data.walletId);
     return reply.send({ success: true, summary });
   });
-  app.post('/payments/watch', async (request, reply) => {
-    const addWatchSchema = z.object({
-      address: z.string(),
-    });
-    
-    const parsed = addWatchSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid body', details: parsed.error.format() });
-    }
-
-    const watch = await paymentsService.addWatch(parsed.data.address);
-    return reply.send({ success: true, watch });
-  });
-
-  app.get('/payments/watches', async (request, reply) => {
-    const watches = await paymentsService.getWatches();
-    return reply.send({ success: true, watches });
-  });
 }
