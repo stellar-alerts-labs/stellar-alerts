@@ -1,6 +1,10 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET must be set");
+}
+
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
@@ -16,9 +20,8 @@ const handler = NextAuth({
           if (!res.ok) return null;
           const data = await res.json();
           
-          if (data.success && data.token) {
-            // we'll just mock user info for now since backend doesn't return user details
-            return { id: "1", name: "Test User", email: "test@example.com", accessToken: data.token };
+          if (data.success && data.token && data.user) {
+            return { id: data.user.id, name: data.user.email, email: data.user.email, accessToken: data.token };
           }
         } catch (e) {
           console.error('API Verification error', e);
@@ -33,7 +36,7 @@ const handler = NextAuth({
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_development",
+  secret: process.env.NEXTAUTH_SECRET,
 })
 
 export { handler as GET, handler as POST }

@@ -19,7 +19,11 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid token' });
     }
 
-    const sessionToken = await authService.verifyMagicLink(parsed.data.token);
-    return reply.send({ success: true, token: sessionToken });
+    try {
+      const { token: sessionToken, user } = await authService.verifyMagicLink(parsed.data.token);
+      return reply.send({ success: true, token: sessionToken, user });
+    } catch (error) {
+      return reply.status(401).send({ error: 'Invalid or expired token' });
+    }
   });
 }
