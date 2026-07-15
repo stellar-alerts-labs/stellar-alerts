@@ -13,6 +13,13 @@ export class WalletsService {
     return wallet;
   }
 
+  async getWallets(userId: string) {
+    return prisma.wallet.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
   async removeWallet(id: string) {
     console.log(`[WalletsService] Removing wallet ${id}`);
     try {

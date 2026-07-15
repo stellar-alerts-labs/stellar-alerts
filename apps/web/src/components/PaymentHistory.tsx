@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface Payment {
   id: string;
@@ -14,12 +15,21 @@ interface Payment {
 export function PaymentHistory({ walletId }: { walletId: string }) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
 
   useEffect(() => {
     const fetchPayments = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:3001/payments?walletId=${encodeURIComponent(walletId)}`);
+        const headers: Record<string, string> = {};
+        if (session && (session as any).accessToken) {
+          headers['Authorization'] = `Bearer ${(session as any).accessToken}`;
+        }
+        
+        const res = await fetch(`http://localhost:3001/payments?walletId=${encodeURIComponent(walletId)}`, {
+          headers
+        });
+        
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.payments) {
