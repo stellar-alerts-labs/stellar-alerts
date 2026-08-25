@@ -1,10 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { z } from 'zod';
 import prismaPlugin from './plugins/prisma';
+import { env } from './config/env';
+import { createOriginValidator, parseAllowedOrigins } from './config/cors';
 import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
@@ -26,8 +29,40 @@ export const buildApp = async () => {
     pluginTimeout: 30000,
   });
 
+  const allowedOrigins = parseAllowedOrigins(env.APP_URL);
+  app.log.info(`🔒 CORS whitelist: ${allowedOrigins.join(', ') || '(none)'}`);
+
   await app.register(cors, {
-    origin: true // Allow all origins for dev, or specify 'http://localhost:3000'
+    origin: createOriginValidator(allowedOrigins),
+    credentials: true,
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Cache the preflight result for a day so browsers stop re-asking
+    maxAge: 86400,
+  });
+
+  await app.register(helmet, {
+    // The API answers with JSON everywhere except the Swagger UI, which ships
+    // its own CSP via staticCSP below.
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'none'"],
+        baseUri: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'no-referrer' },
+    hsts: {
+      maxAge: 15552000,
+      includeSubDomains: true,
+    },
   });
 
   await app.register(rateLimit, {
@@ -58,6 +93,9 @@ export const buildApp = async () => {
 
   await app.register(swaggerUi, {
     routePrefix: '/docs',
+    // Emits a CSP covering Swagger UI's own inline assets, replacing the strict
+    // API policy on the documentation routes only.
+    staticCSP: true,
   });
 
   await app.register(prismaPlugin);
