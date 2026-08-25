@@ -1,6 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
 import { prisma } from '../lib/prisma';
-import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
+import { stellar, decodeHorizonAsset, parseSacTransferEvent, openPaymentStream } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { getSorobanLatestLedger } from '../lib/soroban';
 
@@ -78,7 +78,7 @@ export async function processPaymentRecord(
 const CURSOR_PAGE_SIZE = 50;
 
 // Upper bound on pages walked in a single catch-up pass, so a long outage
-// cannot stall the poll loop indefinitely
+// cannot stall the catch-up run indefinitely
 const MAX_CATCHUP_PAGES = 20;
 
 export async function saveCursor(walletId: string, pagingToken: string) {
@@ -136,65 +136,246 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
   }
 
   console.warn(
-    `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`
+    `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next pass from ${cursor}`
   );
 }
 
-export async function startHorizonSSEStream(wallet: { id: string; publicKey: string }) {
-  console.log(`[WatcherWorker] 📡 Opening Horizon SSE payment stream for wallet ${wallet.publicKey.substring(0, 8)}...`);
-
-  try {
-    const cursor = await ensureCursor(wallet);
-
-    const closeStream = stellar.server
-      .payments()
-      .forAccount(wallet.publicKey)
-      .cursor(cursor)
-      .stream({
-        onmessage: async (record: any) => {
-          console.log(`[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`);
-          await processPaymentRecord(wallet, record);
-          if (record.paging_token) {
-            await saveCursor(wallet.id, record.paging_token);
-          }
-        },
-        onerror: (error: any) => {
-          console.error(`[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`, error);
-        },
-      });
-
-    return closeStream;
-  } catch (err: any) {
-    console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
-    return null;
+/**
+ * Handles a single record delivered by the live Horizon SSE stream: persists
+ * the payment and advances the durable ingestion cursor. Extracted so the
+ * stream message path can be unit tested in isolation.
+ */
+export async function handleStreamRecord(
+  wallet: { id: string; publicKey: string },
+  record: any
+): Promise<void> {
+  await processPaymentRecord(wallet, record);
+  if (record.paging_token) {
+    await saveCursor(wallet.id, record.paging_token);
   }
 }
 
-export async function runWatcher() {
-  console.log('[WatcherWorker] 🚀 Starting Stellar Testnet Watcher Worker...');
+/**
+ * Signature of the function that materialises a live SSE connection. It is
+ * given the cursor to resume from plus the message/error handlers, and returns
+ * a closable handle. Injectable for tests and reused for reconnection.
+ */
+export type StreamHandlers = {
+  onmessage: (record: any) => void | Promise<void>;
+  onerror: (error: any) => void;
+};
 
-  const poll = async () => {
-    try {
-      const wallets = await prisma.wallet.findMany();
-      if (wallets.length === 0) {
-        console.log('[WatcherWorker] No wallets registered in DB to watch. Waiting for next poll...');
-        return;
-      }
+export type StreamConnector = (cursor: string, handlers: StreamHandlers) => () => void;
 
-      console.log(`[WatcherWorker] Checking ${wallets.length} registered wallet(s)...`);
-      for (const wallet of wallets) {
-        await processWalletPayments(wallet);
-      }
-    } catch (error) {
-      console.error('[WatcherWorker] Polling error:', error);
+export interface StartStreamOptions {
+  /** Override how the SSE connection is opened (used by tests). */
+  connector?: StreamConnector;
+  /** Base delay (ms) between reconnect attempts, before exponential backoff. */
+  reconnectDelayMs?: number;
+  /** Maximum number of reconnect attempts before giving up (default: Infinity). */
+  maxReconnectAttempts?: number;
+  /** When true, a network drop will not auto-reconnect (handy for tests). */
+  autoReconnect?: boolean;
+}
+
+const DEFAULT_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_BACKOFF_MS = 30_000;
+
+/**
+ * Opens a Horizon Server-Sent Events payment stream for a wallet and keeps it
+ * alive across network drops.
+ *
+ * On every message the payment is persisted and the durable cursor is advanced,
+ * so a reconnect resumes exactly where the stream left off (no missed or
+ * duplicated payments). On a stream error the current connection is torn down
+ * and a fresh stream is opened from the last cursor using an exponential
+ * backoff, satisfying the "auto-reconnect after disconnect" requirement.
+ *
+ * Returns a `close` function that permanently stops the stream (and any pending
+ * reconnect timer).
+ */
+export async function startHorizonSSEStream(
+  wallet: { id: string; publicKey: string },
+  options: StartStreamOptions = {}
+): Promise<() => void> {
+  if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
+    console.warn(
+      `[WatcherStream] Not starting SSE stream for invalid public key: "${wallet.publicKey}"`
+    );
+    return () => {};
+  }
+
+  const connector: StreamConnector =
+    options.connector ??
+    ((cursor, handlers) => openPaymentStream(wallet.publicKey, cursor, handlers));
+
+  const reconnectDelayMs = options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS;
+  const maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
+  const autoReconnect = options.autoReconnect ?? true;
+
+  let lastCursor = await ensureCursor(wallet);
+  let closedByCaller = false;
+  let closeCurrent: (() => void) | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let attempts = 0;
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
   };
 
-  // Initial payment catchup run
-  await poll();
+  const scheduleReconnect = () => {
+    if (closedByCaller || !autoReconnect) return;
+    if (attempts >= maxReconnectAttempts) {
+      console.error(
+        `[WatcherStream] ⛔ Max SSE reconnect attempts (${maxReconnectAttempts}) reached for wallet ${wallet.publicKey.substring(0, 8)}...`
+      );
+      return;
+    }
+    const backoff = Math.min(reconnectDelayMs * 2 ** (attempts - 1), MAX_RECONNECT_BACKOFF_MS);
+    console.warn(
+      `[WatcherStream] 🔌 Reconnecting SSE stream for ${wallet.publicKey.substring(0, 8)}... in ${backoff}ms (attempt ${attempts + 1})`
+    );
+    clearReconnectTimer();
+    reconnectTimer = setTimeout(open, backoff);
+  };
 
-  // Schedule periodic catchup poll every 30 seconds
-  setInterval(poll, 30000);
+  const open = () => {
+    if (closedByCaller) return;
+    attempts += 1;
+
+    closeCurrent = connector(lastCursor, {
+      onmessage: async (record: any) => {
+        await handleStreamRecord(wallet, record);
+        if (record.paging_token) {
+          lastCursor = record.paging_token;
+        }
+      },
+      onerror: (error: any) => {
+        console.error(
+          `[WatcherStream] ⚠️ SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`,
+          error?.message ?? error
+        );
+        // Tear down the (possibly half-open) connection before reconnecting so
+        // we never end up with two overlapping streams.
+        if (closeCurrent) {
+          try {
+            closeCurrent();
+          } catch {
+            /* ignore */
+          }
+          closeCurrent = null;
+        }
+        scheduleReconnect();
+      },
+    });
+  };
+
+  const close = () => {
+    closedByCaller = true;
+    clearReconnectTimer();
+    if (closeCurrent) {
+      try {
+        closeCurrent();
+      } catch {
+        /* ignore */
+      }
+      closeCurrent = null;
+    }
+  };
+
+  console.log(
+    `[WatcherWorker] 📡 Opening Horizon SSE payment stream for wallet ${wallet.publicKey.substring(0, 8)}... (cursor ${lastCursor})`
+  );
+  open();
+
+  return close;
+}
+
+// Interval at which the worker rediscovers wallets added at runtime and revives
+// any stream that died unexpectedly. This is a wallet-discovery / liveness loop
+// ONLY — payments themselves are delivered in real time via the SSE streams
+// above and are never polled from Horizon.
+const STREAM_LIVENESS_CHECK_MS = 60_000;
+
+export async function runWatcher() {
+  console.log('[WatcherWorker] 🚀 Starting Stellar Watcher Worker (Horizon SSE)...');
+
+  const streams = new Map<string, () => void>();
+  let stopped = false;
+
+  const openStreamFor = async (wallet: { id: string; publicKey: string }) => {
+    if (streams.has(wallet.id)) return;
+    try {
+      const close = await startHorizonSSEStream(wallet);
+      streams.set(wallet.id, close);
+    } catch (err: any) {
+      console.error(
+        `[WatcherWorker] Failed to open SSE stream for ${wallet.publicKey.substring(0, 8)}...:`,
+        err?.message ?? err
+      );
+    }
+  };
+
+  // One-time catch-up of payments missed while the worker was offline. The
+  // durable cursor guarantees the live SSE stream (opened next) starts exactly
+  // where this leaves off, and the per-payment dedupe prevents double alerts.
+  try {
+    const wallets = await prisma.wallet.findMany();
+    if (wallets.length === 0) {
+      console.log('[WatcherWorker] No wallets registered yet — SSE streams will attach as wallets are added.');
+    }
+    for (const wallet of wallets) {
+      await processWalletPayments(wallet);
+    }
+  } catch (err) {
+    console.error('[WatcherWorker] Initial catch-up error:', err);
+  }
+
+  // Primary ingestion: one live Horizon SSE stream per wallet.
+  try {
+    const wallets = await prisma.wallet.findMany();
+    for (const wallet of wallets) {
+      await openStreamFor(wallet);
+    }
+  } catch (err) {
+    console.error('[WatcherWorker] Failed to open initial SSE streams:', err);
+  }
+
+  // Liveness / discovery loop (NOT payment polling — see constant above).
+  const livenessTimer = setInterval(async () => {
+    if (stopped) return;
+    try {
+      const wallets = await prisma.wallet.findMany();
+      for (const wallet of wallets) {
+        if (!streams.has(wallet.id)) {
+          await openStreamFor(wallet);
+        }
+      }
+    } catch (err) {
+      console.error('[WatcherWorker] Stream liveness check error:', err);
+    }
+  }, STREAM_LIVENESS_CHECK_MS);
+
+  const shutdown = () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(livenessTimer);
+    streams.forEach((close) => {
+      try {
+        close();
+      } catch {
+        /* ignore */
+      }
+    });
+    streams.clear();
+    console.log('[WatcherWorker] 🛑 Shut down all Horizon SSE streams.');
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 if (require.main === module) {

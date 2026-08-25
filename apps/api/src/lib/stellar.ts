@@ -4,6 +4,13 @@ const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.or
 
 export const STROOPS_PER_UNIT = 10_000_000;
 
+function logPaymentsError(publicKey: string, error: any) {
+  console.error(
+    `[Stellar] Error fetching payments for ${publicKey.substring(0, 8)}...:`,
+    error?.message ?? error
+  );
+}
+
 export interface DecodedStellarAsset {
   assetCode: string;
   assetIssuer: string | null;
@@ -173,8 +180,35 @@ export function parseSacTransferEvent(event: any, decimals: number = 7): SacTran
   };
 }
 
+/**
+ * Opens a live Horizon Server-Sent Events payment stream for `publicKey`,
+ * resuming from `cursor` (a Horizon paging token). `onmessage` fires for every
+ * new payment as soon as the ledger closes; `onerror` fires on connection
+ * errors. Returns a closable handle that tears down the underlying EventSource.
+ */
+export function openPaymentStream(
+  publicKey: string,
+  cursor: string,
+  handlers: { onmessage: (record: any) => void; onerror: (error: any) => void }
+): () => void {
+  if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    console.warn(`[Stellar] Not opening SSE stream for invalid public key: "${publicKey}"`);
+    return () => {};
+  }
+
+  return server
+    .payments()
+    .forAccount(publicKey)
+    .cursor(cursor)
+    .stream({
+      onmessage: handlers.onmessage,
+      onerror: handlers.onerror,
+    });
+}
+
 export const stellar = {
   server,
+  openPaymentStream,
   // Helper to fetch recent payments for a given account
   async getRecentPayments(publicKey: string, limit: number = 10) {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
