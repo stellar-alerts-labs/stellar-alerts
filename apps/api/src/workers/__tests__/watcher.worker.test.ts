@@ -22,11 +22,10 @@ vi.mock('../../lib/stellar', () => ({
     getLatestPagingToken: vi.fn(),
     openPaymentStream: vi.fn(),
   },
-  decodeHorizonAsset: (record: any) =>
-    record?.asset_type === 'native' || !record?.asset_type
-      ? { assetCode: 'XLM', assetIssuer: null }
-      : { assetCode: record.asset_code || 'Unknown', assetIssuer: record.asset_issuer || null },
-  parseSacTransferEvent: vi.fn(() => null),
+  decodeHorizonAsset: vi.fn().mockImplementation((record: any) => ({
+    assetCode: record?.asset_type === 'native' ? 'XLM' : record?.asset_code || 'XLM',
+    assetIssuer: record?.asset_issuer || null,
+  })),
 }));
 
 vi.mock('../../lib/queue', () => ({

@@ -38,16 +38,16 @@ vi.mock('resend', () => {
 
 import { alertQueue, dlqQueue, alertQueueEvents } from './queue';
 
+const failedCall = (alertQueueEvents as any)?.on?.mock?.calls?.find((call: any[]) => call[0] === 'failed');
+const failedHandler = failedCall ? failedCall[1] : null;
+
 describe('Queue DLQ routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('routes to DLQ when job fails after max attempts', async () => {
-    const onCall = (alertQueueEvents as any).on.mock.calls.find((call: any[]) => call[0] === 'failed');
-    expect(onCall).toBeDefined();
-
-    const failedHandler = onCall[1];
+    expect(failedHandler).toBeDefined();
 
     (Job.fromId as any).mockResolvedValue({
       attemptsMade: 5,
@@ -65,8 +65,7 @@ describe('Queue DLQ routing', () => {
   });
   
   it('does not route to DLQ if attempts < max attempts', async () => {
-    const onCall = (alertQueueEvents as any).on.mock.calls.find((call: any[]) => call[0] === 'failed');
-    const failedHandler = onCall[1];
+    expect(failedHandler).toBeDefined();
 
     (Job.fromId as any).mockResolvedValue({
       attemptsMade: 3,
@@ -79,3 +78,4 @@ describe('Queue DLQ routing', () => {
     expect(dlqQueue?.add).not.toHaveBeenCalled();
   });
 });
+

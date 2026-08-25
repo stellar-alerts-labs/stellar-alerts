@@ -51,7 +51,7 @@ export const buildApp = async () => {
         { name: 'webhooks', description: 'Custom webhook alert endpoint management' },
       ],
       components: {
-        schemas: openApiComponentSchemas,
+        schemas: openApiComponentSchemas as Record<string, any>,
       },
     },
   });
