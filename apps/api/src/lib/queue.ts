@@ -1,5 +1,8 @@
 import { Queue, QueueEvents, Job, Worker } from 'bullmq';
 import { Resend } from 'resend';
+import { createLogger } from './logger';
+
+const queueLog = createLogger({ module: 'Queue' });
 
 export interface AlertJobData {
   paymentId: string;
@@ -10,6 +13,8 @@ export interface AlertJobData {
   assetIssuer?: string | null;
   fromAddress: string;
   receivedAt: string;
+  /** Correlation ID propagated from the originating HTTP request, if any. */
+  requestId?: string;
 }
 
 const redisHost = process.env.REDIS_HOST || 'localhost';
@@ -48,7 +53,10 @@ try {
 
   alertWorker = new Worker<AlertJobData>('payment-alerts', async (job) => {
     const data = job.data;
-    
+    // Bind the correlation ID from the enqueuing request so every log line
+    // produced during job processing shares the same requestId.
+    const jobLog = createLogger({ module: 'AlertWorker', requestId: data.requestId });
+
     const { data: resendData, error } = await resend.emails.send({
       from: 'Stellar Alerts <alerts@resend.dev>',
       to: [data.fromAddress],
@@ -66,8 +74,8 @@ try {
     if (error) {
       throw new Error(`Resend Error: ${error.message}`);
     }
-    
-    console.log(`[Worker] Sent email receipt for ${data.paymentId}`);
+
+    jobLog.info({ paymentId: data.paymentId }, 'Sent email receipt');
     return resendData;
   }, { connection });
 
@@ -79,21 +87,21 @@ try {
         await dlqQueue.add('dispatch-alert-failed', job.data, {
           jobId: `dlq-${jobId}`,
         });
-        console.log(`[Queue] 📨 Moved failed job ${jobId} to DLQ. Reason: ${failedReason}`);
+        queueLog.warn({ jobId, failedReason }, 'Moved failed job to DLQ');
       }
     } catch (e: any) {
-      console.warn(`[Queue] Could not route job ${jobId} to DLQ: ${e.message}`);
+      queueLog.warn({ jobId, err: e.message }, 'Could not route job to DLQ');
     }
   });
 
-  console.log(`[Queue] 📡 BullMQ payment-alerts queue initialized (${redisHost}:${redisPort})`);
+  queueLog.info({ host: redisHost, port: redisPort }, '📡 BullMQ payment-alerts queue initialized');
 } catch (err: any) {
-  console.warn(`[Queue] Could not initialize BullMQ queue: ${err.message}`);
+  queueLog.warn({ err: err.message }, 'Could not initialize BullMQ queue');
 }
 
 export async function enqueuePaymentAlert(data: AlertJobData) {
   if (!alertQueue) {
-    console.log(`[Queue] Skipping queue enqueue for payment ${data.txHash} (Queue not connected)`);
+    queueLog.info({ txHash: data.txHash }, 'Skipping queue enqueue (Queue not connected)');
     return null;
   }
 
@@ -101,10 +109,10 @@ export async function enqueuePaymentAlert(data: AlertJobData) {
     const job = await alertQueue.add('dispatch-alert', data, {
       jobId: `payment-${data.txHash}`,
     });
-    console.log(`[Queue] 📨 Enqueued payment alert job: ${job.id}`);
+    queueLog.info({ jobId: job.id, txHash: data.txHash, requestId: data.requestId }, '📨 Enqueued payment alert job');
     return job;
   } catch (err: any) {
-    console.warn(`[Queue] Failed to enqueue alert for payment ${data.txHash}: ${err.message}`);
+    queueLog.warn({ txHash: data.txHash, err: err.message }, 'Failed to enqueue alert');
     return null;
   }
 }
