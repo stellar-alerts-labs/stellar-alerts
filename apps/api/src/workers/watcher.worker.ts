@@ -1,6 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
-import { prisma, connectWithRetry } from '../lib/prisma';
-import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
+import { prisma } from '../lib/prisma';
+import { stellar, decodeHorizonAsset, parseSacTransferEvent, formatTokenAmount } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { getSorobanLatestLedger } from '../lib/soroban';
 import { withWalletLock } from '../lib/lock';
@@ -31,8 +31,23 @@ export async function processPaymentRecord(
     const sacTransfer = parseSacTransferEvent(record);
     if (!sacTransfer) return;
 
-    amount = sacTransfer.amount;
-    asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? 'Unknown';
+    let decimals = 7;
+    let symbol = sacTransfer.assetCode ?? sacTransfer.contractId ?? 'Unknown';
+
+    if (sacTransfer.contractId) {
+      try {
+        const meta = await getSacMetadata(sacTransfer.contractId);
+        if (meta) {
+          decimals = meta.decimals;
+          symbol = meta.symbol || symbol;
+        }
+      } catch (err: any) {
+        console.warn(`[WatcherWorker] Error resolving SAC metadata for ${sacTransfer.contractId}:`, err?.message);
+      }
+    }
+
+    amount = formatTokenAmount(sacTransfer.rawAmount, decimals);
+    asset = symbol;
     assetIssuer = sacTransfer.assetIssuer;
     fromAddress = sacTransfer.from;
   }
