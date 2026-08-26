@@ -1,9 +1,9 @@
-import { prisma } from '../../lib/prisma';
+import { prismaRead } from '../../lib/prisma';
 
 export class PaymentsService {
   async getPayments(walletId: string, limit: number = 20) {
     console.log(`[PaymentsService] Fetching up to ${limit} payments for wallet ${walletId}`);
-    return prisma.payment.findMany({
+    return prismaRead.payment.findMany({
       where: { walletId },
       orderBy: { receivedAt: 'desc' },
       take: limit,
@@ -12,7 +12,7 @@ export class PaymentsService {
 
   async getPaymentsSummary(walletId: string) {
     console.log(`[PaymentsService] Fetching summary for wallet ${walletId}`);
-    const result = await prisma.payment.aggregate({
+    const result = await prismaRead.payment.aggregate({
       where: { walletId },
       _sum: { amount: true },
       _count: { id: true },
