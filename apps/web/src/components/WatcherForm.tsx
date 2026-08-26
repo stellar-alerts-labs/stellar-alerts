@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 
-export function WatcherForm() {
+export function WatcherForm({ onWalletAdded }: { onWalletAdded?: () => void }) {
   const [address, setAddress] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const { data: session } = useSession();
@@ -31,6 +31,7 @@ export function WatcherForm() {
       if (res.ok && data.success) {
         setStatus('Successfully submitted!');
         setAddress('');
+        if (onWalletAdded) onWalletAdded();
       } else {
         setStatus(`Error: ${data.error || 'Failed to submit'}`);
       }

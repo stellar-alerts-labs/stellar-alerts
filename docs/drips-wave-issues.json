@@ -1079,5 +1079,935 @@
     "testingRequirements": [
       "Verify markdown rendering and links"
     ]
+  },
+  {
+    "id": 43,
+    "title": "[SOROBAN]: Build Soroban Contract State Snapshot & Historical Event Backfill Engine",
+    "category": "Soroban",
+    "milestone": "Milestone 6 – Advanced Soroban",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "backend",
+      "blockchain",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Engine to query past Soroban contract events via RPC and backfill missing state snapshots.",
+    "background": "Soroban contract events are only held in RPC ledger retention windows.",
+    "problemStatement": "New wallets registered after contract deployment miss historical transaction records.",
+    "proposedSolution": "Build a background backfill worker using Soroban RPC getEvents with ledger sequence pagination.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/soroban.ts",
+      "apps/api/src/workers/soroban-backfill.worker.ts"
+    ],
+    "acceptanceCriteria": [
+      "Worker fetches historical events from target ledger range",
+      "Deduplicates and stores historical contract transfers into PostgreSQL"
+    ],
+    "testingRequirements": [
+      "Unit test ledger pagination logic",
+      "Mock RPC getEvents backfill"
+    ]
+  },
+  {
+    "id": 44,
+    "title": "[SOROBAN]: Implement Multi-Contract Subscription Router for Soroban WASM Events",
+    "category": "Soroban",
+    "milestone": "Milestone 6 – Advanced Soroban",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "backend",
+      "architecture",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Build dynamic topic router subscribing to multiple Soroban WASM contract IDs simultaneously.",
+    "background": "Users need to track multiple custom Soroban dApp contracts concurrently.",
+    "problemStatement": "Current architecture only queries single contract addresses per worker iteration.",
+    "proposedSolution": "Implement dynamic event topic router mapping contract addresses to event handlers.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/soroban.ts",
+      "apps/api/src/workers/watcher.worker.ts"
+    ],
+    "acceptanceCriteria": [
+      "Router dynamically registers up to 100 active Soroban contract IDs",
+      "Dispatches matching event topics to corresponding alert channels"
+    ],
+    "testingRequirements": [
+      "Unit test topic routing performance",
+      "Integration test multi-contract subscriptions"
+    ]
+  },
+  {
+    "id": 45,
+    "title": "[SOROBAN]: Soroban Asset Contract (SAC) Decimals & Metadata Auto-Discovery Cache",
+    "category": "Soroban",
+    "milestone": "Milestone 6 – Advanced Soroban",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "caching",
+      "redis",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Auto-query and cache SAC token symbol, name, and decimal precision from Soroban RPC.",
+    "background": "Custom SAC tokens have varying decimal places and symbol strings.",
+    "problemStatement": "Hardcoded asset decimals cause incorrect amount displays in alerts.",
+    "proposedSolution": "Query SAC contract ledger entries for decimals() and symbol() with Redis caching.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/soroban.ts",
+      "apps/api/src/lib/cache.ts"
+    ],
+    "acceptanceCriteria": [
+      "SAC token metadata fetched on first discovery and cached in Redis for 24h",
+      "Amounts formatted using exact token decimals"
+    ],
+    "testingRequirements": [
+      "Unit test SAC metadata RPC fetcher",
+      "Verify Redis cache hit/miss behavior"
+    ]
+  },
+  {
+    "id": 46,
+    "title": "[SOROBAN]: On-Chain Alert Registry Rust Contract Access Control & Admin Governance",
+    "category": "Soroban",
+    "milestone": "Milestone 6 – Advanced Soroban",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "rust",
+      "security",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Add admin multisig governance and access control to Rust WASM Alert Registry contract.",
+    "background": "Soroban smart contract needs admin key management for parameter updates.",
+    "problemStatement": "Current alert registry contract lacks role-based access control.",
+    "proposedSolution": "Refactor Rust contract (lib.rs) using soroban_sdk::auth and admin address storage.",
+    "filesLikelyAffected": [
+      "contracts/alert_registry/src/lib.rs",
+      "contracts/alert_registry/Cargo.toml"
+    ],
+    "acceptanceCriteria": [
+      "Only authorized admin address can update contract config",
+      "Unauthorized invocation calls panic with Error::Unauthorized"
+    ],
+    "testingRequirements": [
+      "Write Rust unit tests using soroban-sdk test environment"
+    ]
+  },
+  {
+    "id": 47,
+    "title": "[SOROBAN]: Soroban Transaction Footprint & Storage Fee Estimation Calculator Service",
+    "category": "Soroban",
+    "milestone": "Milestone 6 – Advanced Soroban",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "backend",
+      "analytics",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Calculate estimated ledger read/write footprints and rent fees for Soroban transactions.",
+    "background": "Soroban state storage requires ledger rent fee management.",
+    "problemStatement": "Users cannot estimate transaction gas and storage rent costs prior to execution.",
+    "proposedSolution": "Build RPC simulateTransaction wrapper computing read/write entry footprints and fee estimates.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/soroban.ts",
+      "apps/api/src/modules/payments/payments.service.ts"
+    ],
+    "acceptanceCriteria": [
+      "API endpoint returns simulated storage rent and resource fees in XLM",
+      "Accurately handles persistent vs temporary storage footprints"
+    ],
+    "testingRequirements": [
+      "Unit test RPC simulation parser",
+      "Integration test fee calculation"
+    ]
+  },
+  {
+    "id": 48,
+    "title": "[SECURITY]: Mutex-Based Multi-Thread Lock Guard for Wallet Transaction Processing",
+    "category": "Security",
+    "milestone": "Milestone 7 – Security & Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "concurrency",
+      "redis",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Implement Redlock distributed mutex locks on processing wallets to prevent race conditions.",
+    "background": "Multiple ingestion worker instances running concurrently can process duplicate stream events.",
+    "problemStatement": "Concurrent ingestion workers can cause race condition database deadlocks.",
+    "proposedSolution": "Use Redlock (ioredis-lock) to acquire distributed lock per wallet address during processing.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/watcher.worker.ts",
+      "apps/api/src/lib/lock.ts"
+    ],
+    "acceptanceCriteria": [
+      "Distributed lock acquired per wallet before payment processing",
+      "Worker releases lock after transaction commit or timeout"
+    ],
+    "testingRequirements": [
+      "Simulate multi-worker concurrency with lock contention"
+    ]
+  },
+  {
+    "id": 49,
+    "title": "[SECURITY]: Zero-Knowledge Proof (ZKP) Proof Verifier for Private Alert Subscriptions",
+    "category": "Security",
+    "milestone": "Milestone 7 – Security & Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "cryptography",
+      "privacy",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Verify ZK-snark proofs for anonymous wallet alert registration.",
+    "background": "Users want privacy-preserving alerts without linking email to public Stellar key.",
+    "problemStatement": "Public wallet registration reveals ownership identity.",
+    "proposedSolution": "Implement Groth16 ZK proof verification library checking proof validity before subscription.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/zkp-verifier.ts",
+      "apps/api/src/modules/wallets/wallets.service.ts"
+    ],
+    "acceptanceCriteria": [
+      "Valid ZK proof allows alert subscription without storing plaintext user email linkage",
+      "Invalid ZK proof rejected with HTTP 400"
+    ],
+    "testingRequirements": [
+      "Unit test Groth16 proof verifier",
+      "Verify secret hash validation"
+    ]
+  },
+  {
+    "id": 50,
+    "title": "[SECURITY]: Webhook Replay Attack Prevention via Timestamped HMAC Nonces",
+    "category": "Security",
+    "milestone": "Milestone 7 – Security & Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "webhooks",
+      "redis",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Add timestamped nonce headers (X-Stellar-Alerts-Nonce) and 5-min drift verification.",
+    "background": "Attackers can intercept and replay valid webhook payloads to consumer servers.",
+    "problemStatement": "Replayed webhook payloads trigger duplicate user side-effects.",
+    "proposedSolution": "Generate UUIDv4 nonce and Unix timestamp in signature header, checking Redis cache for replay.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/webhook-signer.ts",
+      "apps/api/src/lib/queue.ts"
+    ],
+    "acceptanceCriteria": [
+      "Replayed webhook request with existing nonce rejected by signature validator",
+      "Requests older than 5 minutes fail timestamp validation"
+    ],
+    "testingRequirements": [
+      "Unit test nonce generator and replay detection cache"
+    ]
+  },
+  {
+    "id": 51,
+    "title": "[SECURITY]: Encrypted Secret Vault Middleware for Storing Webhook Keys (AES-256-GCM)",
+    "category": "Security",
+    "milestone": "Milestone 7 – Security & Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "crypto",
+      "database",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Encrypt stored user webhook secret keys at rest using AES-256-GCM with master key rotation.",
+    "background": "Webhook signing secrets stored in plaintext database columns create credential leak risks.",
+    "problemStatement": "Database breaches expose user secret signing keys.",
+    "proposedSolution": "Build vault service encrypting/decrypting webhook secrets at application boundary.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/crypto-vault.ts",
+      "apps/api/prisma/schema.prisma"
+    ],
+    "acceptanceCriteria": [
+      "Webhook secrets stored encrypted in DB as ciphertext + iv + authTag",
+      "Master key rotation supported without data loss"
+    ],
+    "testingRequirements": [
+      "Unit test AES-256-GCM encryption/decryption cycle"
+    ]
+  },
+  {
+    "id": 52,
+    "title": "[SECURITY]: Multi-Factor Auth (MFA) TOTP Flow for Sensitive Notification Settings",
+    "category": "Security",
+    "milestone": "Milestone 7 – Security & Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "auth",
+      "mfa",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Add TOTP-based 2FA (Authenticator Apps) for modifying alert channels.",
+    "background": "Account compromises can redirect Telegram/Email alerts to malicious destinations.",
+    "problemStatement": "Sensitive preference changes require extra authentication challenge.",
+    "proposedSolution": "Integrate otplib to generate TOTP secret, QR code, and verify 6-digit tokens.",
+    "filesLikelyAffected": [
+      "apps/api/src/modules/auth/auth.service.ts",
+      "apps/web/src/components/MfaModal.tsx"
+    ],
+    "acceptanceCriteria": [
+      "User can scan QR code in Authenticator App and verify TOTP token",
+      "Updating Telegram Chat ID requires valid 6-digit TOTP code"
+    ],
+    "testingRequirements": [
+      "Unit test TOTP token generation and verification"
+    ]
+  },
+  {
+    "id": 53,
+    "title": "[RELIABILITY]: Horizon SSE Multi-Node Failover Cluster Watcher Engine",
+    "category": "Reliability",
+    "milestone": "Milestone 8 – Enterprise Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "stellar",
+      "devops",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Maintain concurrent connections to multiple Horizon nodes (SDF, PublicNode, Lobstr) with quorum voting.",
+    "background": "Single Horizon server downtime halts payment stream ingestion.",
+    "problemStatement": "Primary Horizon node outages cause notification blackouts.",
+    "proposedSolution": "Connect to 3 distinct Horizon endpoints simultaneously, deduplicating incoming events via quorum.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/watcher.worker.ts",
+      "apps/api/src/lib/stellar.ts"
+    ],
+    "acceptanceCriteria": [
+      "Ingestion worker continues operating smoothly if 1 or 2 Horizon nodes fail",
+      "Transactions deduplicated across multi-node streams"
+    ],
+    "testingRequirements": [
+      "Simulate primary node network failure during active stream"
+    ]
+  },
+  {
+    "id": 54,
+    "title": "[RELIABILITY]: Redis Sentinel Automatic Master Failover & Queue Resiliency Handler",
+    "category": "Reliability",
+    "milestone": "Milestone 8 – Enterprise Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "redis",
+      "queue",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Configure ioredis and BullMQ with Redis Sentinel cluster failover support.",
+    "background": "Single Redis master node failure stops alert queue processing.",
+    "problemStatement": "Redis master outages crash BullMQ background workers.",
+    "proposedSolution": "Update queue.ts to connect via Redis Sentinel sentinelAddresses with master name resolution.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/config/env.ts"
+    ],
+    "acceptanceCriteria": [
+      "BullMQ worker reconnects automatically when Sentinel promotes new master",
+      "No alert jobs lost during Redis master failover"
+    ],
+    "testingRequirements": [
+      "Simulate Redis master failure in local docker stack"
+    ]
+  },
+  {
+    "id": 55,
+    "title": "[RELIABILITY]: Adaptive Backoff Rate Limiter for Downstream Notification Webhooks",
+    "category": "Reliability",
+    "milestone": "Milestone 8 – Enterprise Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "webhooks",
+      "queue",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Dynamically throttle outgoing webhooks based on target server HTTP 429 response headers.",
+    "background": "Target servers may rate limit incoming webhook calls during high payment bursts.",
+    "problemStatement": "Burst notifications trigger HTTP 429 rate limit blocks on recipient servers.",
+    "proposedSolution": "Parse Retry-After and X-RateLimit headers, pausing queue worker per domain dynamically.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/utils/rate-limiter.ts"
+    ],
+    "acceptanceCriteria": [
+      "Queue worker respects target server Retry-After delay header before retrying",
+      "Prevents cascading 429 failure loops"
+    ],
+    "testingRequirements": [
+      "Unit test adaptive rate limit delay parsing"
+    ]
+  },
+  {
+    "id": 56,
+    "title": "[RELIABILITY]: Automated Database Read-Replica Load Balancer & Failover Router",
+    "category": "Reliability",
+    "milestone": "Milestone 8 – Enterprise Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "database",
+      "prisma",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Route read-only queries (GET /payments, GET /wallets) to Postgres read replicas.",
+    "background": "Heavy dashboard read traffic impacts write performance of payment ingestion worker.",
+    "problemStatement": "Primary DB CPU spikes during peak dashboard usage.",
+    "proposedSolution": "Use Prisma Client Extension ($extends) routing read operations to replica connection string pool.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/prisma.ts"
+    ],
+    "acceptanceCriteria": [
+      "Read queries execute against READ_REPLICA_URL pool",
+      "Write queries execute against primary DATABASE_URL"
+    ],
+    "testingRequirements": [
+      "Verify query routing in unit tests"
+    ]
+  },
+  {
+    "id": 57,
+    "title": "[RELIABILITY]: Self-Healing Worker Supervisor with Health Monitoring & Auto-Restart",
+    "category": "Reliability",
+    "milestone": "Milestone 8 – Enterprise Resiliency",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "worker",
+      "monitoring",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Build child-process supervisor monitoring watcher thread health and auto-restarting stalled workers.",
+    "background": "Unhandled Node process crashes or unhandled rejections leave background workers dead.",
+    "problemStatement": "Worker thread memory leaks or crashes halt transaction ingestion.",
+    "proposedSolution": "Implement supervisor process checking IPC pings every 10s and restarting dead child workers.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/supervisor.ts",
+      "apps/api/src/workers/watcher.worker.ts"
+    ],
+    "acceptanceCriteria": [
+      "Supervisor automatically spawns new worker process if child exits or freezes",
+      "Logs exit status code and restart counter"
+    ],
+    "testingRequirements": [
+      "Simulate uncaught exception in worker child process"
+    ]
+  },
+  {
+    "id": 58,
+    "title": "[FEATURE]: Build Multi-Recipient Discord Webhook Alert Dispatcher with Embed Cards",
+    "category": "Features",
+    "milestone": "Milestone 9 – Multi-Channel Ecosystem",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "notifications",
+      "discord",
+      "backend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Format and send rich Discord Embed alert messages for payment events.",
+    "background": "DAOs and web3 teams use Discord channels for treasury tracking.",
+    "problemStatement": "Discord integration is missing.",
+    "proposedSolution": "Build Discord webhook worker dispatcher generating rich Embed cards with Stellar Expert links.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/utils/discord.ts"
+    ],
+    "acceptanceCriteria": [
+      "Formats payment amount, asset badge, and transaction hash in Discord Embed card",
+      "Dispatches payload to user-configured Discord Webhook URL"
+    ],
+    "testingRequirements": [
+      "Unit test Discord embed builder payload"
+    ]
+  },
+  {
+    "id": 59,
+    "title": "[FEATURE]: Build Slack Workspace Interactive Bot App for Real-Time Payment Ingestion",
+    "category": "Features",
+    "milestone": "Milestone 9 – Multi-Channel Ecosystem",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "notifications",
+      "slack",
+      "backend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Integrate Slack Block Kit bot app for corporate workspace payment notifications.",
+    "background": "Fintech businesses require payment alerts delivered to Slack channels.",
+    "problemStatement": "Slack Block Kit notification integration is missing.",
+    "proposedSolution": "Integrate @slack/web-api client sending formatted Block Kit messages to channel webhook.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/utils/slack.ts"
+    ],
+    "acceptanceCriteria": [
+      "Formats Block Kit cards with payment details and action buttons",
+      "Posts message to designated Slack channel"
+    ],
+    "testingRequirements": [
+      "Unit test Slack Block Kit formatting"
+    ]
+  },
+  {
+    "id": 60,
+    "title": "[FEATURE]: Build WhatsApp Business API Multi-Language Notification Worker",
+    "category": "Features",
+    "milestone": "Milestone 9 – Multi-Channel Ecosystem",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "notifications",
+      "whatsapp",
+      "backend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Send payment receipts via WhatsApp Business API templates in multiple languages.",
+    "background": "Merchants in emerging markets rely on WhatsApp for payment confirmations.",
+    "problemStatement": "WhatsApp notification integration missing.",
+    "proposedSolution": "Integrate Twilio / Meta WhatsApp Business Cloud API with localized message templates.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/utils/whatsapp.ts"
+    ],
+    "acceptanceCriteria": [
+      "Dispatches localized WhatsApp template message upon transaction receipt",
+      "Respects user preferred language setting (EN, ES, PT)"
+    ],
+    "testingRequirements": [
+      "Mock WhatsApp Cloud API response in unit tests"
+    ]
+  },
+  {
+    "id": 61,
+    "title": "[FEATURE]: Implement Dynamic Fee Threshold Alert Filter Rules Engine",
+    "category": "Features",
+    "milestone": "Milestone 10 – Analytics & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "backend",
+      "rules",
+      "feature",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Allow users to define filter rules (e.g. only alert if amount > 500 XLM or asset == USDC).",
+    "background": "High-volume wallets get spammed by micro-payments (dust transactions).",
+    "problemStatement": "Users cannot suppress low-value or unwanted asset alert spam.",
+    "proposedSolution": "Build rule evaluation engine comparing transaction metadata against user filter conditions.",
+    "filesLikelyAffected": [
+      "apps/api/src/modules/payments/payments.service.ts",
+      "apps/api/src/lib/rules-engine.ts"
+    ],
+    "acceptanceCriteria": [
+      "Alerts suppressed if payment amount is below user threshold",
+      "Multiple AND/OR filter criteria evaluated correctly"
+    ],
+    "testingRequirements": [
+      "Unit test rules engine evaluation logic"
+    ]
+  },
+  {
+    "id": 62,
+    "title": "[FEATURE]: Build Custom Condition Builder Engine for Complex Multi-Asset Ingestion Filters",
+    "category": "Features",
+    "milestone": "Milestone 10 – Analytics & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "backend",
+      "rules",
+      "soroban",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Support complex multi-condition JSON rule evaluation for Soroban contract events.",
+    "background": "Soroban contract events contain nested data topics requiring deep JSON filtering.",
+    "problemStatement": "Simple amount rules cannot parse complex contract event payloads.",
+    "proposedSolution": "Integrate jsonpath / json-rules-engine evaluating JSON AST condition trees.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/rules-engine.ts"
+    ],
+    "acceptanceCriteria": [
+      "Evaluates complex JSONPath expressions against Soroban event payload",
+      "Triggers alerts only when all AST conditions evaluate to true"
+    ],
+    "testingRequirements": [
+      "Unit test AST JSONPath rule evaluation"
+    ]
+  },
+  {
+    "id": 63,
+    "title": "[FEATURE]: Implement Scheduled Automated CSV/PDF Financial Ledger Report Generator & Email Sender",
+    "category": "Features",
+    "milestone": "Milestone 10 – Analytics & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "backend",
+      "reporting",
+      "cron",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Cron job generating weekly/monthly accounting PDF and CSV reports emailed to users.",
+    "background": "Business users need periodic financial statement reports for tax auditing.",
+    "problemStatement": "Manual export requires logging into dashboard every month.",
+    "proposedSolution": "Build node-cron worker compiling PDF (via pdfkit) and CSV statements, sending via Resend API.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/reporting.worker.ts",
+      "apps/api/src/utils/pdf-generator.ts"
+    ],
+    "acceptanceCriteria": [
+      "Cron job generates PDF ledger statement for active period",
+      "Attaches PDF & CSV to summary email sent to user"
+    ],
+    "testingRequirements": [
+      "Unit test PDF generator output stream"
+    ]
+  },
+  {
+    "id": 64,
+    "title": "[FEATURE]: Build Real-Time WebSockets Push Server for Dashboard Live Updates",
+    "category": "Features",
+    "milestone": "Milestone 10 – Analytics & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "websockets",
+      "fastify",
+      "frontend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "WebSocket server pushing real-time payment events directly to Next.js dashboard UI.",
+    "background": "Dashboard currently requires polling or page refresh to show new payments.",
+    "problemStatement": "UI lacks instant real-time transaction updates without polling.",
+    "proposedSolution": "Integrate @fastify/websocket and Socket.io server publishing Redis pub/sub events to connected clients.",
+    "filesLikelyAffected": [
+      "apps/api/src/plugins/websocket.ts",
+      "apps/web/src/lib/socket.ts"
+    ],
+    "acceptanceCriteria": [
+      "Dashboard updates live table immediately upon payment receipt via WebSocket connection",
+      "Automatic WebSocket reconnection on disconnect"
+    ],
+    "testingRequirements": [
+      "Unit test WebSocket client connection & payload broadcast"
+    ]
+  },
+  {
+    "id": 65,
+    "title": "[FRONTEND]: Build Interactive Soroban Smart Contract Event Explorer UI Component",
+    "category": "Frontend",
+    "milestone": "Milestone 11 – Advanced Dashboard UI",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "frontend",
+      "soroban",
+      "react",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Interactive React UI component for inspecting raw Soroban contract event topics & XDR decoding.",
+    "background": "Soroban developers need a visual inspector for contract event topic structures.",
+    "problemStatement": "Raw event topics are difficult to read without visual decoding tools.",
+    "proposedSolution": "Build SorobanEventInspector component rendering formatted JSON topic trees and XDR structures.",
+    "filesLikelyAffected": [
+      "apps/web/src/components/dashboard/SorobanEventInspector.tsx"
+    ],
+    "acceptanceCriteria": [
+      "Renders decoded XDR topics in syntax-highlighted JSON viewer",
+      "Allows filtering events by contract ID and topic symbol"
+    ],
+    "testingRequirements": [
+      "Component unit test with sample XDR event topic"
+    ]
+  },
+  {
+    "id": 66,
+    "title": "[FRONTEND]: Implement Visual Rule Builder Component for Custom Alert Triggers",
+    "category": "Frontend",
+    "milestone": "Milestone 11 – Advanced Dashboard UI",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "frontend",
+      "react",
+      "ui",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Visual drag-and-drop rule builder UI for configuring alert filter conditions.",
+    "background": "Writing raw JSON filter rules is difficult for non-technical users.",
+    "problemStatement": "Users need intuitive UI to construct multi-condition alert rules.",
+    "proposedSolution": "Build RuleBuilder component with condition dropdowns (Amount, Asset, Sender) and AND/OR logic.",
+    "filesLikelyAffected": [
+      "apps/web/src/components/dashboard/RuleBuilder.tsx"
+    ],
+    "acceptanceCriteria": [
+      "User can visually construct rules and export as JSON AST payload",
+      "Validates rule inputs before saving to database"
+    ],
+    "testingRequirements": [
+      "Component interactive test"
+    ]
+  },
+  {
+    "id": 67,
+    "title": "[FRONTEND]: Build Multi-Currency Conversion Engine (XLM to USD/EUR/BRL) with Historical Charts",
+    "category": "Frontend",
+    "milestone": "Milestone 11 – Advanced Dashboard UI",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "frontend",
+      "analytics",
+      "charts",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Fetch real-time fiat exchange rates (CoinGecko API) and render interactive chart.js volume graphs.",
+    "background": "Users want to view their payment volume in local fiat currencies (USD, EUR, BRL).",
+    "problemStatement": "Payment amounts displayed only in native XLM.",
+    "proposedSolution": "Integrate CoinGecko price API with client-side currency toggle and Chart.js historical volume graph.",
+    "filesLikelyAffected": [
+      "apps/web/src/components/dashboard/SummaryStats.tsx",
+      "apps/web/src/components/dashboard/VolumeChart.tsx"
+    ],
+    "acceptanceCriteria": [
+      "Toggling currency converts XLM amounts to selected fiat equivalent",
+      "Renders 30-day interactive volume graph"
+    ],
+    "testingRequirements": [
+      "Unit test fiat rate conversion calculation"
+    ]
+  },
+  {
+    "id": 68,
+    "title": "[FRONTEND]: Build Interactive Webhook Testing Sandbox with Live Response Inspector UI",
+    "category": "Frontend",
+    "milestone": "Milestone 11 – Advanced Dashboard UI",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "frontend",
+      "webhooks",
+      "react",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "In-dashboard webhook test utility triggering sample payloads and inspecting response status/headers.",
+    "background": "Developers need to test their webhook endpoint configuration directly in the dashboard.",
+    "problemStatement": "No sandbox tool to test webhook URL validity without sending real payments.",
+    "proposedSolution": "Build WebhookSandbox component dispatching test ping payload and displaying response status & body.",
+    "filesLikelyAffected": [
+      "apps/web/src/components/dashboard/WebhookSandbox.tsx"
+    ],
+    "acceptanceCriteria": [
+      "Displays HTTP status code, response time (ms), and payload body returned by endpoint",
+      "Renders signature verification code snippet in Node, Python, and Curl"
+    ],
+    "testingRequirements": [
+      "Component integration test with mock API"
+    ]
+  },
+  {
+    "id": 69,
+    "title": "[DEVX]: Build Full End-to-End Automated Integration Test Suite with Local Horizon & Soroban RPC Mock",
+    "category": "Testing",
+    "milestone": "Milestone 12 – Quality Assurance & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "testing",
+      "e2e",
+      "integration",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Build comprehensive Playwright & Supertest E2E integration test suite mocking Stellar network.",
+    "background": "Relying only on live Testnet causes test flakiness during network outages.",
+    "problemStatement": "No mock server for offline E2E integration testing.",
+    "proposedSolution": "Build MSW / msw-node mock server simulating Horizon SSE streams and Soroban RPC responses.",
+    "filesLikelyAffected": [
+      "apps/api/src/__tests__/e2e.test.ts",
+      "apps/api/src/mocks/horizon-mock.ts"
+    ],
+    "acceptanceCriteria": [
+      "E2E test suite executes offline in CI without external Stellar network dependency",
+      "Tests full flow: User Auth -> Wallet Reg -> Horizon Ingestion -> BullMQ Queue -> Webhook Dispatch"
+    ],
+    "testingRequirements": [
+      "Run npm run test:e2e in CI pipeline"
+    ]
+  },
+  {
+    "id": 70,
+    "title": "[DEVX]: Build Distributed Tracing Infrastructure via OpenTelemetry & Jaeger Integration",
+    "category": "DevOps",
+    "milestone": "Milestone 12 – Quality Assurance & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "opentelemetry",
+      "tracing",
+      "devops",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Instrument API server and Watcher worker with OpenTelemetry SDK for distributed span tracing.",
+    "background": "Tracing a payment from SSE stream ingestion to webhook delivery across microservices is difficult.",
+    "problemStatement": "No end-to-end latency profiling across async queues and HTTP services.",
+    "proposedSolution": "Integrate @opentelemetry/sdk-trace-node exporting trace spans to Jaeger / Zipkin collector.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/telemetry.ts",
+      "apps/api/src/server.ts"
+    ],
+    "acceptanceCriteria": [
+      "Traces spans across HTTP API, Prisma DB queries, BullMQ job enqueueing, and webhook HTTP calls",
+      "Exports OpenTelemetry spans to collector endpoint"
+    ],
+    "testingRequirements": [
+      "Unit test telemetry span creation"
+    ]
+  },
+  {
+    "id": 71,
+    "title": "[DEVX]: Implement Automated Database Migration Rollback & Data Verification System",
+    "category": "DevOps",
+    "milestone": "Milestone 12 – Quality Assurance & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "database",
+      "prisma",
+      "devops",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Automated migration validation script verifying zero data loss during schema updates.",
+    "background": "Database schema migrations can accidentally break existing records.",
+    "problemStatement": "No automated safety check verifying schema migration integrity.",
+    "proposedSolution": "Build migration testing script creating test snapshot, applying migration, and asserting data consistency.",
+    "filesLikelyAffected": [
+      "scripts/verify-migrations.ts",
+      "apps/api/prisma/schema.prisma"
+    ],
+    "acceptanceCriteria": [
+      "Migration script asserts schema compatibility against test dataset",
+      "Aborts migration automatically if constraint failure detected"
+    ],
+    "testingRequirements": [
+      "Test schema rollback script"
+    ]
+  },
+  {
+    "id": 72,
+    "title": "[DEVX]: Build Standalone CLI Tool (stellar-alerts-cli) for Managing Wallets and Alert Streams",
+    "category": "DevX",
+    "milestone": "Milestone 12 – Quality Assurance & Tooling",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "cli",
+      "devtools",
+      "typescript",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Build standalone Node/TypeScript command-line tool (stellar-alerts-cli) for terminal power users.",
+    "background": "Developers want to register wallets and monitor streams directly from terminal.",
+    "problemStatement": "No CLI tool exists for managing Stellar Alerts via terminal.",
+    "proposedSolution": "Build CLI package using commander & ink rendering live payment tables and alert logs in terminal.",
+    "filesLikelyAffected": [
+      "packages/cli/*",
+      "package.json"
+    ],
+    "acceptanceCriteria": [
+      "npx stellar-alerts-cli wallet add <G...>",
+      "npx stellar-alerts-cli stream watch renders real-time terminal payment feed"
+    ],
+    "testingRequirements": [
+      "Unit test CLI command parser"
+    ]
   }
 ]

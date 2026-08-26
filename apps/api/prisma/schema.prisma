@@ -48,6 +48,9 @@ model Payment {
   memo        String?
   receivedAt  DateTime
   createdAt   DateTime @default(now())
+
+  @@index([txHash])
+  @@index([receivedAt])
 }
 
 model NotificationPreference {
@@ -66,7 +69,7 @@ model Webhook {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   url       String
-  secret    String
+  secret     String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 }

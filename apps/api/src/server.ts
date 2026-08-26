@@ -1,8 +1,10 @@
 import { env } from './config/env';
 import { buildApp } from './app';
+import { connectWithRetry } from './lib/prisma';
 
 const start = async () => {
   try {
+    await connectWithRetry();
     const app = await buildApp();
     const port = parseInt(env.PORT, 10);
 

@@ -1,6 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
-import { prisma } from '../lib/prisma';
-import { stellar, decodeHorizonAsset, parseSacTransferEvent, openPaymentStream } from '../lib/stellar';
+import { prisma, connectWithRetry } from '../lib/prisma';
+import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { getSorobanLatestLedger } from '../lib/soroban';
 
@@ -155,54 +155,52 @@ export async function handleStreamRecord(
   }
 }
 
-/**
- * Signature of the function that materialises a live SSE connection. It is
- * given the cursor to resume from plus the message/error handlers, and returns
- * a closable handle. Injectable for tests and reused for reconnection.
- */
-export type StreamHandlers = {
-  onmessage: (record: any) => void | Promise<void>;
-  onerror: (error: any) => void;
-};
+  let timeoutId: NodeJS.Timeout;
+  let closeStream: (() => void) | undefined;
 
-export type StreamConnector = (cursor: string, handlers: StreamHandlers) => () => void;
+  const resetHeartbeat = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      console.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting...`);
+      if (closeStream) closeStream();
+      startHorizonSSEStream(wallet);
+    }, 60000);
+  };
 
-export interface StartStreamOptions {
-  /** Override how the SSE connection is opened (used by tests). */
-  connector?: StreamConnector;
-  /** Base delay (ms) between reconnect attempts, before exponential backoff. */
-  reconnectDelayMs?: number;
-  /** Maximum number of reconnect attempts before giving up (default: Infinity). */
-  maxReconnectAttempts?: number;
-  /** When true, a network drop will not auto-reconnect (handy for tests). */
-  autoReconnect?: boolean;
-}
+  try {
+    const cursor = await ensureCursor(wallet);
+    resetHeartbeat();
 
-const DEFAULT_RECONNECT_DELAY_MS = 1000;
-const MAX_RECONNECT_BACKOFF_MS = 30_000;
+    closeStream = stellar.server
+      .payments()
+      .forAccount(wallet.publicKey)
+      .cursor(cursor)
+      .stream({
+        onmessage: async (record: any) => {
+          resetHeartbeat();
+          console.log(`[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`);
+          await processPaymentRecord(wallet, record);
+          if (record.paging_token) {
+            await saveCursor(wallet.id, record.paging_token);
+          }
+        },
+        onerror: (error: any) => {
+          console.error(`[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`, error);
+          resetHeartbeat();
+        },
+      }) as unknown as () => void; // cast to avoid typings issues since stellar-sdk types might vary
 
-/**
- * Opens a Horizon Server-Sent Events payment stream for a wallet and keeps it
- * alive across network drops.
- *
- * On every message the payment is persisted and the durable cursor is advanced,
- * so a reconnect resumes exactly where the stream left off (no missed or
- * duplicated payments). On a stream error the current connection is torn down
- * and a fresh stream is opened from the last cursor using an exponential
- * backoff, satisfying the "auto-reconnect after disconnect" requirement.
- *
- * Returns a `close` function that permanently stops the stream (and any pending
- * reconnect timer).
- */
-export async function startHorizonSSEStream(
-  wallet: { id: string; publicKey: string },
-  options: StartStreamOptions = {}
-): Promise<() => void> {
-  if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
-    console.warn(
-      `[WatcherStream] Not starting SSE stream for invalid public key: "${wallet.publicKey}"`
-    );
-    return () => {};
+    const originalClose = closeStream;
+    closeStream = () => {
+      clearTimeout(timeoutId);
+      if (originalClose) originalClose();
+    };
+
+    return closeStream;
+  } catch (err: any) {
+    console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
+    clearTimeout(timeoutId!);
+    return null;
   }
 
   const connector: StreamConnector =
@@ -301,7 +299,8 @@ export async function startHorizonSSEStream(
 const STREAM_LIVENESS_CHECK_MS = 60_000;
 
 export async function runWatcher() {
-  console.log('[WatcherWorker] 🚀 Starting Stellar Watcher Worker (Horizon SSE)...');
+  console.log('[WatcherWorker] 🚀 Starting Stellar Testnet Watcher Worker...');
+  await connectWithRetry();
 
   const streams = new Map<string, () => void>();
   let stopped = false;
@@ -378,6 +377,22 @@ export async function runWatcher() {
   process.on('SIGTERM', shutdown);
 }
 
+/**
+ * Answers heartbeat pings from a supervising parent process (see
+ * supervisor.ts). Only registered when running as a forked child with an
+ * IPC channel, so standalone `node watcher.worker.js` runs are unaffected.
+ */
+function registerSupervisorHeartbeat() {
+  if (!process.send) return;
+
+  process.on('message', (message: any) => {
+    if (message?.type === 'ping') {
+      process.send?.({ type: 'pong', pid: process.pid });
+    }
+  });
+}
+
 if (require.main === module) {
+  registerSupervisorHeartbeat();
   runWatcher();
 }
