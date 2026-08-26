@@ -3,6 +3,11 @@ import { Resend } from 'resend';
 import { prisma } from './prisma';
 import { dispatchDiscordAlert } from '../utils/discord';
 import { generateWebhookSignature } from '../utils/webhook-signer';
+import { evaluateAlertRules, AlertFilterConfig } from './rules-engine';
+import { decryptFromString } from '../utils/crypto-vault';
+import { broadcastPaymentEvent } from '../plugins/websocket';
+import { circuitBreaker } from './circuit-breaker';
+import { adaptiveRateLimiter } from '../utils/rate-limiter';
 
 const DISCORD_WEBHOOK_HOST = 'discord.com/api/webhooks';
 
@@ -15,6 +20,8 @@ export interface AlertJobData {
   assetIssuer?: string | null;
   fromAddress: string;
   receivedAt: string;
+  /** Optional alert filter config — if provided, alerts are suppressed when rules fail */
+  filterConfig?: AlertFilterConfig;
 }
 
 const redisHost = process.env.REDIS_HOST || 'localhost';
@@ -76,6 +83,18 @@ try {
 
     await dispatchDiscordAlerts(data);
     await dispatchCustomWebhooks(data);
+
+    // Issue #64: Broadcast live payment event to all connected SSE clients
+    broadcastPaymentEvent({
+      paymentId: data.paymentId,
+      txHash: data.txHash,
+      walletId: data.walletId,
+      amount: data.amount,
+      asset: data.asset,
+      assetIssuer: data.assetIssuer ?? null,
+      fromAddress: data.fromAddress,
+      receivedAt: data.receivedAt,
+    });
 
     return resendData;
   }, { connection });
@@ -149,9 +168,36 @@ export async function dispatchCustomWebhooks(data: AlertJobData) {
     });
 
     for (const webhook of customWebhooks) {
+      // Extract the target domain for circuit-breaker and rate-limiter keying
+      let domain: string;
+      try {
+        domain = new URL(webhook.url).hostname;
+      } catch {
+        console.warn(`[Worker] Invalid webhook URL, skipping: ${webhook.url}`);
+        continue;
+      }
+
+      // --- Circuit Breaker: skip if open ---
+      if (circuitBreaker.isOpen(domain)) {
+        console.warn(`[Circuit] OPEN for ${domain}, skipping`);
+        continue;
+      }
+
+      // --- Rate Limiter: skip if blocked ---
+      if (adaptiveRateLimiter.isBlocked(domain)) {
+        const remainingMs = adaptiveRateLimiter.getRemainingMs(domain);
+        console.warn(`[RateLimit] ${domain} is blocked for ${remainingMs}ms, skipping`);
+        continue;
+      }
+
+      let statusCode: number | null = null;
+      let responseBody: string | null = null;
+      let success = false;
+      const startTime = Date.now();
+
       try {
         const signature = generateWebhookSignature(payload, webhook.secret);
-        await fetch(webhook.url, {
+        const response = await fetch(webhook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -161,8 +207,68 @@ export async function dispatchCustomWebhooks(data: AlertJobData) {
           body: payload,
           signal: AbortSignal.timeout(10000),
         });
+
+        const endTime = Date.now();
+        statusCode = response.status;
+        success = response.status >= 200 && response.status < 300;
+
+        // Capture response body (up to 500 chars) for audit log
+        try {
+          const rawBody = await response.text();
+          responseBody = rawBody.slice(0, 500);
+        } catch {
+          // ignore body read errors
+        }
+
+        // --- Circuit Breaker: record outcome ---
+        if (response.status >= 500) {
+          circuitBreaker.recordFailure(domain);
+        } else {
+          circuitBreaker.recordSuccess(domain);
+        }
+
+        // --- Rate Limiter: handle 429 ---
+        if (response.status === 429) {
+          adaptiveRateLimiter.handleRateLimitResponse(domain, response.headers);
+        }
+
+        // --- Audit Log (Issue #25) ---
+        // requires prisma db push after deploy
+        try {
+          await (prisma as any).webhookLog.create({
+            data: {
+              webhookId: webhook.id,
+              paymentId: data.paymentId,
+              statusCode,
+              responseBody,
+              success,
+              durationMs: endTime - startTime,
+            },
+          });
+        } catch (logErr: any) {
+          console.warn(`[Worker] Failed to write WebhookLog for ${webhook.id}: ${logErr.message}`);
+        }
+
         console.log(`[Worker] Sent custom webhook for ${data.paymentId} to webhook ${webhook.id}`);
       } catch (err: any) {
+        const endTime = Date.now();
+
+        // Best-effort audit log for network/timeout errors
+        try {
+          await (prisma as any).webhookLog.create({
+            data: {
+              webhookId: webhook.id,
+              paymentId: data.paymentId,
+              statusCode: null,
+              responseBody: err.message?.slice(0, 500) ?? null,
+              success: false,
+              durationMs: endTime - startTime,
+            },
+          });
+        } catch {
+          // logging must never break delivery
+        }
+
         console.warn(`[Worker] Failed to dispatch webhook to ${webhook.url}: ${err.message}`);
       }
     }

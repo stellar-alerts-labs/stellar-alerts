@@ -65,11 +65,25 @@ model NotificationPreference {
 }
 
 model Webhook {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
   url       String
-  secret     String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  secret    String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  logs      WebhookLog[]
+}
+
+// requires prisma db push after deploy
+model WebhookLog {
+  id           String   @id @default(cuid())
+  webhookId    String
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  paymentId    String
+  statusCode   Int?
+  responseBody String?
+  success      Boolean
+  durationMs   Int?
+  deliveredAt  DateTime @default(now())
 }

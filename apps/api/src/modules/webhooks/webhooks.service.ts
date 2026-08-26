@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { generateWebhookSignature } from '../../utils/webhook-signer';
+import { encryptToString, decryptFromString } from '../../utils/crypto-vault';
 
 export interface WebhookTestResult {
   success: boolean;
@@ -13,7 +14,9 @@ const WEBHOOK_TEST_TIMEOUT_MS = 10_000;
 export class WebhooksService {
   async addWebhook(userId: string, url: string) {
     console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
-    const secret = crypto.randomBytes(32).toString('hex');
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    // Encrypt the secret before persisting — only the vault-encrypted form is stored
+    const secret = encryptToString(rawSecret);
 
     return prisma.webhook.create({
       data: {
@@ -71,7 +74,9 @@ export class WebhooksService {
       },
     });
 
-    const signature = generateWebhookSignature(payload, webhook.secret);
+    // Decrypt the stored vault secret before signing
+    const rawSecret = decryptFromString(webhook.secret);
+    const signature = generateWebhookSignature(payload, rawSecret);
 
     try {
       const response = await fetch(webhook.url, {

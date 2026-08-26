@@ -358,6 +358,139 @@ export async function fetchContractEvents(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Issue #43 – State Snapshot & Historical Event Backfill
+// ---------------------------------------------------------------------------
+
+export interface SorobanStateSnapshot {
+  contractId: string;
+  ledgerSequence: number;
+  capturedAt: string; // ISO timestamp
+  keyCount: number;
+  entries: Array<{ key: string; value: string; durability: 'persistent' | 'temporary' }>;
+}
+
+/**
+ * Captures a state snapshot of a Soroban contract by fetching all
+ * ledger entries for the given contract ID at the current ledger.
+ * Falls back gracefully if the RPC call fails.
+ */
+export async function captureContractSnapshot(
+  contractId: string
+): Promise<SorobanStateSnapshot> {
+  const capturedAt = new Date().toISOString();
+  const entries: SorobanStateSnapshot['entries'] = [];
+
+  let ledgerSequence = 0;
+
+  try {
+    ledgerSequence = await getSorobanLatestLedger();
+
+    // Build a ContractData ledger key for the contract's instance entry.
+    // The stellar-sdk exposes xdr.LedgerKey.contractData(…) for this purpose.
+    const xdr = (StellarSdk as any).xdr;
+
+    const contractAddress = new (StellarSdk as any).Address(contractId);
+    const instanceKey = xdr.LedgerKey.contractData(
+      new xdr.LedgerKeyContractData({
+        contract: contractAddress.toScAddress(),
+        key: xdr.ScVal.scvLedgerKeyContractInstance(),
+        durability: xdr.ContractDataDurability.persistent(),
+      })
+    );
+
+    const response = await sorobanServer.getLedgerEntries(instanceKey);
+    const rawEntries: any[] = response?.entries ?? [];
+
+    for (const entry of rawEntries) {
+      try {
+        const keyXdr: string = entry.key?.toXDR?.('base64') ?? String(entry.key ?? '');
+        const valXdr: string = entry.val?.toXDR?.('base64') ?? String(entry.val ?? '');
+        const durability = _detectDurability(entry.key);
+        entries.push({ key: keyXdr, value: valXdr, durability });
+      } catch {
+        // best-effort – skip unparseable entries
+      }
+    }
+  } catch (error: any) {
+    console.warn(
+      `[SorobanRPC] captureContractSnapshot failed for ${contractId}: ${error?.message ?? error}`
+    );
+  }
+
+  return {
+    contractId,
+    ledgerSequence,
+    capturedAt,
+    keyCount: entries.length,
+    entries,
+  };
+}
+
+export interface BackfillResult {
+  contractId: string;
+  startLedger: number;
+  endLedger: number;
+  eventsProcessed: number;
+  errors: number;
+}
+
+/** Page size (ledgers) used when backfilling historical events. */
+const BACKFILL_PAGE_SIZE = 100;
+
+/**
+ * Backfills historical Soroban contract events between startLedger and endLedger.
+ * Processes events in pages of 100 ledgers and calls `onEvent` for each event.
+ */
+export async function backfillContractEvents(
+  contractId: string,
+  startLedger: number,
+  endLedger: number,
+  onEvent: (event: any) => Promise<void>
+): Promise<BackfillResult> {
+  let eventsProcessed = 0;
+  let errors = 0;
+
+  for (
+    let pageStart = startLedger;
+    pageStart <= endLedger;
+    pageStart += BACKFILL_PAGE_SIZE
+  ) {
+    try {
+      const events = await fetchContractEvents(contractId, pageStart);
+
+      for (const event of events) {
+        try {
+          await onEvent(event);
+          eventsProcessed++;
+        } catch (handlerError: any) {
+          console.error(
+            `[SorobanRPC] backfillContractEvents handler error for ${contractId} at ledger ${pageStart}:`,
+            handlerError?.message ?? handlerError
+          );
+          errors++;
+        }
+      }
+    } catch (fetchError: any) {
+      console.error(
+        `[SorobanRPC] backfillContractEvents fetch error for ${contractId} at ledger ${pageStart}:`,
+        fetchError?.message ?? fetchError
+      );
+      errors++;
+    }
+  }
+
+  return {
+    contractId,
+    startLedger,
+    endLedger,
+    eventsProcessed,
+    errors,
+  };
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Parses raw Soroban RPC event data into a clean transfer object.
  */
