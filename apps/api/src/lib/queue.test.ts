@@ -1,32 +1,56 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { Job, QueueEvents, Worker } from 'bullmq';
+import { Job } from 'bullmq';
+
+const { MockQueueAdd, MockQueueEventsOn, MockWorker } = vi.hoisted(() => ({
+  MockQueueAdd: vi.fn().mockResolvedValue(true),
+  MockQueueEventsOn: vi.fn(),
+  MockWorker: vi.fn(function() {}),
+}));
 
 // We mock bullmq before importing queue
 vi.mock('bullmq', () => {
-  const addMock = vi.fn().mockResolvedValue(true);
-  const onMock = vi.fn();
-  
   return {
-    Queue: vi.fn().mockImplementation(() => {
-      return {
-        add: addMock,
-      };
+    Queue: vi.fn(function() {
+      return { add: MockQueueAdd };
     }),
-    QueueEvents: vi.fn().mockImplementation(() => {
-      return {
-        on: onMock,
-      };
+    QueueEvents: vi.fn(function() {
+      return { on: MockQueueEventsOn };
     }),
     Job: {
       fromId: vi.fn(),
     },
-    Worker: vi.fn(),
+    Worker: MockWorker,
+  };
+});
+
+vi.mock('./prisma', () => {
+  return {
+    prisma: {
+      wallet: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      payment: {
+        findUnique: vi.fn(),
+      },
+    },
+  };
+});
+
+vi.mock('../utils/discord', () => {
+  return {
+    dispatchDiscordAlert: vi.fn().mockResolvedValue(true),
+  };
+});
+
+vi.mock('../utils/webhook-signer', () => {
+  return {
+    generateWebhookSignature: vi.fn().mockReturnValue({ headerValue: 'test', nonce: 'test' }),
   };
 });
 
 vi.mock('resend', () => {
   return {
-    Resend: vi.fn().mockImplementation(() => {
+    Resend: vi.fn(function() {
       return {
         emails: {
           send: vi.fn().mockResolvedValue({ data: { id: 'test_id' }, error: null }),
@@ -36,10 +60,8 @@ vi.mock('resend', () => {
   };
 });
 
-import { alertQueue, dlqQueue, alertQueueEvents } from './queue';
-
-const failedCall = (alertQueueEvents as any)?.on?.mock?.calls?.find((call: any[]) => call[0] === 'failed');
-const failedHandler = failedCall ? failedCall[1] : null;
+import { alertQueue, dlqQueue, paymentAlertWorkerProcessor, failedJobHandler } from './queue';
+import { prisma } from './prisma';
 
 describe('Queue DLQ routing', () => {
   beforeEach(() => {
@@ -47,17 +69,15 @@ describe('Queue DLQ routing', () => {
   });
 
   it('routes to DLQ when job fails after max attempts', async () => {
-    expect(failedHandler).toBeDefined();
-
     (Job.fromId as any).mockResolvedValue({
       attemptsMade: 5,
       opts: { attempts: 5 },
       data: { txHash: 'test-tx' },
     });
 
-    await failedHandler({ jobId: '123', failedReason: 'Test error' });
+    await failedJobHandler({ jobId: '123', failedReason: 'Test error' });
 
-    expect(dlqQueue?.add).toHaveBeenCalledWith(
+    expect(MockQueueAdd).toHaveBeenCalledWith(
       'dispatch-alert-failed',
       { txHash: 'test-tx' },
       { jobId: 'dlq-123' }
@@ -65,17 +85,83 @@ describe('Queue DLQ routing', () => {
   });
   
   it('does not route to DLQ if attempts < max attempts', async () => {
-    expect(failedHandler).toBeDefined();
-
     (Job.fromId as any).mockResolvedValue({
       attemptsMade: 3,
       opts: { attempts: 5 },
       data: { txHash: 'test-tx' },
     });
 
-    await failedHandler({ jobId: '124', failedReason: 'Test error' });
+    await failedJobHandler({ jobId: '124', failedReason: 'Test error' });
 
-    expect(dlqQueue?.add).not.toHaveBeenCalled();
+    expect(MockQueueAdd).not.toHaveBeenCalled();
   });
 });
 
+describe('Telegram Dispatcher Worker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+  });
+
+  it('dispatches telegram message when user has valid chatId and enabled', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-123',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            telegramEnabled: true,
+            telegramChatId: 'chat-123',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-123',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-123',
+        walletId: 'wallet-123',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('https://api.telegram.org/bot'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"chat_id":"chat-123"'),
+      })
+    );
+  });
+
+  it('does not dispatch telegram message when telegram is disabled', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-124',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            telegramEnabled: false,
+            telegramChatId: 'chat-123',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-124',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-124',
+        walletId: 'wallet-124',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

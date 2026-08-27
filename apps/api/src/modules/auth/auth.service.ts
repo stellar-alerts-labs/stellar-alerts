@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
-import { generateMagicToken, generateSessionToken, verifyToken, MagicLinkPayload } from '../../utils/jwt';
+import { generateMagicToken, generateSessionToken, verifyToken, MagicLinkPayload, UserPayload } from '../../utils/jwt';
+import { revokeToken } from '../../lib/tokenBlocklist';
 
 export class AuthService {
   async requestMagicLink(email: string): Promise<string> {
@@ -37,6 +38,21 @@ export class AuthService {
       console.error('[AuthService] Database error during magic link verification:', dbError);
       throw dbError;
     }
+  }
+
+  /**
+   * Revokes an active session token by adding its jti to the Redis blocklist.
+   * The blocklist entry TTL matches the token's remaining lifetime so it
+   * self-cleans without manual maintenance.
+   */
+  async revokeSession(user: UserPayload): Promise<void> {
+    if (!user.jti || !user.exp) {
+      // Token has no jti/exp — nothing to revoke (should not occur with generateSessionToken).
+      console.warn('[AuthService] revokeSession called with token missing jti or exp');
+      return;
+    }
+    await revokeToken(user.jti, user.exp);
+    console.log(`[AuthService] 🔓 Session revoked for user ${user.id}`);
   }
 
   async getMe(userId: string) {

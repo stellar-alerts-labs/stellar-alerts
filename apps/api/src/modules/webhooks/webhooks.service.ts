@@ -79,6 +79,7 @@ export class WebhooksService {
         headers: {
           'Content-Type': 'application/json',
           'X-Stellar-Signature': signature.headerValue,
+          'X-Stellar-Alerts-Nonce': signature.nonce,
         },
         body: payload,
         signal: AbortSignal.timeout(WEBHOOK_TEST_TIMEOUT_MS),

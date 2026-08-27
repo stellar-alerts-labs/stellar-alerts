@@ -14,6 +14,7 @@ model User {
   wallets     Wallet[]
   webhooks    Webhook[]
   notifyPrefs NotificationPreference?
+  sorobanSubscriptions SorobanContractSubscription[]
 }
 
 model Wallet {
@@ -48,6 +49,9 @@ model Payment {
   memo        String?
   receivedAt  DateTime
   createdAt   DateTime @default(now())
+
+  @@index([txHash])
+  @@index([receivedAt])
 }
 
 model NotificationPreference {
@@ -59,14 +63,73 @@ model NotificationPreference {
   emailEnabled    Boolean @default(true)
   whatsappNumber  String?
   whatsappEnabled Boolean @default(false)
+  language        String  @default("EN")
+  filterRules     Json?   // Stores filter rule group as JSON
 }
 
 model Webhook {
-  id        String   @id @default(cuid())
+  id        String                   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User                     @relation(fields: [userId], references: [id])
   url       String
   secret    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  isActive  Boolean                  @default(true)
+  createdAt DateTime                 @default(now())
+  logs      WebhookLog[]
+  circuitBreaker WebhookCircuitBreaker?
+}
+
+model WebhookLog {
+  id           String   @id @default(cuid())
+  webhookId    String
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  statusCode   Int?
+  responseBody String?
+  error        String?
+  sentAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+}
+
+model WebhookCircuitBreaker {
+  id               String   @id @default(cuid())
+  webhookId        String   @unique
+  webhook          Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  state            String   @default("closed") // closed, open, half-open
+  failureCount     Int      @default(0)
+  lastFailureAt    DateTime?
+  openedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model SorobanEventSnapshot {
+  id           String   @id @default(cuid())
+  contractId   String
+  from         String
+  to           String
+  amount       String
+  ledgerSeq    Int
+  eventType    String   @default("transfer")
+  txHash       String?
+  paid         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([contractId, ledgerSeq, from, to, amount])
+  @@index([contractId])
+  @@index([ledgerSeq])
+}
+
+model SorobanContractSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractId     String
+  topic          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, contractId, topic])
+  @@index([contractId])
+  @@index([userId])
 }

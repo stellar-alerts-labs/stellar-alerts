@@ -49,6 +49,19 @@ export class AuthController {
       return reply.status(500).send({ error: 'Internal server error', message: error.message });
     }
   }
+
+  async logout(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    }
+
+    try {
+      await authService.revokeSession(request.user);
+      return reply.send({ success: true, message: 'Logged out successfully.' });
+    } catch (error: any) {
+      return reply.status(500).send({ error: 'Internal server error', message: error.message });
+    }
+  }
 }
 
 export const authController = new AuthController();

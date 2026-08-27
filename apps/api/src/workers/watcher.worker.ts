@@ -1,5 +1,5 @@
 import * as StellarSdk from 'stellar-sdk';
-import { prisma } from '../lib/prisma';
+import { prisma, connectWithRetry } from '../lib/prisma';
 import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { getSorobanLatestLedger } from '../lib/soroban';
@@ -8,33 +8,35 @@ import { createLogger } from '../lib/logger';
 const log = createLogger({ module: 'WatcherWorker' });
 
 export async function processPaymentRecord(
-  wallet: { id: string; publicKey: string },
+  wallet: { id: string; publicKey: string; userId?: string },
   record: any
 ) {
   let amount: string | undefined;
-  let asset: string = 'XLM';
+  let asset: string = "XLM";
   let assetIssuer: string | null = null;
   let fromAddress: string = '';
+  let memo: string | null = null;
   const txHash: string = record.transaction_hash || record.hash || '';
   const receivedAt: Date = new Date(record.created_at || Date.now());
 
-  if (record.type === 'payment') {
+  if (record.type === "payment") {
     const decodedAsset = decodeHorizonAsset(record);
     amount = record.amount;
     asset = decodedAsset.assetCode;
     assetIssuer = decodedAsset.assetIssuer;
     fromAddress = record.from || '';
+    memo = record.memo || null;
   } else if (record.type === 'create_account') {
     amount = record.starting_balance;
-    asset = 'XLM';
+    asset = "XLM";
     assetIssuer = null;
-    fromAddress = record.funder || '';
+    fromAddress = record.funder || "";
   } else {
     const sacTransfer = parseSacTransferEvent(record);
     if (!sacTransfer) return;
 
     amount = sacTransfer.amount;
-    asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? 'Unknown';
+    asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? "Unknown";
     assetIssuer = sacTransfer.assetIssuer;
     fromAddress = sacTransfer.from;
   }
@@ -62,21 +64,53 @@ export async function processPaymentRecord(
         amount: Number(amount),
         asset,
         assetIssuer,
+        memo,
         receivedAt,
       },
     });
 
-    // Enqueue off-chain alert dispatch job to BullMQ queue
-    await enqueuePaymentAlert({
-      paymentId: payment.id,
-      txHash,
-      walletId: wallet.id,
-      amount,
-      asset,
-      assetIssuer,
-      fromAddress,
-      receivedAt: receivedAt.toISOString(),
-    });
+    // Apply filter rules to determine if we should alert
+    let shouldSendAlert = true;
+    
+    if (wallet.userId) {
+      const notifyPrefs = await prisma.notificationPreference.findUnique({
+        where: { userId: wallet.userId },
+      });
+
+      if (notifyPrefs?.filterRules) {
+        const paymentContext: PaymentContext = {
+          amount: Number(amount),
+          asset,
+          fromAddress,
+          memo,
+        };
+        
+        shouldSendAlert = shouldAlert(notifyPrefs.filterRules as any, paymentContext);
+        
+        if (!shouldSendAlert) {
+          console.log(
+            `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
+              0,
+              8
+            )}...): ${amount} ${asset}`
+          );
+        }
+      }
+    }
+
+    // Enqueue off-chain alert dispatch job to BullMQ queue only if rules pass
+    if (shouldSendAlert) {
+      await enqueuePaymentAlert({
+        paymentId: payment.id,
+        txHash,
+        walletId: wallet.id,
+        amount,
+        asset,
+        assetIssuer,
+        fromAddress,
+        receivedAt: receivedAt.toISOString(),
+      });
+    }
   }
 }
 
@@ -100,8 +134,13 @@ export async function saveCursor(walletId: string, pagingToken: string) {
  * on first sight. A fresh cursor is seeded from the wallet's latest Horizon
  * paging token so that registering a wallet does not replay its whole history.
  */
-export async function ensureCursor(wallet: { id: string; publicKey: string }): Promise<string> {
-  const existing = await prisma.ingestionCursor.findUnique({ where: { walletId: wallet.id } });
+export async function ensureCursor(wallet: {
+  id: string;
+  publicKey: string;
+}): Promise<string> {
+  const existing = await prisma.ingestionCursor.findUnique({
+    where: { walletId: wallet.id },
+  });
   if (existing) return existing.pagingToken;
 
   const pagingToken = await stellar.getLatestPagingToken(wallet.publicKey);
@@ -115,7 +154,7 @@ export async function ensureCursor(wallet: { id: string; publicKey: string }): P
   return created.pagingToken;
 }
 
-export async function processWalletPayments(wallet: { id: string; publicKey: string }) {
+export async function processWalletPayments(wallet: { id: string; publicKey: string; userId?: string }) {
   if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
     log.warn({ walletPublicKey: wallet.publicKey }, 'Skipping invalid public key checksum');
     return;
@@ -127,7 +166,7 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
     const records = (await stellar.getPaymentsSince(
       wallet.publicKey,
       cursor,
-      CURSOR_PAGE_SIZE
+      CURSOR_PAGE_SIZE,
     )) as any[];
     if (records.length === 0) return;
 
@@ -137,10 +176,9 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
         cursor = record.paging_token;
         await saveCursor(wallet.id, cursor);
       }
-    }
 
-    if (records.length < CURSOR_PAGE_SIZE) return;
-  }
+      if (records.length < CURSOR_PAGE_SIZE) return;
+    }
 
   log.warn(
     { walletPublicKey: wallet.publicKey.substring(0, 8), cursor },
@@ -154,10 +192,23 @@ export async function startHorizonSSEStream(wallet: { id: string; publicKey: str
     '📡 Opening Horizon SSE payment stream'
   );
 
+  let timeoutId: NodeJS.Timeout;
+  let closeStream: (() => void) | undefined;
+
+  const resetHeartbeat = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      console.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting...`);
+      if (closeStream) closeStream();
+      startHorizonSSEStream(wallet);
+    }, 60000);
+  };
+
   try {
     const cursor = await ensureCursor(wallet);
+    resetHeartbeat();
 
-    const closeStream = stellar.server
+    closeStream = stellar.server
       .payments()
       .forAccount(wallet.publicKey)
       .cursor(cursor)
@@ -175,7 +226,13 @@ export async function startHorizonSSEStream(wallet: { id: string; publicKey: str
             'SSE stream error'
           );
         },
-      });
+      }) as unknown as () => void; // cast to avoid typings issues since stellar-sdk types might vary
+
+    const originalClose = closeStream;
+    closeStream = () => {
+      clearTimeout(timeoutId);
+      if (originalClose) originalClose();
+    };
 
     return closeStream;
   } catch (err: any) {
@@ -197,7 +254,18 @@ export async function runWatcher() {
 
       log.info({ walletCount: wallets.length }, 'Checking registered wallets');
       for (const wallet of wallets) {
-        await processWalletPayments(wallet);
+        await processWalletPayments({ id: wallet.id, publicKey: wallet.publicKey, userId: wallet.userId });
+      }
+
+      // Process multi-contract Soroban events
+      const contractIds = getActiveContractIds();
+      if (contractIds.length > 0) {
+        console.log(
+          `[WatcherWorker] Processing ${contractIds.length} Soroban contract subscriptions...`,
+        );
+        for (const contractId of contractIds) {
+          await processSorobanContractEvents(contractId);
+        }
       }
     } catch (error) {
       log.error({ err: error }, 'Polling error');
@@ -209,8 +277,87 @@ export async function runWatcher() {
 
   // Schedule periodic catchup poll every 30 seconds
   setInterval(poll, 30000);
+
+  // Reload contract registry every 5 minutes
+  setInterval(() => {
+    loadContractRegistry();
+  }, 300000);
+}
+
+async function processSorobanContractEvents(contractId: string) {
+  try {
+    const latestLedger = await getSorobanLatestLedger();
+    if (latestLedger === 0) return;
+
+    const lastSnapshot = await prisma.sorobanEventSnapshot.findFirst({
+      where: { contractId },
+      orderBy: { ledgerSeq: "desc" },
+      select: { ledgerSeq: true },
+    });
+
+    const startLedger = lastSnapshot
+      ? lastSnapshot.ledgerSeq + 1
+      : latestLedger - 1000;
+    if (startLedger > latestLedger) return;
+
+    const { fetchContractEventsInRange } = await import("../lib/soroban");
+
+    for await (const eventBatch of fetchContractEventsInRange(
+      contractId,
+      startLedger,
+      latestLedger,
+    )) {
+      for (const event of eventBatch) {
+        const parsed = parseSorobanTransferEvent(event);
+        if (!parsed) continue;
+
+        const routes = routeEventToUsers(event);
+
+        for (const route of routes) {
+          console.log(
+            `[SorobanRouter] Event ${route.topic} from ${contractId.substring(0, 8)}... routed to ${route.userIds.length} user(s)`,
+          );
+
+          try {
+            await prisma.sorobanEventSnapshot.upsert({
+              where: {
+                contractId_ledgerSeq_from_to_amount: {
+                  contractId: parsed.contractId,
+                  ledgerSeq: parsed.ledgerSeq || 0,
+                  from: parsed.from,
+                  to: parsed.to,
+                  amount: parsed.amount,
+                },
+              },
+              create: {
+                contractId: parsed.contractId,
+                from: parsed.from,
+                to: parsed.to,
+                amount: parsed.amount,
+                ledgerSeq: parsed.ledgerSeq || 0,
+              },
+              update: {},
+            });
+          } catch (err: any) {
+            if (err.code !== "P2025") {
+              console.warn(
+                "[SorobanRouter] Error storing event snapshot:",
+                err.message,
+              );
+            }
+          }
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error(
+      `[SorobanRouter] Error processing contract ${contractId}:`,
+      error.message,
+    );
+  }
 }
 
 if (require.main === module) {
+  registerSupervisorHeartbeat();
   runWatcher();
 }

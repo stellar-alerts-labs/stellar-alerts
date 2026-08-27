@@ -9,3 +9,7 @@ dev.db
 scripts/
 
 apps/**/.env.local
+
+target/
+Cargo.lock
+

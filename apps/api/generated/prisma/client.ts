@@ -69,3 +69,23 @@ export type NotificationPreference = Prisma.NotificationPreferenceModel
  * 
  */
 export type Webhook = Prisma.WebhookModel
+/**
+ * Model WebhookLog
+ * 
+ */
+export type WebhookLog = Prisma.WebhookLogModel
+/**
+ * Model WebhookCircuitBreaker
+ * 
+ */
+export type WebhookCircuitBreaker = Prisma.WebhookCircuitBreakerModel
+/**
+ * Model SorobanEventSnapshot
+ * 
+ */
+export type SorobanEventSnapshot = Prisma.SorobanEventSnapshotModel
+/**
+ * Model SorobanContractSubscription
+ * 
+ */
+export type SorobanContractSubscription = Prisma.SorobanContractSubscriptionModel
