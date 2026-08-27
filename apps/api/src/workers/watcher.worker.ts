@@ -3,8 +3,9 @@ import { prisma, connectWithRetry } from '../lib/prisma';
 import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { getSorobanLatestLedger } from '../lib/soroban';
-import { withWalletLock } from '../lib/lock';
-import { shouldAlert, PaymentContext } from '../lib/rules-engine';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger({ module: 'WatcherWorker' });
 
 export async function processPaymentRecord(
   wallet: { id: string; publicKey: string; userId?: string },
@@ -45,11 +46,14 @@ export async function processPaymentRecord(
   // Deduplicate check
   const existing = await prisma.payment.findUnique({ where: { txHash } });
   if (!existing) {
-    console.log(
-      `[WatcherWorker] 💰 New ${record.type} detected for wallet (${wallet.publicKey.substring(
-        0,
-        8,
-      )}...): ${amount} ${asset}`,
+    log.info(
+      {
+        walletPublicKey: wallet.publicKey.substring(0, 8),
+        amount,
+        asset,
+        type: record.type,
+      },
+      '💰 New payment detected'
     );
 
     const payment = await prisma.payment.create({
@@ -143,15 +147,16 @@ export async function ensureCursor(wallet: {
   const created = await prisma.ingestionCursor.create({
     data: { walletId: wallet.id, pagingToken },
   });
-  console.log(
-    `[WatcherWorker] 🔖 Seeded ingestion cursor for wallet ${wallet.publicKey.substring(0, 8)}... at ${pagingToken}`,
+  log.info(
+    { walletPublicKey: wallet.publicKey.substring(0, 8), pagingToken },
+    '🔖 Seeded ingestion cursor'
   );
   return created.pagingToken;
 }
 
 export async function processWalletPayments(wallet: { id: string; publicKey: string; userId?: string }) {
   if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
-    console.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
+    log.warn({ walletPublicKey: wallet.publicKey }, 'Skipping invalid public key checksum');
     return;
   }
 
@@ -175,13 +180,17 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
       if (records.length < CURSOR_PAGE_SIZE) return;
     }
 
-  console.warn(
-    `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`,
+  log.warn(
+    { walletPublicKey: wallet.publicKey.substring(0, 8), cursor },
+    'Catch-up page limit reached, resuming next poll from cursor'
   );
 }
 
-export async function startHorizonSSEStream(wallet: { id: string; publicKey: string; userId?: string }) {
-  console.log(`[WatcherWorker] 📡 Opening Horizon SSE payment stream for wallet ${wallet.publicKey.substring(0, 8)}...`);
+export async function startHorizonSSEStream(wallet: { id: string; publicKey: string }) {
+  log.info(
+    { walletPublicKey: wallet.publicKey.substring(0, 8) },
+    '📡 Opening Horizon SSE payment stream'
+  );
 
   let timeoutId: NodeJS.Timeout;
   let closeStream: (() => void) | undefined;
@@ -205,18 +214,16 @@ export async function startHorizonSSEStream(wallet: { id: string; publicKey: str
       .cursor(cursor)
       .stream({
         onmessage: async (record: any) => {
-          console.log(
-            `[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`,
-          );
+          log.info({ type: record.type }, '⚡ Live SSE stream message received');
           await processPaymentRecord(wallet, record);
           if (record.paging_token) {
             await saveCursor(wallet.id, record.paging_token);
           }
         },
         onerror: (error: any) => {
-          console.error(
-            `[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`,
-            error,
+          log.error(
+            { walletPublicKey: wallet.publicKey.substring(0, 8), err: error },
+            'SSE stream error'
           );
         },
       }) as unknown as () => void; // cast to avoid typings issues since stellar-sdk types might vary
@@ -229,31 +236,23 @@ export async function startHorizonSSEStream(wallet: { id: string; publicKey: str
 
     return closeStream;
   } catch (err: any) {
-    console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
-    clearTimeout(timeoutId!);
+    log.error({ err: err.message }, 'Failed to open SSE stream');
     return null;
   }
 }
 
 export async function runWatcher() {
-  console.log("[WatcherWorker] 🚀 Starting Stellar Testnet Watcher Worker...");
-
-  // Load Soroban contract subscriptions
-  await loadContractRegistry();
+  log.info('🚀 Starting Stellar Testnet Watcher Worker...');
 
   const poll = async () => {
     try {
       const wallets = await prisma.wallet.findMany();
       if (wallets.length === 0) {
-        console.log(
-          "[WatcherWorker] No wallets registered in DB to watch. Waiting for next poll...",
-        );
+        log.info('No wallets registered in DB to watch. Waiting for next poll...');
         return;
       }
 
-      console.log(
-        `[WatcherWorker] Checking ${wallets.length} registered wallet(s)...`,
-      );
+      log.info({ walletCount: wallets.length }, 'Checking registered wallets');
       for (const wallet of wallets) {
         await processWalletPayments({ id: wallet.id, publicKey: wallet.publicKey, userId: wallet.userId });
       }
@@ -269,7 +268,7 @@ export async function runWatcher() {
         }
       }
     } catch (error) {
-      console.error("[WatcherWorker] Polling error:", error);
+      log.error({ err: error }, 'Polling error');
     }
   };
 
