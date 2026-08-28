@@ -21,6 +21,7 @@ export default function Home() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Authenticated Dashboard state
   const [wallets, setWallets] = useState<WalletDTO[]>([]);
@@ -214,28 +215,23 @@ export default function Home() {
 
         {/* Navigation Bar */}
         <header className="sticky top-0 z-50 bg-[#07070c]/70 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
-          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-3 group cursor-pointer">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-[0_0_25px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform duration-300">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 group cursor-pointer min-w-0">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-[0_0_25px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform duration-300">
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-gray-400">
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-gray-400 whitespace-nowrap">
                 Stellar<span className="text-cyan-400">Alerts</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsNotificationModalOpen(true)}
-                className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-2 transition-colors cursor-pointer hover:border-cyan-500/40"
-              >
-                <span>🔔</span> Alert Settings
-              </button>
-              <div className="hidden sm:flex flex-col items-end">
-                <p className="font-semibold text-sm text-gray-200">{session.user?.name || 'Explorer'}</p>
-                <p className="text-xs text-cyan-400/80 font-mono">{session.user?.email}</p>
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-6">
+              <div className="flex flex-col items-end max-w-xs">
+                <p className="font-semibold text-sm text-gray-200 truncate">{session.user?.name || 'Explorer'}</p>
+                <p className="text-xs text-cyan-400/80 font-mono truncate max-w-[220px]">{session.user?.email}</p>
               </div>
               <button
                 onClick={() => signOut()}
@@ -244,54 +240,112 @@ export default function Home() {
                 <span className="relative z-10 text-sm font-medium text-gray-300 group-hover:text-red-400 transition-colors">Sign Out</span>
               </button>
             </div>
+
+            {/* Mobile Hamburger Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="dashboard-mobile-nav"
+              className="md:hidden flex items-center justify-center w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
           </div>
+
+          {/* Collapsible Mobile Navigation */}
+          {mobileMenuOpen && (
+            <nav
+              id="dashboard-mobile-nav"
+              className="md:hidden border-t border-white/10 bg-[#07070c]/95 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300"
+            >
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+                <div className="min-w-0 px-1">
+                  <p className="font-semibold text-sm text-gray-200 truncate">{session.user?.name || 'Explorer'}</p>
+                  <p className="text-xs text-cyan-400/80 font-mono break-all mt-0.5">{session.user?.email}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    signOut();
+                  }}
+                  className="w-full px-5 py-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/50 transition-all duration-300 text-sm font-medium text-gray-300 hover:text-red-400 cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </nav>
+          )}
         </header>
 
         {/* Dashboard Main Content */}
-        <main className="relative z-10 max-w-7xl mx-auto px-6 py-10 space-y-8">
+        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-8">
           {/* Header Banner */}
-          <div className="p-8 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-purple-950/20 border border-cyan-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+          <div className="p-5 sm:p-8 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-purple-950/20 border border-cyan-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                 Watcher Service Active
               </div>
-              <h1 className="text-3xl font-extrabold text-white tracking-tight">Your Real-Time Wallet Dashboard</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Your Real-Time Wallet Dashboard</h1>
               <p className="text-gray-400 text-sm mt-1 max-w-xl">
                 Monitor connected Stellar Testnet addresses, track live incoming transactions, and export recorded payment history.
               </p>
             </div>
           </div>
 
-          {/* Modular Component 1: SummaryStats */}
-          <SummaryStats
-            totalPaymentsCount={totalPaymentsCount || payments.length}
-            totalVolumeXLM={totalVolumeXLM}
-            activeWalletsCount={wallets.length}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column (Add & View Wallets) */}
+            <div className="lg:col-span-4 space-y-8">
+              {/* Watcher Form Card */}
+              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-5 sm:p-7 shadow-2xl hover:border-cyan-500/30 transition-all duration-500 relative overflow-hidden">
+                <div className="relative z-10">
+                  <WatcherForm />
+                </div>
+              </div>
 
-          {/* Modular Component 2: WalletList */}
-          <WalletList
-            wallets={wallets}
-            selectedWalletId={selectedWalletId}
-            onSelectWallet={(id) => setSelectedWalletId(id)}
-            onRemoveWallet={handleRemoveWallet}
-            onOpenAddModal={() => {
-              const el = document.getElementById('add-wallet-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
-
-          <div id="add-wallet-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Watcher Form Card */}
-            <div className="lg:col-span-4 bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-7 shadow-2xl hover:border-cyan-500/30 transition-all duration-500">
-              <WatcherForm onWalletAdded={() => { fetchWallets(); fetchPayments(); fetchSummary(); }} />
+              {/* Watch List Card */}
+              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-5 sm:p-7 shadow-2xl hover:border-blue-500/30 transition-all duration-500 relative overflow-hidden">
+                <div className="relative z-10">
+                  <WatchList onSelect={setSelectedWallet} />
+                </div>
+              </div>
             </div>
 
             {/* Modular Component 3: PaymentTable */}
             <div className="lg:col-span-8">
-              <PaymentTable payments={payments} isLoading={isLoadingPayments} />
+              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-5 sm:p-8 shadow-2xl min-h-[600px] flex flex-col relative overflow-hidden">
+                {selectedWallet ? (
+                  <div className="animate-in fade-in duration-500 flex-1 relative z-10">
+                    <PaymentHistory walletId={selectedWallet} />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center flex-1 text-gray-400 space-y-6 relative z-10 py-16">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse"></div>
+                      <div className="w-20 h-20 rounded-2xl bg-[#12121e] border border-white/10 flex items-center justify-center relative z-10 shadow-xl">
+                        <svg className="w-10 h-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="text-center max-w-sm">
+                      <h3 className="text-xl font-bold text-white mb-2">Select a Wallet</h3>
+                      <p className="text-sm text-gray-400">Choose a registered wallet from the left panel to inspect its real-time transaction ledger.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </main>
@@ -319,18 +373,19 @@ export default function Home() {
 
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 bg-[#05050a]/70 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-[0_0_20px_rgba(6,182,212,0.4)]">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-gray-300">
+            <span className="text-xl sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-gray-300 whitespace-nowrap">
               Stellar<span className="text-cyan-400">Alerts</span>
             </span>
           </div>
 
+          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-300">
             <a href="#features" className="hover:text-cyan-400 transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-cyan-400 transition-colors">How It Works</a>
@@ -338,23 +393,71 @@ export default function Home() {
             <a href="#architecture" className="hover:text-cyan-400 transition-colors">Architecture</a>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               Stellar Testnet Live
             </div>
             <button
               onClick={() => setShowAuthModal(true)}
-              className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+              className="hidden md:inline-flex px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
             >
               Sign In
             </button>
+
+            {/* Mobile Hamburger Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="landing-mobile-nav"
+              className="md:hidden flex items-center justify-center w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Collapsible Mobile Navigation */}
+        {mobileMenuOpen && (
+          <nav
+            id="landing-mobile-nav"
+            className="md:hidden border-t border-white/10 bg-[#05050a]/95 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-1">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="px-3 py-3 rounded-xl text-sm font-medium text-gray-200 hover:bg-white/5 hover:text-cyan-400 transition-colors">Features</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="px-3 py-3 rounded-xl text-sm font-medium text-gray-200 hover:bg-white/5 hover:text-cyan-400 transition-colors">How It Works</a>
+              <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="px-3 py-3 rounded-xl text-sm font-medium text-gray-200 hover:bg-white/5 hover:text-cyan-400 transition-colors">Live Preview</a>
+              <a href="#architecture" onClick={() => setMobileMenuOpen(false)} className="px-3 py-3 rounded-xl text-sm font-medium text-gray-200 hover:bg-white/5 hover:text-cyan-400 transition-colors">Architecture</a>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setShowAuthModal(true);
+                }}
+                className="mt-3 w-full px-5 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all duration-300 cursor-pointer"
+              >
+                Sign In
+              </button>
+              <div className="sm:hidden flex items-center justify-center gap-2 pt-3 pb-1 text-emerald-400 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                Stellar Testnet Live
+              </div>
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-24 text-center">
+      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-16 sm:pb-24 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-8 animate-bounce">
           <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -362,7 +465,7 @@ export default function Home() {
           Horizon Network Ingestion • Zero-Delay Alerts
         </div>
 
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.1] mb-8">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.1] mb-8">
           Never miss an incoming <br className="hidden sm:block" />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">
             Stellar payment again.
@@ -492,7 +595,7 @@ export default function Home() {
         </div>
 
         {/* Feature Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto pt-6 border-t border-white/10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 max-w-4xl mx-auto pt-6 border-t border-white/10">
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
             <h4 className="text-2xl font-extrabold text-cyan-400">100%</h4>
             <p className="text-xs text-gray-400 font-medium mt-1">Non-Custodial Security</p>
@@ -502,8 +605,8 @@ export default function Home() {
             <p className="text-xs text-gray-400 font-medium mt-1">Horizon Alert Latency</p>
           </div>
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
-            <h4 className="text-2xl font-extrabold text-indigo-400">Multi-Channel</h4>
-            <p className="text-xs text-gray-400 font-medium mt-1">Telegram, Email & Webhooks</p>
+            <h4 className="text-lg sm:text-2xl font-extrabold text-indigo-400">Multi-Channel</h4>
+            <p className="text-xs text-gray-400 font-medium mt-1">Telegram, Email &amp; Webhooks</p>
           </div>
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
             <h4 className="text-2xl font-extrabold text-emerald-400">Zero</h4>
@@ -513,20 +616,26 @@ export default function Home() {
       </section>
 
       {/* Live Transaction Preview Demo Section */}
-      <section id="demo" className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+      <section id="demo" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold text-white tracking-tight">Live Ingestion Preview</h2>
           <p className="text-gray-400 text-sm mt-2 max-w-md mx-auto">Watch real-time transaction detection in action as payment events hit the Stellar Testnet ledger.</p>
         </div>
 
-        <div className="bg-[#0b0b14]/90 backdrop-blur-2xl rounded-3xl border border-white/10 p-6 md:p-8 shadow-[0_0_60px_rgba(0,0,0,0.5)]">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
+        <div className="bg-[#0b0b14]/90 backdrop-blur-2xl rounded-3xl border border-white/10 p-4 sm:p-6 md:p-8 shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-white/10 min-w-0">
+            <div className="flex items-center gap-3 shrink-0">
               <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
               <span className="text-sm font-semibold text-white">Live Horizon Stream</span>
             </div>
-            <span className="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3 py-1 rounded-full">
+            <span
+              title="https://horizon-testnet.stellar.org"
+              className="hidden sm:block min-w-0 truncate text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-3 py-1 rounded-full"
+            >
               https://horizon-testnet.stellar.org
+            </span>
+            <span className="sm:hidden shrink-0 text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full">
+              Testnet
             </span>
           </div>
 
@@ -569,14 +678,14 @@ export default function Home() {
       </section>
 
       {/* Core Features Grid */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 py-20">
+      <section id="features" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Built for Stellar Builders & Freelancers</h2>
           <p className="text-gray-400 text-base mt-3 max-w-xl mx-auto">Everything you need to monitor wallet health, maintain financial records, and get instant payment alerts.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-cyan-500/40 transition-all duration-300 group">
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-cyan-500/40 transition-all duration-300 group">
             <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -588,7 +697,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-blue-500/40 transition-all duration-300 group">
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-blue-500/40 transition-all duration-300 group">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -600,7 +709,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-purple-500/40 transition-all duration-300 group">
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#0c0c16]/80 border border-white/10 hover:border-purple-500/40 transition-all duration-300 group">
             <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -615,7 +724,7 @@ export default function Home() {
       </section>
 
       {/* How It Works Step-by-Step */}
-      <section id="how-it-works" className="relative z-10 max-w-5xl mx-auto px-6 py-20 border-t border-white/10">
+      <section id="how-it-works" className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20 border-t border-white/10">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-extrabold text-white tracking-tight">How It Works</h2>
           <p className="text-gray-400 text-sm mt-2">Get up and running in under 2 minutes.</p>
@@ -643,8 +752,8 @@ export default function Home() {
       </section>
 
       {/* Architecture Showcase */}
-      <section id="architecture" className="relative z-10 max-w-6xl mx-auto px-6 py-20 border-t border-white/10">
-        <div className="bg-gradient-to-br from-[#0e0e1a] to-[#07070e] rounded-3xl border border-white/10 p-8 md:p-12 shadow-2xl">
+      <section id="architecture" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-20 border-t border-white/10">
+        <div className="bg-gradient-to-br from-[#0e0e1a] to-[#07070e] rounded-3xl border border-white/10 p-5 sm:p-8 md:p-12 shadow-2xl">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
             <div className="max-w-xl space-y-4">
               <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold">Open Source Architecture</span>
@@ -663,7 +772,7 @@ export default function Home() {
             <div className="w-full lg:w-auto flex flex-col gap-4">
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all cursor-pointer text-center"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all cursor-pointer text-center"
               >
                 Launch Dashboard App
               </button>
@@ -675,7 +784,7 @@ export default function Home() {
       {/* Auth Modal Drawer */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-md bg-[#0a0a14] border border-white/15 rounded-3xl p-8 shadow-2xl relative">
+          <div className="w-full max-w-md bg-[#0a0a14] border border-white/15 rounded-3xl p-5 sm:p-8 shadow-2xl relative">
             <button
               onClick={() => setShowAuthModal(false)}
               className="absolute top-5 right-5 text-gray-400 hover:text-white transition-colors cursor-pointer"
@@ -749,7 +858,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 py-10 bg-[#020205]">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">StellarAlerts</span>
             <span className="text-xs text-gray-500">— Non-Custodial Stellar Payment Tracker</span>

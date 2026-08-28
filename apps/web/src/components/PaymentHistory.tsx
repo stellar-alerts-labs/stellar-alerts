@@ -44,7 +44,39 @@ export function PaymentHistory({ walletId }: { walletId: string }) {
   if (!walletId) return null;
 
   return (
-    <PaymentTable payments={payments} isLoading={loading} />
+    <div className="border p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+      <h2 className="text-xl font-semibold mb-4">Payment History</h2>
+      {loading ? (
+        <p>Loading payments...</p>
+      ) : payments.length === 0 ? (
+        <p className="text-gray-500">No payments found for this address.</p>
+      ) : (
+        <div className="-mx-4 sm:mx-0 overflow-x-auto rounded-lg [scrollbar-width:thin]">
+          <table className="w-full min-w-[560px] text-left border-collapse">
+            <thead>
+              <tr className="border-b dark:border-gray-700">
+                <th className="p-2">Date</th>
+                <th className="p-2">From</th>
+                <th className="p-2">Amount</th>
+                <th className="p-2">Asset</th>
+                <th className="p-2">Tx Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map(p => (
+                <tr key={p.id} className="border-b dark:border-gray-700">
+                  <td className="p-2">{new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td className="p-2 truncate max-w-[160px]" title={p.fromAddress}>{p.fromAddress}</td>
+                  <td className="p-2 font-mono text-green-600 dark:text-green-400">+{p.amount}</td>
+                  <td className="p-2">{p.asset}</td>
+                  <td className="p-2 truncate max-w-[140px]" title={p.txHash}>{p.txHash}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
