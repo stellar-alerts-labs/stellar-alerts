@@ -13,6 +13,8 @@ export interface AlertJobData {
   assetIssuer?: string | null;
   fromAddress: string;
   receivedAt: string;
+  /** Optional alert filter config — if provided, alerts are suppressed when rules fail */
+  filterConfig?: AlertFilterConfig;
 }
 
 const redisHost = process.env.REDIS_HOST || "localhost";

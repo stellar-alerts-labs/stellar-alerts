@@ -180,9 +180,15 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
         cursor = record.paging_token;
         await saveCursor(wallet.id, cursor);
       }
+
+      if (records.length < CURSOR_PAGE_SIZE) return;
     }
 
-    if (records.length < CURSOR_PAGE_SIZE) return;
+    console.warn(
+      `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`
+    );
+  } finally {
+    await lock.release();
   }
 
   console.warn(
@@ -371,4 +377,36 @@ async function processSorobanContractEvents(contractId: string) {
 if (require.main === module) {
   registerSupervisorHeartbeat();
   runWatcher();
+
+  // Issue #20: Graceful shutdown for the watcher worker process
+  let watcherIntervalId: NodeJS.Timeout | undefined;
+
+  // Patch runWatcher to capture the interval handle so we can stop it
+  const originalSetInterval = global.setInterval;
+  (global as any).setInterval = (fn: (...args: any[]) => void, delay?: number, ...args: any[]) => {
+    const id = originalSetInterval(fn, delay, ...args);
+    watcherIntervalId = id;
+    return id;
+  };
+
+  const shutdownWorker = async (signal: string) => {
+    console.log(`[WatcherWorker] Received ${signal}. Shutting down gracefully...`);
+
+    if (watcherIntervalId !== undefined) {
+      clearInterval(watcherIntervalId);
+      watcherIntervalId = undefined;
+    }
+
+    try {
+      await prisma.$disconnect();
+      console.log('[WatcherWorker] Shutdown complete.');
+      process.exit(0);
+    } catch (err) {
+      console.error('[WatcherWorker] Error during shutdown:', err);
+      process.exit(1);
+    }
+  };
+
+  process.once('SIGTERM', () => shutdownWorker('SIGTERM'));
+  process.once('SIGINT', () => shutdownWorker('SIGINT'));
 }

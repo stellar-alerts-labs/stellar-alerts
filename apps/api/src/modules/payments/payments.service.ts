@@ -18,7 +18,7 @@ export class PaymentsService {
       _sum: { amount: true },
       _count: { id: true },
     });
-    
+
     return {
       totalReceived: result._sum.amount || 0,
       paymentCount: result._count.id || 0,
