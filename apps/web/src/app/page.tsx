@@ -1,10 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
+import { WalletDTO, PaymentDTO } from '@stellar-alerts/shared';
 import { WatcherForm } from '@/components/WatcherForm';
-import { WatchList } from '@/components/WatchList';
-import { PaymentHistory } from '@/components/PaymentHistory';
+import {
+  SummaryStats,
+  WalletList,
+  PaymentTable,
+  NotificationModal,
+} from '@/components/dashboard';
 
 export default function Home() {
   const { data: session } = useSession();
@@ -15,8 +20,122 @@ export default function Home() {
   const [authStatus, setAuthStatus] = useState<string | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Authenticated Dashboard state
+  const [wallets, setWallets] = useState<WalletDTO[]>([]);
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const [payments, setPayments] = useState<PaymentDTO[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState<boolean>(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
+  const [totalVolumeXLM, setTotalVolumeXLM] = useState<number>(0);
+  const [totalPaymentsCount, setTotalPaymentsCount] = useState<number>(0);
+
+  // Helper to get auth headers
+  const getHeaders = useCallback(() => {
+    const headers: Record<string, string> = {};
+    if (session && (session as any).accessToken) {
+      headers['Authorization'] = `Bearer ${(session as any).accessToken}`;
+    }
+    return headers;
+  }, [session]);
+
+  // Fetch wallets
+  const fetchWallets = useCallback(async () => {
+    if (!session) return;
+    try {
+      const res = await fetch('http://localhost:3001/wallets', { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.wallets)) {
+          setWallets(data.wallets);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch wallets:', err);
+    }
+  }, [session, getHeaders]);
+
+  // Fetch payments
+  const fetchPayments = useCallback(async () => {
+    if (!session) return;
+    setIsLoadingPayments(true);
+    try {
+      const url = selectedWalletId
+        ? `http://localhost:3001/payments?walletId=${encodeURIComponent(selectedWalletId)}`
+        : 'http://localhost:3001/payments';
+      const res = await fetch(url, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.payments)) {
+          setPayments(data.payments);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch payments:', err);
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  }, [session, selectedWalletId, getHeaders]);
+
+  // Fetch summary stats
+  const fetchSummary = useCallback(async () => {
+    if (!session) return;
+    try {
+      const res = await fetch('http://localhost:3001/payments/summary', { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.summary) {
+          setTotalVolumeXLM(Number(data.summary.totalVolumeXLM || 0));
+          setTotalPaymentsCount(Number(data.summary.totalPayments || 0));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch summary:', err);
+    }
+  }, [session, getHeaders]);
+
+  useEffect(() => {
+    if (session) {
+      fetchWallets();
+      fetchPayments();
+      fetchSummary();
+    }
+  }, [session, selectedWalletId, fetchWallets, fetchPayments, fetchSummary]);
+
+  const handleRemoveWallet = async (id: string) => {
+    try {
+      const res = await fetch(`http://localhost:3001/wallets/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        if (selectedWalletId === id) {
+          setSelectedWalletId(null);
+        }
+        fetchWallets();
+        fetchPayments();
+        fetchSummary();
+      }
+    } catch (err) {
+      console.error('Failed to remove wallet:', err);
+    }
+  };
+
+  const handleSavePreferences = async (prefs: { telegramChatId?: string; emailEnabled: boolean }) => {
+    try {
+      await fetch('http://localhost:3001/notifications/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getHeaders(),
+        },
+        body: JSON.stringify(prefs),
+      });
+    } catch (err) {
+      console.error('Failed to save notification preferences:', err);
+    }
+  };
 
   // Resend cooldown timer
   useEffect(() => {
@@ -83,7 +202,7 @@ export default function Home() {
     }
   };
 
-  // If user is authenticated, render the Dashboard Shell
+  // If user is authenticated, render the Modular Dashboard
   if (session) {
     return (
       <div className="min-h-screen bg-[#050508] text-gray-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden relative">
@@ -107,7 +226,13 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsNotificationModalOpen(true)}
+                className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-2 transition-colors cursor-pointer hover:border-cyan-500/40"
+              >
+                <span>🔔</span> Alert Settings
+              </button>
               <div className="hidden sm:flex flex-col items-end">
                 <p className="font-semibold text-sm text-gray-200">{session.user?.name || 'Explorer'}</p>
                 <p className="text-xs text-cyan-400/80 font-mono">{session.user?.email}</p>
@@ -134,56 +259,49 @@ export default function Home() {
               </div>
               <h1 className="text-3xl font-extrabold text-white tracking-tight">Your Real-Time Wallet Dashboard</h1>
               <p className="text-gray-400 text-sm mt-1 max-w-xl">
-                Monitor connected Stellar Testnet addresses, track live incoming transactions, and verify recorded ledger payments.
+                Monitor connected Stellar Testnet addresses, track live incoming transactions, and export recorded payment history.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left Column (Add & View Wallets) */}
-            <div className="lg:col-span-4 space-y-8">
-              {/* Watcher Form Card */}
-              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-7 shadow-2xl hover:border-cyan-500/30 transition-all duration-500 relative overflow-hidden">
-                <div className="relative z-10">
-                  <WatcherForm />
-                </div>
-              </div>
+          {/* Modular Component 1: SummaryStats */}
+          <SummaryStats
+            totalPaymentsCount={totalPaymentsCount || payments.length}
+            totalVolumeXLM={totalVolumeXLM}
+            activeWalletsCount={wallets.length}
+          />
 
-              {/* Watch List Card */}
-              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-7 shadow-2xl hover:border-blue-500/30 transition-all duration-500 relative overflow-hidden">
-                <div className="relative z-10">
-                  <WatchList onSelect={setSelectedWallet} />
-                </div>
-              </div>
+          {/* Modular Component 2: WalletList */}
+          <WalletList
+            wallets={wallets}
+            selectedWalletId={selectedWalletId}
+            onSelectWallet={(id) => setSelectedWalletId(id)}
+            onRemoveWallet={handleRemoveWallet}
+            onOpenAddModal={() => {
+              const el = document.getElementById('add-wallet-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+
+          <div id="add-wallet-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Watcher Form Card */}
+            <div className="lg:col-span-4 bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-7 shadow-2xl hover:border-cyan-500/30 transition-all duration-500">
+              <WatcherForm onWalletAdded={() => { fetchWallets(); fetchPayments(); fetchSummary(); }} />
             </div>
 
-            {/* Right Column (Payment History & Ledger) */}
+            {/* Modular Component 3: PaymentTable */}
             <div className="lg:col-span-8">
-              <div className="bg-[#0c0c14]/80 backdrop-blur-md rounded-3xl border border-white/10 p-8 shadow-2xl min-h-[600px] flex flex-col relative overflow-hidden">
-                {selectedWallet ? (
-                  <div className="animate-in fade-in duration-500 flex-1 relative z-10">
-                    <PaymentHistory walletId={selectedWallet} />
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center flex-1 text-gray-400 space-y-6 relative z-10 py-16">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse"></div>
-                      <div className="w-20 h-20 rounded-2xl bg-[#12121e] border border-white/10 flex items-center justify-center relative z-10 shadow-xl">
-                        <svg className="w-10 h-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="text-center max-w-sm">
-                      <h3 className="text-xl font-bold text-white mb-2">Select a Wallet</h3>
-                      <p className="text-sm text-gray-400">Choose a registered wallet from the left panel to inspect its real-time transaction ledger.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <PaymentTable payments={payments} isLoading={isLoadingPayments} />
             </div>
           </div>
         </main>
+
+        {/* Modular Component 4: NotificationModal */}
+        <NotificationModal
+          isOpen={isNotificationModalOpen}
+          onClose={() => setIsNotificationModalOpen(false)}
+          onSavePreferences={handleSavePreferences}
+        />
       </div>
     );
   }

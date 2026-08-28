@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { generateMagicToken, generateSessionToken, verifyToken, MagicLinkPayload, UserPayload } from '../../utils/jwt';
 import { revokeToken } from '../../lib/tokenBlocklist';
+import { parseDID, generateDIDChallenge, verifyDIDSignature, DIDChallenge } from '../../utils/did';
 
 export class AuthService {
   async requestMagicLink(email: string): Promise<string> {
@@ -38,6 +39,47 @@ export class AuthService {
       console.error('[AuthService] Database error during magic link verification:', dbError);
       throw dbError;
     }
+  }
+
+  /**
+   * Generates a signed challenge for W3C Decentralized Identity (DID) authentication.
+   */
+  requestDIDChallenge(did: string): DIDChallenge {
+    console.log(`[AuthService] 🆔 Requesting DID challenge for: ${did}`);
+    return generateDIDChallenge(did);
+  }
+
+  /**
+   * Verifies signed DID challenge payload and issues a valid session JWT bound to the DID user identity.
+   */
+  async verifyDIDAuth(did: string, challenge: string, signature: string): Promise<{ token: string; user: { id: string; email: string; did: string } }> {
+    const parsed = parseDID(did);
+    const isValid = verifyDIDSignature(did, challenge, signature);
+
+    if (!isValid) {
+      console.error(`[AuthService] ❌ DID signature verification failed for ${did}`);
+      throw new Error('Invalid DID challenge signature');
+    }
+
+    const syntheticEmail = `${parsed.address.toLowerCase().substring(0, 20)}@did.stellar-alerts.org`;
+
+    const user = await prisma.user.upsert({
+      where: { email: syntheticEmail },
+      update: {},
+      create: { email: syntheticEmail },
+    });
+
+    const sessionToken = generateSessionToken({ id: user.id, email: user.email });
+
+    console.log(`[AuthService] 🔑 DID Authentication successful for ${did}. Session JWT issued.`);
+    return {
+      token: sessionToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        did,
+      },
+    };
   }
 
   /**

@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "turbo dev",
     "dev:api": "npm run dev --workspace=api",
     "dev:worker": "npm run dev:worker --workspace=api",
     "dev:reporting": "npm run dev:reporting --workspace=api",
@@ -16,6 +17,7 @@
     "db:migrate": "npm run db:migrate --workspace=api",
     "db:studio": "npm run db:studio --workspace=api",
     "test:api": "npm run test --workspace=api",
+    "test:coverage": "npm run test:coverage --workspace=api",
     "test": "npm run test --workspaces --if-present"
   },
   "packageManager": "npm@10.8.2",
@@ -23,6 +25,7 @@
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
-    "turbo": "^2.1.0"
+    "turbo": "^2.1.0",
+    "typescript": "^5.9.3"
   }
 }

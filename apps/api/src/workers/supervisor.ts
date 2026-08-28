@@ -128,6 +128,16 @@ export function startSupervisor(): WorkerSupervisor {
   return supervisor;
 }
 
+export function registerSupervisorHeartbeat() {
+  if (process.send) {
+    process.on('message', (msg) => {
+      if (msg === 'ping') {
+        process.send!('pong');
+      }
+    });
+  }
+}
+
 if (require.main === module) {
   startSupervisor();
 }

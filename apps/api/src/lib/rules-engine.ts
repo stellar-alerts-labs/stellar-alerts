@@ -1,91 +1,148 @@
-// Dynamic fee threshold alert filter rules engine
-// Evaluates user-defined filter conditions against payment data
-
-export type RuleOperator = 'gt' | 'lt' | 'gte' | 'lte' | 'eq' | 'neq';
-export type RuleLogic = 'AND' | 'OR';
-
 export interface FilterRule {
-  field: 'amount' | 'asset' | 'fromAddress';
-  operator: RuleOperator;
+  field: 'amount' | 'asset' | 'fromAddress' | 'memo';
+  operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne' | 'contains';
   value: string | number;
 }
 
-export interface AlertFilterConfig {
-  logic: RuleLogic; // 'AND' = all rules must match, 'OR' = any rule must match
-  rules: FilterRule[];
+export interface FilterRuleGroup {
+  operator: 'AND' | 'OR';
+  rules: (FilterRule | FilterRuleGroup)[];
 }
 
 export interface PaymentContext {
-  amount: number;
+  amount: number | string;
   asset: string;
-  fromAddress: string;
+  fromAddress?: string;
+  memo?: string | null;
 }
 
-/**
- * Evaluates a single filter rule against a payment context.
- * Numeric operators (gt, lt, gte, lte) only apply when both the field value
- * and the rule value are numeric; for string fields they fall back to
- * lexicographic comparison.
- */
-function evaluateRule(payment: PaymentContext, rule: FilterRule): boolean {
-  const fieldValue = payment[rule.field];
+export function evaluateRule(rule: FilterRule, context: PaymentContext): boolean {
+  const fieldValue = context[rule.field];
+  
+  // Handle null/undefined values
+  if (fieldValue === null || fieldValue === undefined) {
+    return false;
+  }
+
+  // Convert amount to number for numeric comparisons
+  const contextValue = rule.field === 'amount' ? Number(fieldValue) : String(fieldValue);
+  const ruleValue = rule.field === 'amount' ? Number(rule.value) : String(rule.value);
 
   switch (rule.operator) {
-    case 'eq':
-      // Loose equality: compare as strings for string fields, numbers for amount
-      if (rule.field === 'amount') {
-        return Number(fieldValue) === Number(rule.value);
-      }
-      return String(fieldValue) === String(rule.value);
-
-    case 'neq':
-      if (rule.field === 'amount') {
-        return Number(fieldValue) !== Number(rule.value);
-      }
-      return String(fieldValue) !== String(rule.value);
-
     case 'gt':
-      return Number(fieldValue) > Number(rule.value);
-
-    case 'lt':
-      return Number(fieldValue) < Number(rule.value);
-
+      return contextValue > ruleValue;
     case 'gte':
-      return Number(fieldValue) >= Number(rule.value);
-
+      return contextValue >= ruleValue;
+    case 'lt':
+      return contextValue < ruleValue;
     case 'lte':
-      return Number(fieldValue) <= Number(rule.value);
-
+      return contextValue <= ruleValue;
+    case 'eq':
+      return contextValue === ruleValue;
+    case 'ne':
+      return contextValue !== ruleValue;
+    case 'contains':
+      return String(contextValue).toLowerCase().includes(String(ruleValue).toLowerCase());
     default:
-      // Unknown operator — conservatively pass the rule (don't suppress)
-      console.warn(`[RulesEngine] Unknown operator "${rule.operator}", passing rule by default`);
-      return true;
+      throw new Error(`Unknown operator: ${rule.operator}`);
   }
 }
 
-/**
- * Evaluates whether a payment passes all configured filter rules.
- *
- * - Returns `true`  if the alert SHOULD be sent (payment passes the filter).
- * - Returns `false` if the alert SHOULD be suppressed (payment fails the filter).
- *
- * An empty rules array always passes (no suppression).
- */
-export function evaluateAlertRules(
-  payment: PaymentContext,
-  config: AlertFilterConfig
-): boolean {
-  const { logic, rules } = config;
+export function evaluateRuleGroup(group: FilterRuleGroup, context: PaymentContext): boolean {
+  if (group.rules.length === 0) {
+    return true; // Empty group means no restrictions
+  }
 
-  if (!rules || rules.length === 0) {
+  const results = group.rules.map(rule => {
+    if ('operator' in rule && (rule.operator === 'AND' || rule.operator === 'OR')) {
+      return evaluateRuleGroup(rule as FilterRuleGroup, context);
+    } else {
+      return evaluateRule(rule as FilterRule, context);
+    }
+  });
+
+  return group.operator === 'AND' 
+    ? results.every(result => result)
+    : results.some(result => result);
+}
+
+export function shouldAlert(filterRules: FilterRuleGroup | null, payment: PaymentContext): boolean {
+  // If no filter rules are defined, alert on all payments
+  if (!filterRules || filterRules.rules.length === 0) {
     return true;
   }
 
-  if (logic === 'AND') {
-    // All rules must match for the alert to be sent
-    return rules.every((rule) => evaluateRule(payment, rule));
+  try {
+    return evaluateRuleGroup(filterRules, payment);
+  } catch (error) {
+    console.error('[RulesEngine] Error evaluating filter rules:', error);
+    // Fail open: if rules evaluation fails, still alert to avoid missing payments
+    return true;
+  }
+}
+
+export function createAmountThresholdRule(minAmount: number): FilterRuleGroup {
+  return {
+    operator: 'AND',
+    rules: [
+      {
+        field: 'amount',
+        operator: 'gte',
+        value: minAmount,
+      },
+    ],
+  };
+}
+
+export function createAssetFilterRule(allowedAssets: string[]): FilterRuleGroup {
+  if (allowedAssets.length === 0) {
+    return { operator: 'OR', rules: [] };
   }
 
-  // OR: at least one rule must match for the alert to be sent
-  return rules.some((rule) => evaluateRule(payment, rule));
+  if (allowedAssets.length === 1) {
+    return {
+      operator: 'AND',
+      rules: [
+        {
+          field: 'asset',
+          operator: 'eq',
+          value: allowedAssets[0],
+        },
+      ],
+    };
+  }
+
+  return {
+    operator: 'OR',
+    rules: allowedAssets.map(asset => ({
+      field: 'asset' as const,
+      operator: 'eq' as const,
+      value: asset,
+    })),
+  };
+}
+
+export function createCombinedFilter(minAmount?: number, allowedAssets?: string[]): FilterRuleGroup {
+  const rules: (FilterRule | FilterRuleGroup)[] = [];
+
+  if (minAmount !== undefined && minAmount > 0) {
+    rules.push(createAmountThresholdRule(minAmount));
+  }
+
+  if (allowedAssets && allowedAssets.length > 0) {
+    rules.push(createAssetFilterRule(allowedAssets));
+  }
+
+  if (rules.length === 0) {
+    return { operator: 'AND', rules: [] };
+  }
+
+  if (rules.length === 1) {
+    return rules[0] as FilterRuleGroup;
+  }
+
+  return {
+    operator: 'AND',
+    rules,
+  };
 }

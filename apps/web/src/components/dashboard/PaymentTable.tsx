@@ -20,13 +20,70 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
     return filterPayments(payments, searchQuery, selectedAsset);
   }, [payments, searchQuery, selectedAsset]);
 
-
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedAsset('ALL');
   };
 
   const isFiltered = searchQuery.trim() !== '' || selectedAsset !== 'ALL';
+
+  const exportToCSV = () => {
+    const listToExport = filteredPayments.length > 0 || isFiltered ? filteredPayments : payments;
+    if (!listToExport || listToExport.length === 0) return;
+
+    const headers = ['ID', 'Wallet ID', 'Tx Hash', 'From Address', 'Amount', 'Asset', 'Memo', 'Received At'];
+    const rows = listToExport.map((p) => [
+      p.id,
+      p.walletId,
+      p.txHash,
+      p.fromAddress || '',
+      p.amount,
+      p.asset,
+      p.memo || '',
+      new Date(p.receivedAt || (p as any).createdAt).toISOString(),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row
+          .map((field) => {
+            const stringified = String(field ?? '');
+            if (stringified.includes(',') || stringified.includes('"') || stringified.includes('\n')) {
+              return `"${stringified.replace(/"/g, '""')}"`;
+            }
+            return stringified;
+          })
+          .join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'stellar-payments.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToJSON = () => {
+    const listToExport = filteredPayments.length > 0 || isFiltered ? filteredPayments : payments;
+    if (!listToExport || listToExport.length === 0) return;
+
+    const jsonContent = JSON.stringify(listToExport, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'stellar-payments.json');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl shadow-xl space-y-6">
@@ -40,12 +97,30 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
             Incoming blockchain operations ingested via Horizon stream &amp; deduplicated by transaction hash.
           </p>
         </div>
-        {payments.length > 0 && (
-          <div className="text-xs text-slate-400 font-mono bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50 self-start sm:self-auto">
-            Showing <span className="text-cyan-400 font-semibold">{filteredPayments.length}</span> of{' '}
-            <span className="text-slate-300">{payments.length}</span> operations
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {payments.length > 0 && (
+            <div className="text-xs text-slate-400 font-mono bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50">
+              Showing <span className="text-cyan-400 font-semibold">{filteredPayments.length}</span> of{' '}
+              <span className="text-slate-300">{payments.length}</span> operations
+            </div>
+          )}
+          <button
+            onClick={exportToCSV}
+            disabled={payments.length === 0}
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md cursor-pointer"
+            title="Download payments as CSV file"
+          >
+            <span>📥</span> Export CSV
+          </button>
+          <button
+            onClick={exportToJSON}
+            disabled={payments.length === 0}
+            className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md cursor-pointer"
+            title="Download payments as JSON file"
+          >
+            <span>📄</span> Export JSON
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -107,7 +182,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
                 type="button"
                 data-testid="reset-filters-btn"
                 onClick={handleResetFilters}
-                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -135,7 +210,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
           <button
             type="button"
             onClick={handleResetFilters}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold transition-colors mt-2"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold transition-colors mt-2 cursor-pointer"
           >
             <span>Reset Search Filters</span>
           </button>
@@ -197,4 +272,3 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
     </div>
   );
 };
-

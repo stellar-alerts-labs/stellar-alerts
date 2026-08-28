@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { simulateTransaction, SorobanFeeEstimate } from '../../lib/soroban';
+import { addDifferentialPrivacyNoise } from '../../utils/differential-privacy';
 
 export class PaymentsService {
   async getPayments(walletId: string, limit: number = 20) {
@@ -26,16 +26,26 @@ export class PaymentsService {
   }
 
   /**
-   * Estimates Soroban transaction fees including storage rent and read/write
-   * ledger footprints by delegating to the Soroban RPC `simulateTransaction`
-   * method.
-   *
-   * @param xdrEnvelope - Base64-encoded XDR TransactionEnvelope to simulate.
-   * @returns A {@link SorobanFeeEstimate} with full fee breakdown and footprint.
+   * Fetches public volume statistics protected with Laplace differential privacy noise.
+   * Epsilon parameter controls privacy budget (lower epsilon = more privacy/noise).
    */
-  async estimateFee(xdrEnvelope: string): Promise<SorobanFeeEstimate> {
-    console.log('[PaymentsService] Estimating Soroban transaction fee via RPC simulation');
-    return simulateTransaction(xdrEnvelope);
+  async getPublicVolumeStats(epsilon: number = 0.5) {
+    console.log(`[PaymentsService] Fetching differentially private public volume stats (epsilon=${epsilon})`);
+    const aggregate = await prisma.payment.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    const rawTotalVolume = Number(aggregate._sum.amount || 0);
+    const noisyVolume = addDifferentialPrivacyNoise(rawTotalVolume, epsilon, 1.0);
+
+    return {
+      rawTotalVolume,
+      noisyTotalVolume: noisyVolume,
+      totalPayments: aggregate._count.id || 0,
+      epsilon,
+      anonymized: true,
+    };
   }
 }
 
