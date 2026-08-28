@@ -27,7 +27,7 @@
     "tsx": "^4.23.0",
     "typescript": "^5.9.3",
     "unpkg": "^0.2.0",
-    "vitest": "^3.0.5"
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
@@ -43,10 +43,12 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
+    "opossum": "^10.0.0",
     "pdfkit": "^0.20.1",
     "pg": "^8.22.0",
     "pure-rand": "^8.4.2",
     "resend": "^3.5.0",
+    "snarkjs": "^0.7.0",
     "stellar-sdk": "^13.3.0",
     "zod": "^4.4.3"
   }

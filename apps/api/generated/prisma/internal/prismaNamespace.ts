@@ -402,7 +402,11 @@ export const ModelName = {
   IngestionCursor: 'IngestionCursor',
   Payment: 'Payment',
   NotificationPreference: 'NotificationPreference',
-  Webhook: 'Webhook'
+  Webhook: 'Webhook',
+  WebhookLog: 'WebhookLog',
+  WebhookCircuitBreaker: 'WebhookCircuitBreaker',
+  SorobanEventSnapshot: 'SorobanEventSnapshot',
+  SorobanContractSubscription: 'SorobanContractSubscription'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -418,7 +422,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "wallet" | "payment" | "notificationPreference" | "webhook"
+    modelProps: "user" | "wallet" | "ingestionCursor" | "payment" | "notificationPreference" | "webhook" | "webhookLog" | "webhookCircuitBreaker" | "sorobanEventSnapshot" | "sorobanContractSubscription"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -866,6 +870,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    WebhookLog: {
+      payload: Prisma.$WebhookLogPayload<ExtArgs>
+      fields: Prisma.WebhookLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WebhookLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WebhookLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        findFirst: {
+          args: Prisma.WebhookLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WebhookLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        findMany: {
+          args: Prisma.WebhookLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>[]
+        }
+        create: {
+          args: Prisma.WebhookLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        createMany: {
+          args: Prisma.WebhookLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WebhookLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>[]
+        }
+        delete: {
+          args: Prisma.WebhookLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        update: {
+          args: Prisma.WebhookLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.WebhookLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WebhookLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WebhookLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.WebhookLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookLogPayload>
+        }
+        aggregate: {
+          args: Prisma.WebhookLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWebhookLog>
+        }
+        groupBy: {
+          args: Prisma.WebhookLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WebhookLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WebhookLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WebhookLogCountAggregateOutputType> | number
+        }
+      }
+    }
+    WebhookCircuitBreaker: {
+      payload: Prisma.$WebhookCircuitBreakerPayload<ExtArgs>
+      fields: Prisma.WebhookCircuitBreakerFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WebhookCircuitBreakerFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WebhookCircuitBreakerFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        findFirst: {
+          args: Prisma.WebhookCircuitBreakerFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WebhookCircuitBreakerFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        findMany: {
+          args: Prisma.WebhookCircuitBreakerFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>[]
+        }
+        create: {
+          args: Prisma.WebhookCircuitBreakerCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        createMany: {
+          args: Prisma.WebhookCircuitBreakerCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WebhookCircuitBreakerCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>[]
+        }
+        delete: {
+          args: Prisma.WebhookCircuitBreakerDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        update: {
+          args: Prisma.WebhookCircuitBreakerUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        deleteMany: {
+          args: Prisma.WebhookCircuitBreakerDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WebhookCircuitBreakerUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WebhookCircuitBreakerUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>[]
+        }
+        upsert: {
+          args: Prisma.WebhookCircuitBreakerUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WebhookCircuitBreakerPayload>
+        }
+        aggregate: {
+          args: Prisma.WebhookCircuitBreakerAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWebhookCircuitBreaker>
+        }
+        groupBy: {
+          args: Prisma.WebhookCircuitBreakerGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WebhookCircuitBreakerGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WebhookCircuitBreakerCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WebhookCircuitBreakerCountAggregateOutputType> | number
+        }
+      }
+    }
+    SorobanEventSnapshot: {
+      payload: Prisma.$SorobanEventSnapshotPayload<ExtArgs>
+      fields: Prisma.SorobanEventSnapshotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SorobanEventSnapshotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SorobanEventSnapshotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        findFirst: {
+          args: Prisma.SorobanEventSnapshotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SorobanEventSnapshotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        findMany: {
+          args: Prisma.SorobanEventSnapshotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>[]
+        }
+        create: {
+          args: Prisma.SorobanEventSnapshotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        createMany: {
+          args: Prisma.SorobanEventSnapshotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SorobanEventSnapshotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>[]
+        }
+        delete: {
+          args: Prisma.SorobanEventSnapshotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        update: {
+          args: Prisma.SorobanEventSnapshotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        deleteMany: {
+          args: Prisma.SorobanEventSnapshotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SorobanEventSnapshotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SorobanEventSnapshotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>[]
+        }
+        upsert: {
+          args: Prisma.SorobanEventSnapshotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanEventSnapshotPayload>
+        }
+        aggregate: {
+          args: Prisma.SorobanEventSnapshotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSorobanEventSnapshot>
+        }
+        groupBy: {
+          args: Prisma.SorobanEventSnapshotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanEventSnapshotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SorobanEventSnapshotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanEventSnapshotCountAggregateOutputType> | number
+        }
+      }
+    }
+    SorobanContractSubscription: {
+      payload: Prisma.$SorobanContractSubscriptionPayload<ExtArgs>
+      fields: Prisma.SorobanContractSubscriptionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SorobanContractSubscriptionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SorobanContractSubscriptionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        findFirst: {
+          args: Prisma.SorobanContractSubscriptionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SorobanContractSubscriptionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        findMany: {
+          args: Prisma.SorobanContractSubscriptionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>[]
+        }
+        create: {
+          args: Prisma.SorobanContractSubscriptionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        createMany: {
+          args: Prisma.SorobanContractSubscriptionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SorobanContractSubscriptionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>[]
+        }
+        delete: {
+          args: Prisma.SorobanContractSubscriptionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        update: {
+          args: Prisma.SorobanContractSubscriptionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        deleteMany: {
+          args: Prisma.SorobanContractSubscriptionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SorobanContractSubscriptionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SorobanContractSubscriptionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>[]
+        }
+        upsert: {
+          args: Prisma.SorobanContractSubscriptionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanContractSubscriptionPayload>
+        }
+        aggregate: {
+          args: Prisma.SorobanContractSubscriptionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSorobanContractSubscription>
+        }
+        groupBy: {
+          args: Prisma.SorobanContractSubscriptionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanContractSubscriptionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SorobanContractSubscriptionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanContractSubscriptionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -959,7 +1259,9 @@ export const NotificationPreferenceScalarFieldEnum = {
   telegramEnabled: 'telegramEnabled',
   emailEnabled: 'emailEnabled',
   whatsappNumber: 'whatsappNumber',
-  whatsappEnabled: 'whatsappEnabled'
+  whatsappEnabled: 'whatsappEnabled',
+  language: 'language',
+  filterRules: 'filterRules'
 } as const
 
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
@@ -977,12 +1279,76 @@ export const WebhookScalarFieldEnum = {
 export type WebhookScalarFieldEnum = (typeof WebhookScalarFieldEnum)[keyof typeof WebhookScalarFieldEnum]
 
 
+export const WebhookLogScalarFieldEnum = {
+  id: 'id',
+  webhookId: 'webhookId',
+  statusCode: 'statusCode',
+  responseBody: 'responseBody',
+  error: 'error',
+  sentAt: 'sentAt',
+  createdAt: 'createdAt'
+} as const
+
+export type WebhookLogScalarFieldEnum = (typeof WebhookLogScalarFieldEnum)[keyof typeof WebhookLogScalarFieldEnum]
+
+
+export const WebhookCircuitBreakerScalarFieldEnum = {
+  id: 'id',
+  webhookId: 'webhookId',
+  state: 'state',
+  failureCount: 'failureCount',
+  lastFailureAt: 'lastFailureAt',
+  openedAt: 'openedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WebhookCircuitBreakerScalarFieldEnum = (typeof WebhookCircuitBreakerScalarFieldEnum)[keyof typeof WebhookCircuitBreakerScalarFieldEnum]
+
+
+export const SorobanEventSnapshotScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  from: 'from',
+  to: 'to',
+  amount: 'amount',
+  ledgerSeq: 'ledgerSeq',
+  eventType: 'eventType',
+  txHash: 'txHash',
+  paid: 'paid',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanEventSnapshotScalarFieldEnum = (typeof SorobanEventSnapshotScalarFieldEnum)[keyof typeof SorobanEventSnapshotScalarFieldEnum]
+
+
+export const SorobanContractSubscriptionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  contractId: 'contractId',
+  topic: 'topic',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SorobanContractSubscriptionScalarFieldEnum = (typeof SorobanContractSubscriptionScalarFieldEnum)[keyof typeof SorobanContractSubscriptionScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -999,6 +1365,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -1057,6 +1432,20 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
  * Reference to a field of type 'Int'
  */
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -1067,6 +1456,20 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 /**
@@ -1226,6 +1629,10 @@ export type GlobalOmitConfig = {
   payment?: Prisma.PaymentOmit
   notificationPreference?: Prisma.NotificationPreferenceOmit
   webhook?: Prisma.WebhookOmit
+  webhookLog?: Prisma.WebhookLogOmit
+  webhookCircuitBreaker?: Prisma.WebhookCircuitBreakerOmit
+  sorobanEventSnapshot?: Prisma.SorobanEventSnapshotOmit
+  sorobanContractSubscription?: Prisma.SorobanContractSubscriptionOmit
 }
 
 /* Types for Logging */

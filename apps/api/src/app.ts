@@ -28,6 +28,7 @@ export const buildApp = async () => {
 
   await app.register(cors, {
     origin: true // Allow all origins for dev, or specify 'http://localhost:3000'
+    
   });
 
   await app.register(rateLimit, {

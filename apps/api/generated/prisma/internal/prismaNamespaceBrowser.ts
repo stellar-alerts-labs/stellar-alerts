@@ -56,7 +56,11 @@ export const ModelName = {
   IngestionCursor: 'IngestionCursor',
   Payment: 'Payment',
   NotificationPreference: 'NotificationPreference',
-  Webhook: 'Webhook'
+  Webhook: 'Webhook',
+  WebhookLog: 'WebhookLog',
+  WebhookCircuitBreaker: 'WebhookCircuitBreaker',
+  SorobanEventSnapshot: 'SorobanEventSnapshot',
+  SorobanContractSubscription: 'SorobanContractSubscription'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -129,7 +133,9 @@ export const NotificationPreferenceScalarFieldEnum = {
   telegramEnabled: 'telegramEnabled',
   emailEnabled: 'emailEnabled',
   whatsappNumber: 'whatsappNumber',
-  whatsappEnabled: 'whatsappEnabled'
+  whatsappEnabled: 'whatsappEnabled',
+  language: 'language',
+  filterRules: 'filterRules'
 } as const
 
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
@@ -147,12 +153,76 @@ export const WebhookScalarFieldEnum = {
 export type WebhookScalarFieldEnum = (typeof WebhookScalarFieldEnum)[keyof typeof WebhookScalarFieldEnum]
 
 
+export const WebhookLogScalarFieldEnum = {
+  id: 'id',
+  webhookId: 'webhookId',
+  statusCode: 'statusCode',
+  responseBody: 'responseBody',
+  error: 'error',
+  sentAt: 'sentAt',
+  createdAt: 'createdAt'
+} as const
+
+export type WebhookLogScalarFieldEnum = (typeof WebhookLogScalarFieldEnum)[keyof typeof WebhookLogScalarFieldEnum]
+
+
+export const WebhookCircuitBreakerScalarFieldEnum = {
+  id: 'id',
+  webhookId: 'webhookId',
+  state: 'state',
+  failureCount: 'failureCount',
+  lastFailureAt: 'lastFailureAt',
+  openedAt: 'openedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WebhookCircuitBreakerScalarFieldEnum = (typeof WebhookCircuitBreakerScalarFieldEnum)[keyof typeof WebhookCircuitBreakerScalarFieldEnum]
+
+
+export const SorobanEventSnapshotScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  from: 'from',
+  to: 'to',
+  amount: 'amount',
+  ledgerSeq: 'ledgerSeq',
+  eventType: 'eventType',
+  txHash: 'txHash',
+  paid: 'paid',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanEventSnapshotScalarFieldEnum = (typeof SorobanEventSnapshotScalarFieldEnum)[keyof typeof SorobanEventSnapshotScalarFieldEnum]
+
+
+export const SorobanContractSubscriptionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  contractId: 'contractId',
+  topic: 'topic',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SorobanContractSubscriptionScalarFieldEnum = (typeof SorobanContractSubscriptionScalarFieldEnum)[keyof typeof SorobanContractSubscriptionScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -169,4 +239,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

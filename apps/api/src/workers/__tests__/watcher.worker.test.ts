@@ -32,6 +32,10 @@ vi.mock('../../lib/queue', () => ({
   enqueuePaymentAlert: vi.fn(),
 }));
 
+vi.mock('../../lib/lock', () => ({
+  withWalletLock: vi.fn(async (_walletId: string, fn: () => Promise<any>) => fn()),
+}));
+
 import { prisma } from '../../lib/prisma';
 import { stellar } from '../../lib/stellar';
 import {

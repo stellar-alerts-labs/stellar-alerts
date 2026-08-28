@@ -7,5 +7,9 @@ build
 dev.db
 *.db
 scripts/
+!scripts/dr-failover.ts
 
 apps/**/.env.local
+
+target/
+Cargo.lock
