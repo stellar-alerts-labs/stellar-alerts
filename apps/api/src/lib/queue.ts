@@ -396,3 +396,6 @@ export async function enqueuePaymentAlert(data: AlertJobData) {
     return null;
   }
 }
+
+export { dispatchPushNotification } from "../utils/push-protocol";
+

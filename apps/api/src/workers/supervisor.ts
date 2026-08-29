@@ -24,13 +24,17 @@ interface SupervisedWorker {
  * Workers run as plain .js under `node` once built (dist/), but as .ts
  * under `tsx` in dev, so the child needs the same tsx loader hooked in via
  * execArgv when running from source.
+ *
+ * --expose-gc is always included so a worker's MemoryMonitor
+ * (utils/memory-monitor.ts) can actually call global.gc() during its
+ * cleanup pass instead of only being able to request a restart.
  */
 function resolveWorkerScript(filename: string): { scriptPath: string; execArgv: string[] } {
   const isTs = __filename.endsWith('.ts');
   const ext = isTs ? '.ts' : '.js';
   return {
     scriptPath: path.join(__dirname, `${filename}${ext}`),
-    execArgv: isTs ? ['--require', 'tsx/cjs'] : [],
+    execArgv: isTs ? ['--require', 'tsx/cjs', '--expose-gc'] : ['--expose-gc'],
   };
 }
 

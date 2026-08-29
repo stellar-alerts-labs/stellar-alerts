@@ -15,6 +15,7 @@ model User {
   webhooks    Webhook[]
   notifyPrefs NotificationPreference?
   sorobanSubscriptions SorobanContractSubscription[]
+  multisigSignerWatches MultisigSignerWatcher[]
 }
 
 model Wallet {
@@ -132,4 +133,59 @@ model SorobanContractSubscription {
   @@unique([userId, contractId, topic])
   @@index([contractId])
   @@index([userId])
+}
+
+// A Stellar multisig account (e.g. a DAO treasury) being watched for pending
+// transactions that need more co-signer approvals.
+model MultisigTreasury {
+  id             String   @id @default(cuid())
+  publicKey      String   @unique
+  label          String?
+  // Which of the account's threshold levels (low/med/high) a tracked
+  // transaction must clear. Most treasury payment/transfer operations use
+  // the medium threshold; callers that track ops requiring a different
+  // level (e.g. signer changes, which use high) can override per-treasury.
+  thresholdLevel String   @default("medium")
+  createdAt      DateTime @default(now())
+  signerWatchers MultisigSignerWatcher[]
+  pendingTxs     PendingMultisigTransaction[]
+}
+
+// Maps one of a treasury's on-chain signer keys to the user who should be
+// notified when that signer's approval is still outstanding.
+model MultisigSignerWatcher {
+  id              String   @id @default(cuid())
+  treasuryId      String
+  treasury        MultisigTreasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signerPublicKey String
+  createdAt       DateTime @default(now())
+
+  @@unique([treasuryId, signerPublicKey])
+  @@index([treasuryId])
+  @@index([userId])
+}
+
+// A treasury transaction envelope collecting co-signer approvals before it
+// can be submitted on-chain.
+model PendingMultisigTransaction {
+  id                String   @id @default(cuid())
+  treasuryId        String
+  treasury          MultisigTreasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  // Hash of the inner transaction (stable across additional signatures being
+  // appended to the same envelope), used to dedupe repeated submissions of
+  // an updated envelope for the same underlying transaction.
+  innerTxHash       String   @unique
+  envelopeXdr       String
+  requiredThreshold Int
+  collectedWeight   Int      @default(0)
+  signedByJson      Json     @default("[]")
+  notifiedJson      Json     @default("[]")
+  status            String   @default("pending") // pending | threshold_met | executed | expired
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([treasuryId])
+  @@index([status])
 }

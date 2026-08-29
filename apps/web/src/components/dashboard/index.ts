@@ -1,3 +1,4 @@
+export * from './DashboardGrid';
 export * from './SummaryStats';
 export * from './WalletList';
 export * from './PaymentTable';

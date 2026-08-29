@@ -170,6 +170,7 @@ export type UserWhereInput = {
   webhooks?: Prisma.WebhookListRelationFilter
   notifyPrefs?: Prisma.XOR<Prisma.NotificationPreferenceNullableScalarRelationFilter, Prisma.NotificationPreferenceWhereInput> | null
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionListRelationFilter
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -180,6 +181,7 @@ export type UserOrderByWithRelationInput = {
   webhooks?: Prisma.WebhookOrderByRelationAggregateInput
   notifyPrefs?: Prisma.NotificationPreferenceOrderByWithRelationInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionOrderByRelationAggregateInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -193,6 +195,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   webhooks?: Prisma.WebhookListRelationFilter
   notifyPrefs?: Prisma.XOR<Prisma.NotificationPreferenceNullableScalarRelationFilter, Prisma.NotificationPreferenceWhereInput> | null
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionListRelationFilter
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -221,6 +224,7 @@ export type UserCreateInput = {
   webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -231,6 +235,7 @@ export type UserUncheckedCreateInput = {
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -241,6 +246,7 @@ export type UserUpdateInput = {
   webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -251,6 +257,7 @@ export type UserUncheckedUpdateInput = {
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -358,6 +365,20 @@ export type UserUpdateOneRequiredWithoutSorobanSubscriptionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSorobanSubscriptionsInput, Prisma.UserUpdateWithoutSorobanSubscriptionsInput>, Prisma.UserUncheckedUpdateWithoutSorobanSubscriptionsInput>
 }
 
+export type UserCreateNestedOneWithoutMultisigSignerWatchesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedCreateWithoutMultisigSignerWatchesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMultisigSignerWatchesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutMultisigSignerWatchesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedCreateWithoutMultisigSignerWatchesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMultisigSignerWatchesInput
+  upsert?: Prisma.UserUpsertWithoutMultisigSignerWatchesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMultisigSignerWatchesInput, Prisma.UserUpdateWithoutMultisigSignerWatchesInput>, Prisma.UserUncheckedUpdateWithoutMultisigSignerWatchesInput>
+}
+
 export type UserCreateWithoutWalletsInput = {
   id?: string
   email: string
@@ -365,6 +386,7 @@ export type UserCreateWithoutWalletsInput = {
   webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWalletsInput = {
@@ -374,6 +396,7 @@ export type UserUncheckedCreateWithoutWalletsInput = {
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWalletsInput = {
@@ -399,6 +422,7 @@ export type UserUpdateWithoutWalletsInput = {
   webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWalletsInput = {
@@ -408,6 +432,7 @@ export type UserUncheckedUpdateWithoutWalletsInput = {
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutNotifyPrefsInput = {
@@ -417,6 +442,7 @@ export type UserCreateWithoutNotifyPrefsInput = {
   wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutNotifyPrefsInput = {
@@ -426,6 +452,7 @@ export type UserUncheckedCreateWithoutNotifyPrefsInput = {
   wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutNotifyPrefsInput = {
@@ -451,6 +478,7 @@ export type UserUpdateWithoutNotifyPrefsInput = {
   wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotifyPrefsInput = {
@@ -460,6 +488,7 @@ export type UserUncheckedUpdateWithoutNotifyPrefsInput = {
   wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWebhooksInput = {
@@ -469,6 +498,7 @@ export type UserCreateWithoutWebhooksInput = {
   wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWebhooksInput = {
@@ -478,6 +508,7 @@ export type UserUncheckedCreateWithoutWebhooksInput = {
   wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWebhooksInput = {
@@ -503,6 +534,7 @@ export type UserUpdateWithoutWebhooksInput = {
   wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWebhooksInput = {
@@ -512,6 +544,7 @@ export type UserUncheckedUpdateWithoutWebhooksInput = {
   wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
   sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSorobanSubscriptionsInput = {
@@ -521,6 +554,7 @@ export type UserCreateWithoutSorobanSubscriptionsInput = {
   wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSorobanSubscriptionsInput = {
@@ -530,6 +564,7 @@ export type UserUncheckedCreateWithoutSorobanSubscriptionsInput = {
   wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSorobanSubscriptionsInput = {
@@ -555,6 +590,7 @@ export type UserUpdateWithoutSorobanSubscriptionsInput = {
   wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSorobanSubscriptionsInput = {
@@ -564,6 +600,63 @@ export type UserUncheckedUpdateWithoutSorobanSubscriptionsInput = {
   wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
   notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutMultisigSignerWatchesInput = {
+  id?: string
+  email: string
+  createdAt?: Date | string
+  wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
+  notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutMultisigSignerWatchesInput = {
+  id?: string
+  email: string
+  createdAt?: Date | string
+  wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
+  notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutMultisigSignerWatchesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedCreateWithoutMultisigSignerWatchesInput>
+}
+
+export type UserUpsertWithoutMultisigSignerWatchesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedUpdateWithoutMultisigSignerWatchesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedCreateWithoutMultisigSignerWatchesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutMultisigSignerWatchesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutMultisigSignerWatchesInput, Prisma.UserUncheckedUpdateWithoutMultisigSignerWatchesInput>
+}
+
+export type UserUpdateWithoutMultisigSignerWatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
+  notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutMultisigSignerWatchesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
+  notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -575,12 +668,14 @@ export type UserCountOutputType = {
   wallets: number
   webhooks: number
   sorobanSubscriptions: number
+  multisigSignerWatches: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   wallets?: boolean | UserCountOutputTypeCountWalletsArgs
   webhooks?: boolean | UserCountOutputTypeCountWebhooksArgs
   sorobanSubscriptions?: boolean | UserCountOutputTypeCountSorobanSubscriptionsArgs
+  multisigSignerWatches?: boolean | UserCountOutputTypeCountMultisigSignerWatchesArgs
 }
 
 /**
@@ -614,6 +709,13 @@ export type UserCountOutputTypeCountSorobanSubscriptionsArgs<ExtArgs extends run
   where?: Prisma.SorobanContractSubscriptionWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountMultisigSignerWatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MultisigSignerWatcherWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -623,6 +725,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   webhooks?: boolean | Prisma.User$webhooksArgs<ExtArgs>
   notifyPrefs?: boolean | Prisma.User$notifyPrefsArgs<ExtArgs>
   sorobanSubscriptions?: boolean | Prisma.User$sorobanSubscriptionsArgs<ExtArgs>
+  multisigSignerWatches?: boolean | Prisma.User$multisigSignerWatchesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -650,6 +753,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   webhooks?: boolean | Prisma.User$webhooksArgs<ExtArgs>
   notifyPrefs?: boolean | Prisma.User$notifyPrefsArgs<ExtArgs>
   sorobanSubscriptions?: boolean | Prisma.User$sorobanSubscriptionsArgs<ExtArgs>
+  multisigSignerWatches?: boolean | Prisma.User$multisigSignerWatchesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -662,6 +766,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     webhooks: Prisma.$WebhookPayload<ExtArgs>[]
     notifyPrefs: Prisma.$NotificationPreferencePayload<ExtArgs> | null
     sorobanSubscriptions: Prisma.$SorobanContractSubscriptionPayload<ExtArgs>[]
+    multisigSignerWatches: Prisma.$MultisigSignerWatcherPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1065,6 +1170,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   webhooks<T extends Prisma.User$webhooksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$webhooksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WebhookPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notifyPrefs<T extends Prisma.User$notifyPrefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notifyPrefsArgs<ExtArgs>>): Prisma.Prisma__NotificationPreferenceClient<runtime.Types.Result.GetResult<Prisma.$NotificationPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   sorobanSubscriptions<T extends Prisma.User$sorobanSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sorobanSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SorobanContractSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  multisigSignerWatches<T extends Prisma.User$multisigSignerWatchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$multisigSignerWatchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MultisigSignerWatcherPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1578,6 +1684,30 @@ export type User$sorobanSubscriptionsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.SorobanContractSubscriptionScalarFieldEnum | Prisma.SorobanContractSubscriptionScalarFieldEnum[]
+}
+
+/**
+ * User.multisigSignerWatches
+ */
+export type User$multisigSignerWatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MultisigSignerWatcher
+   */
+  select?: Prisma.MultisigSignerWatcherSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MultisigSignerWatcher
+   */
+  omit?: Prisma.MultisigSignerWatcherOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MultisigSignerWatcherInclude<ExtArgs> | null
+  where?: Prisma.MultisigSignerWatcherWhereInput
+  orderBy?: Prisma.MultisigSignerWatcherOrderByWithRelationInput | Prisma.MultisigSignerWatcherOrderByWithRelationInput[]
+  cursor?: Prisma.MultisigSignerWatcherWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MultisigSignerWatcherScalarFieldEnum | Prisma.MultisigSignerWatcherScalarFieldEnum[]
 }
 
 /**

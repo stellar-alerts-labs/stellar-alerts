@@ -183,35 +183,148 @@ function logPaymentsError(publicKey: string, error: any) {
   console.error(`[Stellar] Error fetching payments for account ${publicKey}:`, error?.message || error);
 }
 
+export interface MultisigSigner {
+  key: string;
+  weight: number;
+}
+
+export interface MultisigThresholds {
+  low: number;
+  medium: number;
+  high: number;
+}
+
+export type MultisigThresholdLevel = 'low' | 'medium' | 'high';
+
+export interface MultisigSignatureProgress {
+  requiredThreshold: number;
+  collectedWeight: number;
+  /** Public keys of known signers whose signature was found and verified. */
+  signedBy: string[];
+  /** Known signers who have not yet contributed a valid signature. */
+  remainingSigners: MultisigSigner[];
+  thresholdMet: boolean;
+  totalSigners: number;
+  /** Count of signatures in the envelope matched to a known signer and verified. */
+  validSignatureCount: number;
+  /** Count of signatures in the envelope that could not be matched/verified against any known signer. */
+  invalidSignatureCount: number;
+}
+
 /**
- * Opens a live Horizon Server-Sent Events payment stream for `publicKey`,
- * resuming from `cursor` (a Horizon paging token). `onmessage` fires for every
- * new payment as soon as the ledger closes; `onerror` fires on connection
- * errors. Returns a closable handle that tears down the underlying EventSource.
+ * Counts how much of a Stellar multisig account's signing weight a
+ * (possibly partially-signed) transaction envelope has collected so far,
+ * and which of the account's known signers still need to add theirs.
+ *
+ * Each signature in the envelope is matched to a candidate signer by its
+ * 4-byte hint and then cryptographically verified against the transaction
+ * hash — a hint match alone doesn't prove authorship (hint collisions,
+ * while rare, are possible), so only a verified signature counts toward
+ * the threshold. Non-ed25519 signers (sha256-hash / pre-authorized
+ * transaction signers) can't be matched against a normal signature this
+ * way and are simply treated as not-yet-signed; they still count toward
+ * `remainingSigners`.
+ *
+ * `thresholdLevel` selects which of the account's three threshold tiers
+ * (low/medium/high) the transaction must clear — most payment/transfer
+ * operations require "medium"; operations that change signers or account
+ * options require "high".
  */
-export function openPaymentStream(
-  publicKey: string,
-  cursor: string,
-  handlers: { onmessage: (record: any) => void; onerror: (error: any) => void }
-): () => void {
-  if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
-    console.warn(`[Stellar] Not opening SSE stream for invalid public key: "${publicKey}"`);
-    return () => {};
+export function countMultisigSignatures(
+  envelopeXdr: string,
+  signers: MultisigSigner[],
+  thresholds: MultisigThresholds,
+  networkPassphrase: string,
+  thresholdLevel: MultisigThresholdLevel = 'medium'
+): MultisigSignatureProgress {
+  const parsed = StellarSdk.TransactionBuilder.fromXDR(envelopeXdr, networkPassphrase);
+  const tx = 'innerTransaction' in parsed ? parsed.innerTransaction : parsed;
+  const txHash = tx.hash();
+
+  const requiredThreshold =
+    thresholdLevel === 'low'
+      ? thresholds.low
+      : thresholdLevel === 'high'
+        ? thresholds.high
+        : thresholds.medium;
+
+  const signedBy = new Set<string>();
+  let invalidSignatureCount = 0;
+
+  for (const decoratedSig of tx.signatures) {
+    const hint = decoratedSig.hint();
+    const rawSignature = decoratedSig.signature();
+    let matched = false;
+
+    for (const signer of signers) {
+      if (signedBy.has(signer.key)) continue;
+
+      let keypair: StellarSdk.Keypair;
+      try {
+        keypair = StellarSdk.Keypair.fromPublicKey(signer.key);
+      } catch {
+        continue; // not an ed25519 signer key — can't verify a standard signature against it
+      }
+
+      if (!keypair.signatureHint().equals(hint)) continue;
+
+      if (keypair.verify(txHash, rawSignature)) {
+        signedBy.add(signer.key);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) invalidSignatureCount++;
   }
 
-  return server
-    .payments()
-    .forAccount(publicKey)
-    .cursor(cursor)
-    .stream({
-      onmessage: handlers.onmessage,
-      onerror: handlers.onerror,
-    });
+  const collectedWeight = signers
+    .filter((s) => signedBy.has(s.key))
+    .reduce((sum, s) => sum + s.weight, 0);
+
+  const remainingSigners = signers.filter((s) => !signedBy.has(s.key));
+
+  return {
+    requiredThreshold,
+    collectedWeight,
+    signedBy: Array.from(signedBy),
+    remainingSigners,
+    thresholdMet: collectedWeight >= requiredThreshold,
+    totalSigners: signers.length,
+    validSignatureCount: signedBy.size,
+    invalidSignatureCount,
+  };
 }
 
 export const stellar = {
   server,
-  openPaymentStream,
+
+  // Fetches an account's current signer list and multisig thresholds from
+  // Horizon. Returns null for an invalid public key or if the account
+  // cannot be loaded (e.g. not yet funded on this network).
+  async getAccountSigners(
+    publicKey: string
+  ): Promise<{ signers: MultisigSigner[]; thresholds: MultisigThresholds } | null> {
+    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+      console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
+      return null;
+    }
+
+    try {
+      const account = await server.loadAccount(publicKey);
+      return {
+        signers: account.signers.map((s) => ({ key: s.key, weight: s.weight })),
+        thresholds: {
+          low: account.thresholds.low_threshold,
+          medium: account.thresholds.med_threshold,
+          high: account.thresholds.high_threshold,
+        },
+      };
+    } catch (error: any) {
+      console.error(`[Stellar] Error fetching signers for account ${publicKey}:`, error?.message || error);
+      return null;
+    }
+  },
   // Helper to fetch recent payments for a given account
   async getRecentPayments(publicKey: string, limit: number = 10) {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {

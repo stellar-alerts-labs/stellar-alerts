@@ -1,5 +1,10 @@
 import * as StellarSdk from "stellar-sdk";
 import { prisma } from "./prisma";
+import {
+  hashMerkleLeaf,
+  verifyMerkleProof,
+  MerkleProofStep,
+} from "../utils/merkle-verifier";
 
 const SOROBAN_RPC_URL =
   process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
@@ -149,6 +154,50 @@ export function getContractSubscriberCount(contractId: string): number {
 /**
  * Fetches latest ledger sequence from Soroban RPC endpoint.
  */
+export interface SorobanContractStateProofInput {
+  /** Base64-encoded XDR of the ledger entry's key (xdr.LedgerKey). */
+  ledgerKeyXdr: string;
+  /** Base64-encoded XDR of the ledger entry's value (xdr.LedgerEntryData). */
+  ledgerEntryXdr: string;
+  /** Inclusion proof path from the entry's leaf hash up to the ledger's state root. */
+  proof: MerkleProofStep[];
+  /**
+   * Hex-encoded state root to verify against — the target ledger header's
+   * bucketListHash (xdr.LedgerHeader.bucketListHash), the Stellar protocol's
+   * cryptographic commitment to the full ledger state at that ledger.
+   */
+  ledgerStateRoot: string;
+}
+
+/**
+ * Computes the canonical Merkle leaf hash for a Soroban contract storage
+ * entry: the SHA-256 (leaf-domain-separated) hash of its key XDR
+ * concatenated with its value XDR. Binding both means the proof commits to
+ * the *exact* stored value, not just the fact that some value exists for
+ * that key.
+ */
+export function hashSorobanLedgerEntry(ledgerKeyXdr: string, ledgerEntryXdr: string): string {
+  const keyBytes = Buffer.from(ledgerKeyXdr, "base64");
+  const entryBytes = Buffer.from(ledgerEntryXdr, "base64");
+  return hashMerkleLeaf(Buffer.concat([keyBytes, entryBytes]));
+}
+
+/**
+ * Cryptographically verifies that a Soroban contract storage entry is
+ * included in a ledger's state, given an inclusion proof and that ledger's
+ * state root — without needing to run a full node. Never throws: any
+ * malformed input (bad base64/XDR, malformed proof, wrong root format)
+ * simply fails verification.
+ */
+export function verifySorobanContractStateProof(input: SorobanContractStateProofInput): boolean {
+  try {
+    const leafHash = hashSorobanLedgerEntry(input.ledgerKeyXdr, input.ledgerEntryXdr);
+    return verifyMerkleProof({ leafHash, path: input.proof }, input.ledgerStateRoot);
+  } catch {
+    return false;
+  }
+}
+
 export async function getSorobanLatestLedger(): Promise<number> {
   try {
     const health = await sorobanServer.getLatestLedger();

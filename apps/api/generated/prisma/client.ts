@@ -89,3 +89,18 @@ export type SorobanEventSnapshot = Prisma.SorobanEventSnapshotModel
  * 
  */
 export type SorobanContractSubscription = Prisma.SorobanContractSubscriptionModel
+/**
+ * Model MultisigTreasury
+ * 
+ */
+export type MultisigTreasury = Prisma.MultisigTreasuryModel
+/**
+ * Model MultisigSignerWatcher
+ * 
+ */
+export type MultisigSignerWatcher = Prisma.MultisigSignerWatcherModel
+/**
+ * Model PendingMultisigTransaction
+ * 
+ */
+export type PendingMultisigTransaction = Prisma.PendingMultisigTransactionModel
