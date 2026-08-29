@@ -9,6 +9,7 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
 import { webhooksRoutes } from './modules/webhooks/webhooks.routes';
+import { notificationsRoutes } from './modules/notifications/notifications.routes';
 import { requestLinkSchema, verifyLinkSchema } from './modules/auth/auth.schema';
 import { createWalletSchema } from './modules/wallets/wallets.schema';
 import { createWebhookSchema } from './modules/webhooks/webhooks.schema';
@@ -71,6 +72,7 @@ export const buildApp = async () => {
   app.register(walletsRoutes);
   app.register(paymentsRoutes);
   app.register(webhooksRoutes);
+  app.register(notificationsRoutes);
 
   return app;
 };
