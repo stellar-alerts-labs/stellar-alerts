@@ -6,6 +6,8 @@
     "build": "tsc",
     "dev": "tsx watch --env-file=.env src/server.ts",
     "dev:worker": "tsx watch --env-file=.env src/workers/watcher.worker.ts",
+    "dev:indexer": "tsx watch --env-file=.env src/workers/soroban-indexer.worker.ts",
+    "indexer:benchmark": "tsx --env-file=.env src/workers/soroban-indexer.worker.ts benchmark",
     "dev:supervisor": "tsx --env-file=.env src/workers/supervisor.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

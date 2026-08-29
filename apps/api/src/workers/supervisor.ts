@@ -135,6 +135,10 @@ export function startSupervisor(): WorkerSupervisor {
     supervisor.spawn('soroban-rent', 'soroban-rent.worker');
   }
 
+  if (env.SOROBAN_INDEXER_WORKER_ENABLED === 'true') {
+    supervisor.spawn('soroban-indexer', 'soroban-indexer.worker');
+  }
+
   return supervisor;
 }
 

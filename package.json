@@ -11,6 +11,8 @@
     "dev": "turbo dev",
     "dev:api": "npm run dev --workspace=api",
     "dev:worker": "npm run dev:worker --workspace=api",
+    "dev:indexer": "npm run dev:indexer --workspace=api",
+    "indexer:benchmark": "npm run indexer:benchmark --workspace=api",
     "dev:reporting": "npm run dev:reporting --workspace=api",
     "dev:web": "npm run dev --workspace=web",
     "dev:collab": "npm run dev:collab --workspace=web",
