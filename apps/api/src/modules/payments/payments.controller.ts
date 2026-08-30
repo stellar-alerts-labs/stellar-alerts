@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { generateTaxExportCsv } from '../../utils/tax-exporter';
 import { paymentsService } from './payments.service';
 
 const getPaymentsSchema = z.object({
@@ -12,6 +13,11 @@ const getPaymentsSchema = z.object({
 const getSummarySchema = z.object({
   walletId: z.string().optional(),
   fiat: z.string().optional(),
+});
+
+const getTaxExportSchema = z.object({
+  walletId: z.string().optional(),
+  format: z.enum(['cointracker', 'koinly', 'irs8949']).optional().default('cointracker'),
 });
 
 export class PaymentsController {
@@ -47,6 +53,35 @@ export class PaymentsController {
       parsed.data.fiat,
     );
     return reply.send({ success: true, summary });
+  }
+
+  async getTaxExport(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = getTaxExportSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
+    }
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    }
+
+    const payments = await paymentsService.getPayments(request.user.id, parsed.data.walletId, 5000);
+    const csv = generateTaxExportCsv(
+      payments.map((payment) => ({
+        date: payment.receivedAt,
+        asset: payment.asset,
+        quantity: payment.amount.toString(),
+        usdValue: payment.amount.toString(),
+        type: 'receive',
+        txHash: payment.txHash,
+        fromAddress: payment.fromAddress,
+      })),
+      parsed.data.format,
+    );
+
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="tax-export-${parsed.data.format}.csv"`)
+      .send(csv);
   }
 }
 

@@ -7,4 +7,5 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   app.get('/payments', paymentsController.getPayments.bind(paymentsController));
   app.get('/payments/summary', paymentsController.getPaymentsSummary.bind(paymentsController));
+  app.get('/payments/tax-export', paymentsController.getTaxExport.bind(paymentsController));
 }
