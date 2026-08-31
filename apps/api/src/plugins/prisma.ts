@@ -1,10 +1,12 @@
 import fp from 'fastify-plugin';
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
+import { createReadReplicaRouter, ReadReplicaRouter } from '../lib/prisma-read-replica';
 
 declare module 'fastify' {
   interface FastifyInstance {
     prisma: typeof prisma;
+    readReplicaRouter: ReadReplicaRouter;
   }
 }
 
@@ -19,10 +21,21 @@ export default fp(async (server: FastifyInstance) => {
     throw error;
   }
 
+  // Initialize read replica router
+  const readReplicaRouter = createReadReplicaRouter();
+  try {
+    await readReplicaRouter.connect();
+    server.log.info('🔌 Read replica router initialized');
+  } catch (error) {
+    server.log.warn({ err: error }, '⚠️ Read replica initialization failed, using primary for all queries');
+  }
+
   server.decorate('prisma', prisma);
+  server.decorate('readReplicaRouter', readReplicaRouter);
 
   server.addHook('onClose', async () => {
+    await readReplicaRouter.disconnect();
     await prisma.$disconnect();
-    server.log.info('🔌 Database connection closed.');
+    server.log.info('🔌 Database connections closed.');
   });
 });

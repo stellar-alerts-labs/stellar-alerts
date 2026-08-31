@@ -9,12 +9,23 @@ import {
   parseSorobanTransferEvent,
   routeEventToUsers,
 } from '../lib/soroban';
-import { registerSupervisorHeartbeat } from './supervisor';
 import { withWalletLock } from '../lib/lock';
 import { shouldAlert, PaymentContext } from '../lib/rules-engine';
 import { MemoryMonitor, MemorySnapshot } from '../utils/memory-monitor';
 
 
+
+/**
+ * Replies to the supervisor's IPC pings so the worker is not considered
+ * frozen and killed (see workers/supervisor.ts heartbeat logic).
+ */
+function registerSupervisorHeartbeat() {
+  process.on('message', (message: any) => {
+    if (message?.type === 'ping') {
+      process.send?.({ type: 'pong' });
+    }
+  });
+}
 
 export async function processPaymentRecord(
   wallet: { id: string; publicKey: string; userId?: string },
@@ -185,7 +196,6 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
 
     if (records.length < CURSOR_PAGE_SIZE) return;
   }
-
   console.warn(
     `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`,
   );
