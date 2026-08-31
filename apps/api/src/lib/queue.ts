@@ -332,13 +332,49 @@ export const paymentAlertWorkerProcessor = async (job: { data: AlertJobData }) =
   return resendData;
 };
 
-try {
-  const connection = {
+export function createRedisConnectionConfig() {
+  const sentinelsRaw = process.env.REDIS_SENTINELS;
+  const masterName = process.env.REDIS_SENTINEL_MASTER_NAME || "mymaster";
+  const sentinelPassword = process.env.REDIS_SENTINEL_PASSWORD;
+
+  if (sentinelsRaw) {
+    const sentinels = sentinelsRaw.split(',').map((s) => {
+      const parts = s.trim().split(':');
+      return { host: parts[0] || 'localhost', port: parseInt(parts[1] || '26379', 10) };
+    });
+
+    console.log(`[Queue] 🛡️ Configuring Redis Sentinel failover with master "${masterName}" across ${sentinels.length} sentinel(s)`);
+
+    return {
+      sentinels,
+      name: masterName,
+      sentinelPassword,
+      role: 'master',
+      enableReadyCheck: false,
+      maxRetriesPerRequest: null,
+      retryStrategy: (times: number) => Math.min(times * 100, 3000),
+      reconnectOnError: (err: Error) => {
+        if (err.message && err.message.includes('READONLY')) {
+          console.warn('[Queue] ⚡ Master promoted during Sentinel failover (READONLY received), reconnecting...');
+          return true;
+        }
+        return false;
+      },
+    };
+  }
+
+  const redisHost = process.env.REDIS_HOST || "localhost";
+  const redisPort = parseInt(process.env.REDIS_PORT || "6379", 10);
+  return {
     host: redisHost,
     port: redisPort,
     lazyConnect: true,
-    maxRetriesPerRequest: 1,
+    maxRetriesPerRequest: null,
   };
+}
+
+try {
+  const connection = createRedisConnectionConfig() as any;
 
   alertQueue = new Queue<AlertJobData>("payment-alerts", {
     connection,

@@ -14,7 +14,8 @@ function mockPaymentsChain(records: unknown[] = []) {
     call: vi.fn().mockResolvedValue({ records }),
   };
   const spy = vi.spyOn(stellar.server, 'payments').mockReturnValue(chain as any);
-  return { chain, spy };
+  const multiSpy = vi.spyOn(stellar.multiNode.servers[0], 'payments').mockReturnValue(chain as any);
+  return { chain, spy, multiSpy };
 }
 
 describe('stellar.getRecentPayments / getPaymentsSince (StrKey guard)', () => {
@@ -77,14 +78,86 @@ describe('stellar.getRecentPayments / getPaymentsSince (StrKey guard)', () => {
 
   it('getPaymentsSince queries Horizon for a valid public key', async () => {
     const record = { id: '2', paging_token: '2' };
-    const { chain, spy } = mockPaymentsChain([record]);
+    const { chain, spy, multiSpy } = mockPaymentsChain([record]);
 
     const result = await stellar.getPaymentsSince(validPublicKey, '100', 50);
 
-    expect(spy).toHaveBeenCalled();
+    expect(multiSpy).toHaveBeenCalled();
     expect(chain.forAccount).toHaveBeenCalledWith(validPublicKey);
     expect(chain.cursor).toHaveBeenCalledWith('100');
     expect(result).toEqual([record]);
+  });
+});
+
+describe('MultiNodeHorizonClient failover & deduplication', () => {
+  const validPublicKey = StellarSdk.Keypair.random().publicKey();
+
+  it('fails over to secondary node if primary node fails', async () => {
+    const { MultiNodeHorizonClient } = await import('./stellar');
+    const client = new MultiNodeHorizonClient(['https://node1.example.com', 'https://node2.example.com']);
+
+    vi.spyOn(client.servers[0], 'payments').mockImplementation(() => {
+      throw new Error('Primary node network timeout');
+    });
+
+    const record = { id: 'multi-1', paging_token: '100' };
+    const chain2 = {
+      forAccount: vi.fn().mockReturnThis(),
+      cursor: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      call: vi.fn().mockResolvedValue({ records: [record] }),
+    };
+    vi.spyOn(client.servers[1], 'payments').mockReturnValue(chain2 as any);
+
+    const records = await client.getPaymentsSince(validPublicKey, '0', 50);
+    expect(records).toEqual([record]);
+  });
+
+  it('deduplicates incoming records across concurrent multi-node SSE streams', async () => {
+    const { MultiNodeHorizonClient } = await import('./stellar');
+    const client = new MultiNodeHorizonClient(['https://node1.example.com', 'https://node2.example.com']);
+
+    let streamHandler1: any;
+    let streamHandler2: any;
+
+    vi.spyOn(client.servers[0], 'payments').mockReturnValue({
+      forAccount: () => ({
+        cursor: () => ({
+          stream: ({ onmessage }: any) => {
+            streamHandler1 = onmessage;
+            return () => {};
+          },
+        }),
+      }),
+    } as any);
+
+    vi.spyOn(client.servers[1], 'payments').mockReturnValue({
+      forAccount: () => ({
+        cursor: () => ({
+          stream: ({ onmessage }: any) => {
+            streamHandler2 = onmessage;
+            return () => {};
+          },
+        }),
+      }),
+    } as any);
+
+    const received: any[] = [];
+    client.streamPaymentsMultiNode(
+      validPublicKey,
+      '0',
+      (record) => {
+        received.push(record);
+      }
+    );
+
+    const record = { id: 'dup-1', paging_token: '12345', type: 'payment' };
+    await streamHandler1(record);
+    await streamHandler2(record);
+
+    expect(received.length).toBe(1);
+    expect(received[0].id).toBe('dup-1');
   });
 });
 
