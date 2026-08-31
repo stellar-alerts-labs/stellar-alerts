@@ -19,6 +19,9 @@ const envSchema = z.object({
   SOROBAN_RENT_RENEWAL_THRESHOLD: z.string().optional().default("5000"),
   SOROBAN_RENT_TARGET_TTL: z.string().optional().default("10000"),
   SOROBAN_RENT_MAX_CONCURRENCY: z.string().optional().default("5"),
+  OTEL_SERVICE_NAME: z.string().optional().default("stellar-alerts-api"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional().default("http://localhost:4318/v1/traces"),
+  OTEL_TRACES_SAMPLER: z.string().optional().default("always_on"),
 });
 
 const parseEnv = () => {
@@ -37,6 +40,9 @@ const parseEnv = () => {
     SOROBAN_RENT_RENEWAL_THRESHOLD: process.env.SOROBAN_RENT_RENEWAL_THRESHOLD || "5000",
     SOROBAN_RENT_TARGET_TTL: process.env.SOROBAN_RENT_TARGET_TTL || "10000",
     SOROBAN_RENT_MAX_CONCURRENCY: process.env.SOROBAN_RENT_MAX_CONCURRENCY || "5",
+    OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME,
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    OTEL_TRACES_SAMPLER: process.env.OTEL_TRACES_SAMPLER,
   };
 
   const parsed = envSchema.safeParse(envInput);
@@ -64,6 +70,9 @@ const parseEnv = () => {
     SOROBAN_RENT_RENEWAL_THRESHOLD: "5000",
     SOROBAN_RENT_TARGET_TTL: "10000",
     SOROBAN_RENT_MAX_CONCURRENCY: "5",
+    OTEL_SERVICE_NAME: "stellar-alerts-api",
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
+    OTEL_TRACES_SAMPLER: "always_on",
   };
 };
 

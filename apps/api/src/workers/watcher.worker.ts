@@ -13,6 +13,9 @@ import { registerSupervisorHeartbeat } from './supervisor';
 import { withWalletLock } from '../lib/lock';
 import { shouldAlert, PaymentContext } from '../lib/rules-engine';
 import { MemoryMonitor, MemorySnapshot } from '../utils/memory-monitor';
+import { trace, SpanStatusCode, TraceFlags } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('watcher-worker');
 
 
 
@@ -20,104 +23,117 @@ export async function processPaymentRecord(
   wallet: { id: string; publicKey: string; userId?: string },
   record: any
 ) {
-  let amount: string | undefined;
-  let asset: string = "XLM";
-  let assetIssuer: string | null = null;
-  let fromAddress: string = '';
-  let memo: string | null = null;
-  const txHash: string = record.transaction_hash || record.hash || '';
-  const receivedAt: Date = new Date(record.created_at || Date.now());
+  return tracer.startActiveSpan('watcher.processPaymentRecord', async (span) => {
+    try {
+      let amount: string | undefined;
+      let asset: string = "XLM";
+      let assetIssuer: string | null = null;
+      let fromAddress: string = '';
+      let memo: string | null = null;
+      const txHash: string = record.transaction_hash || record.hash || '';
+      const receivedAt: Date = new Date(record.created_at || Date.now());
 
-  if (record.type === "payment") {
-    const decodedAsset = decodeHorizonAsset(record);
-    amount = record.amount;
-    asset = decodedAsset.assetCode;
-    assetIssuer = decodedAsset.assetIssuer;
-    fromAddress = record.from || '';
-    memo = record.memo || null;
-  } else if (record.type === 'create_account') {
-    amount = record.starting_balance;
-    asset = "XLM";
-    assetIssuer = null;
-    fromAddress = record.funder || "";
-  } else {
-    const sacTransfer = parseSacTransferEvent(record);
-    if (!sacTransfer) return;
+      if (record.type === "payment") {
+        const decodedAsset = decodeHorizonAsset(record);
+        amount = record.amount;
+        asset = decodedAsset.assetCode;
+        assetIssuer = decodedAsset.assetIssuer;
+        fromAddress = record.from || '';
+        memo = record.memo || null;
+      } else if (record.type === 'create_account') {
+        amount = record.starting_balance;
+        asset = "XLM";
+        assetIssuer = null;
+        fromAddress = record.funder || "";
+      } else {
+        const sacTransfer = parseSacTransferEvent(record);
+        if (!sacTransfer) {
+          span.end();
+          return;
+        }
 
-    amount = sacTransfer.amount;
-    asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? "Unknown";
-    assetIssuer = sacTransfer.assetIssuer;
-    fromAddress = sacTransfer.from;
-  }
+        amount = sacTransfer.amount;
+        asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? "Unknown";
+        assetIssuer = sacTransfer.assetIssuer;
+        fromAddress = sacTransfer.from;
+      }
 
-  if (!amount || !txHash) return;
+      if (!amount || !txHash) {
+        span.end();
+        return;
+      }
 
-  // Deduplicate check
-  const existing = await prisma.payment.findUnique({ where: { txHash } });
-  if (!existing) {
-    console.log(
-      `[WatcherWorker] 💰 New ${record.type} detected for wallet (${wallet.publicKey.substring(
-        0,
-        8,
-      )}...): ${amount} ${asset}`,
-    );
+      span.setAttribute('payment.txHash', txHash);
+      span.setAttribute('payment.walletId', wallet.id);
+      span.setAttribute('payment.asset', asset);
 
-    const payment = await prisma.payment.create({
-      data: {
-        walletId: wallet.id,
-        txHash,
-        fromAddress,
-        amount: Number(amount),
-        asset,
-        assetIssuer,
-        memo,
-        receivedAt,
-      },
-    });
+      const existing = await prisma.payment.findUnique({ where: { txHash } });
+      if (!existing) {
+        const payment = await prisma.payment.create({
+          data: {
+            walletId: wallet.id,
+            txHash,
+            fromAddress,
+            amount: Number(amount),
+            asset,
+            assetIssuer,
+            memo,
+            receivedAt,
+          },
+        });
 
-    // Apply filter rules to determine if we should alert
-    let shouldSendAlert = true;
-    
-    if (wallet.userId) {
-      const notifyPrefs = await prisma.notificationPreference.findUnique({
-        where: { userId: wallet.userId },
-      });
+        let shouldSendAlert = true;
 
-      if ((notifyPrefs as any)?.filterRules) {
-        const paymentContext: PaymentContext = {
-          amount: Number(amount),
-          asset,
-          fromAddress,
-          memo,
-        };
-        
-        shouldSendAlert = shouldAlert((notifyPrefs as any)?.filterRules, paymentContext);
-        
-        if (!shouldSendAlert) {
-          console.log(
-            `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
-              0,
-              8
-            )}...): ${amount} ${asset}`
-          );
+        if (wallet.userId) {
+          const notifyPrefs = await prisma.notificationPreference.findUnique({
+            where: { userId: wallet.userId },
+          });
+
+          if ((notifyPrefs as any)?.filterRules) {
+            const paymentContext: PaymentContext = {
+              amount: Number(amount),
+              asset,
+              fromAddress,
+              memo,
+            };
+
+            shouldSendAlert = shouldAlert((notifyPrefs as any)?.filterRules, paymentContext);
+
+            if (!shouldSendAlert) {
+              console.log(
+                `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
+                  0,
+                  8
+                )}...): ${amount} ${asset}`
+              );
+            }
+          }
+        }
+
+        if (shouldSendAlert) {
+          await enqueuePaymentAlert({
+            paymentId: payment.id,
+            txHash,
+            walletId: wallet.id,
+            amount,
+            asset,
+            assetIssuer,
+            fromAddress,
+            receivedAt: receivedAt.toISOString(),
+          });
+          span.setAttribute('payment.enqueued', true);
+        } else {
+          span.setAttribute('payment.enqueued', false);
         }
       }
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      throw err;
+    } finally {
+      span.end();
     }
-
-    // Enqueue off-chain alert dispatch job to BullMQ queue only if rules pass
-    if (shouldSendAlert) {
-      await enqueuePaymentAlert({
-        paymentId: payment.id,
-        txHash,
-        walletId: wallet.id,
-        amount,
-        asset,
-        assetIssuer,
-        fromAddress,
-        receivedAt: receivedAt.toISOString(),
-      });
-    }
-  }
+  });
 }
 
 // Number of operations pulled from Horizon per cursor page
@@ -160,89 +176,125 @@ export async function ensureCursor(wallet: {
 }
 
 export async function processWalletPayments(wallet: { id: string; publicKey: string; userId?: string }) {
-  if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
-    console.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
-    return;
-  }
-
-  let cursor = await ensureCursor(wallet);
-
-  for (let page = 0; page < MAX_CATCHUP_PAGES; page++) {
-    const records = (await stellar.getPaymentsSince(
-      wallet.publicKey,
-      cursor,
-      CURSOR_PAGE_SIZE,
-    )) as any[];
-    if (records.length === 0) return;
-
-    for (const record of records) {
-      await processPaymentRecord(wallet, record);
-      if (record.paging_token) {
-        cursor = record.paging_token;
-        await saveCursor(wallet.id, cursor);
+  return tracer.startActiveSpan('watcher.processWalletPayments', async (span) => {
+    try {
+      if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
+        console.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return;
       }
+
+      span.setAttribute('wallet.id', wallet.id);
+      span.setAttribute('wallet.publicKey', wallet.publicKey);
+
+      let cursor = await ensureCursor(wallet);
+
+      for (let page = 0; page < MAX_CATCHUP_PAGES; page++) {
+        const records = (await stellar.getPaymentsSince(
+          wallet.publicKey,
+          cursor,
+          CURSOR_PAGE_SIZE,
+        )) as any[];
+        if (records.length === 0) {
+          span.setStatus({ code: SpanStatusCode.OK });
+          span.end();
+          return;
+        }
+
+        for (const record of records) {
+          await processPaymentRecord(wallet, record);
+          if (record.paging_token) {
+            cursor = record.paging_token;
+            await saveCursor(wallet.id, cursor);
+          }
+        }
+
+        if (records.length < CURSOR_PAGE_SIZE) {
+          span.setStatus({ code: SpanStatusCode.OK });
+          span.end();
+          return;
+        }
+      }
+
+      console.warn(
+        `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`,
+      );
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      span.end();
+      throw err;
     }
-
-    if (records.length < CURSOR_PAGE_SIZE) return;
-  }
-
-  console.warn(
-    `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`,
-  );
+  });
 }
 
 export async function startHorizonSSEStream(wallet: { id: string; publicKey: string; userId?: string }) {
-  console.log(`[WatcherWorker] 📡 Opening Multi-Node Horizon SSE payment streams for wallet ${wallet.publicKey.substring(0, 8)}...`);
+  return tracer.startActiveSpan('watcher.startHorizonSSEStream', async (span) => {
+    try {
+      console.log(`[WatcherWorker] 📡 Opening Horizon SSE payment stream for wallet ${wallet.publicKey.substring(0, 8)}...`);
 
-  let timeoutId: NodeJS.Timeout;
-  let closeStream: (() => void) | undefined;
+      let timeoutId: NodeJS.Timeout;
+      let closeStream: (() => void) | undefined;
 
-  const resetHeartbeat = () => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-      console.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting multi-node cluster...`);
-      if (closeStream) closeStream();
-      startHorizonSSEStream(wallet);
-    }, 60000);
-  };
+      const resetHeartbeat = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          console.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting...`);
+          if (closeStream) closeStream();
+          startHorizonSSEStream(wallet);
+        }, 60000);
+      };
 
-  try {
-    const cursor = await ensureCursor(wallet);
-    resetHeartbeat();
-
-    closeStream = stellar.multiNode.streamPaymentsMultiNode(
-      wallet.publicKey,
-      cursor,
-      async (record: any, nodeUrl: string) => {
+      try {
+        const cursor = await ensureCursor(wallet);
         resetHeartbeat();
-        console.log(
-          `[WatcherStream] ⚡ Live SSE stream message received from ${nodeUrl}: ${record.type}`,
-        );
-        await processPaymentRecord(wallet, record);
-        if (record.paging_token) {
-          await saveCursor(wallet.id, record.paging_token);
-        }
-      },
-      (error: any, nodeUrl: string) => {
-        console.warn(
-          `[WatcherStream] SSE stream error on node ${nodeUrl} for ${wallet.publicKey.substring(0, 8)}...:`,
-          error?.message || error,
-        );
+
+        closeStream = stellar.server
+          .payments()
+          .forAccount(wallet.publicKey)
+          .cursor(cursor)
+          .stream({
+            onmessage: async (record: any) => {
+              console.log(
+                `[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`,
+              );
+              await processPaymentRecord(wallet, record);
+              if (record.paging_token) {
+                await saveCursor(wallet.id, record.paging_token);
+              }
+            },
+            onerror: (error: any) => {
+              console.error(
+                `[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`,
+                error,
+              );
+            },
+          }) as unknown as () => void;
+
+        const originalClose = closeStream;
+        closeStream = () => {
+          clearTimeout(timeoutId);
+          if (originalClose) originalClose();
+        };
+
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return closeStream;
+      } catch (err: any) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+        span.end();
+        console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
+        clearTimeout(timeoutId!);
+        return null;
       }
-    );
-
-    const originalClose = closeStream;
-    closeStream = () => {
-      clearTimeout(timeoutId);
-      if (originalClose) originalClose();
-    };
-
-    return closeStream;
-  } catch (err: any) {
-    console.error(`[WatcherStream] Failed to open multi-node SSE stream: ${err.message}`);
-    clearTimeout(timeoutId!);
-    return null;
-  }
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+      span.end();
+      throw err;
+    }
+  });
 }
 
 let memoryMonitor: MemoryMonitor | null = null;
@@ -284,124 +336,142 @@ export async function runWatcher() {
 
   startMemoryMonitor();
 
-  // Load Soroban contract subscriptions
   await loadContractRegistry();
 
   const poll = async () => {
-    try {
-      const wallets = await prisma.wallet.findMany();
-      if (wallets.length === 0) {
-        console.log(
-          "[WatcherWorker] No wallets registered in DB to watch. Waiting for next poll...",
-        );
-        return;
-      }
-
-      console.log(
-        `[WatcherWorker] Checking ${wallets.length} registered wallet(s)...`,
-      );
-      for (const wallet of wallets) {
-        await processWalletPayments({ id: wallet.id, publicKey: wallet.publicKey, userId: wallet.userId });
-      }
-
-      // Process multi-contract Soroban events
-      const contractIds = getActiveContractIds();
-      if (contractIds.length > 0) {
-        console.log(
-          `[WatcherWorker] Processing ${contractIds.length} Soroban contract subscriptions...`,
-        );
-        for (const contractId of contractIds) {
-          await processSorobanContractEvents(contractId);
+    return tracer.startActiveSpan('watcher.poll', async (pollSpan) => {
+      try {
+        const wallets = await prisma.wallet.findMany();
+        if (wallets.length === 0) {
+          console.log(
+            "[WatcherWorker] No wallets registered in DB to watch. Waiting for next poll...",
+          );
+          pollSpan.setStatus({ code: SpanStatusCode.OK });
+          pollSpan.end();
+          return;
         }
+
+        console.log(
+          `[WatcherWorker] Checking ${wallets.length} registered wallet(s)...`,
+        );
+        for (const wallet of wallets) {
+          await processWalletPayments({ id: wallet.id, publicKey: wallet.publicKey, userId: wallet.userId });
+        }
+
+        const contractIds = getActiveContractIds();
+        if (contractIds.length > 0) {
+          console.log(
+            `[WatcherWorker] Processing ${contractIds.length} Soroban contract subscriptions...`,
+          );
+          for (const contractId of contractIds) {
+            await processSorobanContractEvents(contractId);
+          }
+        }
+        pollSpan.setStatus({ code: SpanStatusCode.OK });
+      } catch (err) {
+        pollSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+        throw err;
+      } finally {
+        pollSpan.end();
       }
-    } catch (error) {
-      console.error("[WatcherWorker] Polling error:", error);
-    }
+    });
   };
 
-  // Initial payment catchup run
   await poll();
 
-  // Schedule periodic catchup poll every 30 seconds
   setInterval(poll, 30000);
 
-  // Reload contract registry every 5 minutes
   setInterval(() => {
     loadContractRegistry();
   }, 300000);
 }
 
 async function processSorobanContractEvents(contractId: string) {
-  try {
-    const latestLedger = await getSorobanLatestLedger();
-    if (latestLedger === 0) return;
+  return tracer.startActiveSpan('watcher.processSorobanContractEvents', async (span) => {
+    try {
+      span.setAttribute('contract.id', contractId);
+      const latestLedger = await getSorobanLatestLedger();
+      if (latestLedger === 0) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return;
+      }
 
-    const lastSnapshot = await prisma.sorobanEventSnapshot.findFirst({
-      where: { contractId },
-      orderBy: { ledgerSeq: "desc" },
-      select: { ledgerSeq: true },
-    });
+      const lastSnapshot = await prisma.sorobanEventSnapshot.findFirst({
+        where: { contractId },
+        orderBy: { ledgerSeq: "desc" },
+        select: { ledgerSeq: true },
+      });
 
-    const startLedger = lastSnapshot
-      ? lastSnapshot.ledgerSeq + 1
-      : latestLedger - 1000;
-    if (startLedger > latestLedger) return;
+      const startLedger = lastSnapshot
+        ? lastSnapshot.ledgerSeq + 1
+        : latestLedger - 1000;
+      if (startLedger > latestLedger) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return;
+      }
 
-    const { fetchContractEventsInRange } = await import("../lib/soroban");
+      const { fetchContractEventsInRange } = await import("../lib/soroban");
 
-    for await (const eventBatch of fetchContractEventsInRange(
-      contractId,
-      startLedger,
-      latestLedger,
-    )) {
-      for (const event of eventBatch) {
-        const parsed = parseSacTransferEvent(event);
-        if (!parsed) continue;
+      for await (const eventBatch of fetchContractEventsInRange(
+        contractId,
+        startLedger,
+        latestLedger,
+      )) {
+        for (const event of eventBatch) {
+          const parsed = parseSacTransferEvent(event);
+          if (!parsed) continue;
 
-        const routes = routeEventToUsers(event);
+          const routes = routeEventToUsers(event);
 
-        for (const route of routes) {
-          console.log(
-            `[SorobanRouter] Event ${route.topic} from ${contractId.substring(0, 8)}... routed to ${route.userIds.length} user(s)`,
-          );
+          for (const route of routes) {
+            console.log(
+              `[SorobanRouter] Event ${route.topic} from ${contractId.substring(0, 8)}... routed to ${route.userIds.length} user(s)`,
+            );
 
-          try {
-            await prisma.sorobanEventSnapshot.upsert({
-              where: {
-                contractId_ledgerSeq_from_to_amount: {
+            try {
+              await prisma.sorobanEventSnapshot.upsert({
+                where: {
+                  contractId_ledgerSeq_from_to_amount: {
+                    contractId: parsed.contractId,
+                    ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
+                    from: parsed.from,
+                    to: parsed.to,
+                    amount: parsed.amount,
+                  },
+                },
+                create: {
                   contractId: parsed.contractId,
-                  ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
                   from: parsed.from,
                   to: parsed.to,
                   amount: parsed.amount,
+                  ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
                 },
-              },
-              create: {
-                contractId: parsed.contractId,
-                from: parsed.from,
-                to: parsed.to,
-                amount: parsed.amount,
-                ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
-              },
-              update: {},
-            });
-          } catch (err: any) {
-            if (err.code !== "P2025") {
-              console.warn(
-                "[SorobanRouter] Error storing event snapshot:",
-                err.message,
-              );
+                update: {},
+              });
+            } catch (err: any) {
+              if (err.code !== "P2025") {
+                console.warn(
+                  "[SorobanRouter] Error storing event snapshot:",
+                  err.message,
+                );
+              }
             }
           }
         }
       }
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (error: any) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      console.error(
+        `[SorobanRouter] Error processing contract ${contractId}:`,
+        error.message,
+      );
+    } finally {
+      span.end();
     }
-  } catch (error: any) {
-    console.error(
-      `[SorobanRouter] Error processing contract ${contractId}:`,
-      error.message,
-    );
-  }
+  });
 }
 
 if (require.main === module) {
