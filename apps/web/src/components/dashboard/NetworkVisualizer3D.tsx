@@ -148,7 +148,10 @@ export const NetworkVisualizer3D: React.FC<NetworkVisualizer3DProps> = ({
 }) => {
   // Guard against SSR / hydration: only mount the WebGL canvas in the browser.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const scene = useMemo<VisualizerScene>(
     () => buildScene(payments as unknown as VisualizerPayment[], { limit: maxStreams }),
@@ -202,11 +205,11 @@ export const NetworkVisualizer3D: React.FC<NetworkVisualizer3DProps> = ({
             No payment streams to visualise yet. Incoming Stellar payments will appear here as
             live particle beams.
           </div>
-        ) : mounted ? (
+        ) : mounted || typeof window !== 'undefined' ? (
           <Canvas
             camera={{ position: [0, 4, 16], fov: 55 }}
-            dpr={[1, 2]}
-            gl={{ antialias: true, alpha: true }}
+            dpr={[1, 1.5]}
+            gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
           >
             <StreamField scene={scene} />
           </Canvas>

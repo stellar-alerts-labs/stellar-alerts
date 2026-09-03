@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import NetworkVisualizer3D from '@/components/dashboard/NetworkVisualizer3D';
+import AuditWorkspace from '@/components/dashboard/AuditWorkspace';
 import { signOut, useSession } from 'next-auth/react';
 import { WalletDTO, PaymentDTO } from '@stellar-alerts/shared';
 import { WatcherForm } from '@/components/WatcherForm';
@@ -12,10 +14,13 @@ import {
   WalletList,
   PaymentTable,
   NotificationModal,
-  NetworkVisualizer3D,
-  AuditWorkspace,
+  ActivityHeatmap,
+  EmailTemplatePreview,
 } from '@/components/dashboard';
+import { EmailTemplateConfig } from '@/components/dashboard/EmailTemplatePreview';
 import { CommandPalette } from '@/components/CommandPalette';
+
+type AppSession = { accessToken?: string };
 
 export default function Home() {
   const { data: session } = useSession();
@@ -37,12 +42,14 @@ export default function Home() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [totalVolumeXLM, setTotalVolumeXLM] = useState<number>(0);
   const [totalPaymentsCount, setTotalPaymentsCount] = useState<number>(0);
+  const [crossLedgerAnalytics, setCrossLedgerAnalytics] = useState<any>(null);
 
   // Helper to get auth headers
   const getHeaders = useCallback(() => {
     const headers: Record<string, string> = {};
-    if (session && (session as any).accessToken) {
-      headers['Authorization'] = `Bearer ${(session as any).accessToken}`;
+    const accessToken = (session as (typeof session & AppSession) | null)?.accessToken;
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
     }
     return headers;
   }, [session]);
@@ -102,13 +109,35 @@ export default function Home() {
     }
   }, [session, getHeaders]);
 
-  useEffect(() => {
-    if (session) {
-      fetchWallets();
-      fetchPayments();
-      fetchSummary();
+  // Fetch cross ledger analytics
+  const fetchCrossLedgerAnalytics = useCallback(async () => {
+    if (!session) return;
+    try {
+      const url = selectedWalletId
+        ? `http://localhost:3001/payments/analytics/cross-ledger?walletId=${encodeURIComponent(selectedWalletId)}`
+        : 'http://localhost:3001/payments/analytics/cross-ledger';
+      const res = await fetch(url, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.analytics) {
+          setCrossLedgerAnalytics(data.analytics);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch cross ledger analytics:', err);
     }
-  }, [session, selectedWalletId, fetchWallets, fetchPayments, fetchSummary]);
+  }, [session, selectedWalletId, getHeaders]);
+
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setTimeout(() => {
+      void fetchWallets();
+      void fetchPayments();
+      void fetchSummary();
+      void fetchCrossLedgerAnalytics();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session, selectedWalletId, fetchWallets, fetchPayments, fetchSummary, fetchCrossLedgerAnalytics]);
 
   const handleRemoveWallet = async (id: string) => {
     try {
@@ -126,6 +155,21 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Failed to remove wallet:', err);
+    }
+  };
+
+  const handleSaveEmailTemplate = async (template: EmailTemplateConfig) => {
+    try {
+      await fetch('http://localhost:3001/notifications/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getHeaders(),
+        },
+        body: JSON.stringify({ emailTemplate: template }),
+      });
+    } catch (err) {
+      console.error('Failed to save email template preferences:', err);
     }
   };
 
@@ -295,6 +339,7 @@ export default function Home() {
                     totalPaymentsCount={totalPaymentsCount || payments.length}
                     totalVolumeXLM={totalVolumeXLM}
                     activeWalletsCount={wallets.length}
+                    crossLedgerAnalytics={crossLedgerAnalytics}
                   />
                 ),
               },
@@ -307,6 +352,16 @@ export default function Home() {
                     totalVolumeXLM={totalVolumeXLM}
                   />
                 ),
+              },
+              {
+                id: 'activity-heatmap',
+                label: 'Activity Heatmap',
+                content: <ActivityHeatmap payments={payments} />,
+              },
+              {
+                id: 'email-template-preview',
+                label: 'Email Receipt Template',
+                content: <EmailTemplatePreview onSaveTemplate={handleSaveEmailTemplate} />,
               },
               {
                 id: 'webhook-sandbox',
@@ -358,7 +413,7 @@ export default function Home() {
                   <AuditWorkspace
                     payments={payments}
                     currentUser={{
-                      id: (session.user as any)?.id || session.user?.email || 'anonymous',
+                      id: (session.user as { id?: string } | undefined)?.id || session.user?.email || 'anonymous',
                       name: session.user?.name || session.user?.email || 'Auditor',
                     }}
                   />

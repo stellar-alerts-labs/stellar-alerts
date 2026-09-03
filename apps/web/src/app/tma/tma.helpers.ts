@@ -38,17 +38,19 @@ export function telegramDisplayName(user: {
  * throws an `Error` carrying user-facing copy when the request did not succeed.
  */
 export function parseTelegramAuthResponse(status: number, body: unknown): TmaAuthResult {
-  const data = (body ?? {}) as Record<string, any>;
+  const data = (body ?? {}) as Record<string, unknown>;
+  const user = data.user as { email?: unknown } | undefined;
+  const telegram = data.telegram as { id?: unknown; first_name?: string; last_name?: string; username?: string } | undefined;
   const ok = status >= 200 && status < 300 && data.success === true && typeof data.token === 'string';
 
   if (!ok) {
     throw new Error(friendlyTelegramError(typeof data.code === 'string' ? data.code : null));
   }
 
-  const tg = data.telegram ?? {};
+  const tg = telegram ?? {};
   return {
-    token: data.token,
-    email: typeof data.user?.email === 'string' ? data.user.email : '',
+    token: data.token as string,
+    email: typeof user?.email === 'string' ? user.email : '',
     telegramName: telegramDisplayName(tg),
     telegramId: typeof tg.id === 'number' ? tg.id : null,
   };

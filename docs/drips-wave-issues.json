@@ -3552,5 +3552,315 @@
     "testingRequirements": [
       "Component render and click event test"
     ]
+  },
+  {
+    "id": 123,
+    "title": "[SOROBAN]: Build Soroban Contract Storage Key Expiration & State Renewal Monitor Service",
+    "category": "Soroban",
+    "milestone": "Milestone 23 – Advanced Soroban & Security",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "storage",
+      "backend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Monitor expiration sequences for Soroban ledger entries and trigger automatic rent extension.",
+    "background": "Soroban smart contract storage entries expire if ledger rent fees are not periodically renewed.",
+    "problemStatement": "Expired contract entries stall event ingestion and cause state lookup failures.",
+    "proposedSolution": "Build rent renewal worker querying extendFootprintTtl for subscribed Soroban contracts.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/soroban-rent.worker.ts",
+      "apps/api/src/lib/soroban.ts"
+    ],
+    "acceptanceCriteria": [
+      "Monitors storage rent expiration sequence for active contract IDs",
+      "Executes rent extension transactions prior to entry expiration"
+    ],
+    "testingRequirements": [
+      "Unit test rent expiration calculator",
+      "Mock Soroban RPC extendFootprintTtl"
+    ]
+  },
+  {
+    "id": 124,
+    "title": "[SOROBAN]: Implement Multi-Signature Soroban Contract Invocations & Multi-Signer Event Router",
+    "category": "Soroban",
+    "milestone": "Milestone 23 – Advanced Soroban & Security",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "soroban",
+      "multisig",
+      "backend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Track pending multi-signature approval events for Soroban contract invocations.",
+    "background": "DAO treasuries and enterprise wallets require multi-party signatures for contract execution.",
+    "problemStatement": "Standard watchers only notify after final transaction execution, missing pending approval steps.",
+    "proposedSolution": "Build MultisigEventRouter parsing pending authorization entries and notifying remaining signers.",
+    "filesLikelyAffected": [
+      "apps/api/src/workers/multisig-router.worker.ts",
+      "apps/api/src/lib/soroban.ts"
+    ],
+    "acceptanceCriteria": [
+      "Notifies remaining signers when a new pending contract invocation requires authorization",
+      "Tracks signature threshold progress across multi-sig signers"
+    ],
+    "testingRequirements": [
+      "Unit test multisig authorization topic parser"
+    ]
+  },
+  {
+    "id": 125,
+    "title": "[SECURITY]: Implement Automated Webhook Payload Cryptographic Key Rotation Engine",
+    "category": "Security",
+    "milestone": "Milestone 23 – Advanced Soroban & Security",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "webhooks",
+      "crypto",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Automated rotation engine for webhook HMAC secret signing keys with dual-signature grace periods.",
+    "background": "Regular secret key rotation is required by enterprise security standards.",
+    "problemStatement": "Abrupt key rotation breaks downstream consumer servers during key updates.",
+    "proposedSolution": "Implement KeyRotationManager sending primary and secondary signatures (`X-Signature-Secondary`) during 48h grace period.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/webhook-signer.ts",
+      "apps/api/src/modules/webhooks/webhooks.service.ts"
+    ],
+    "acceptanceCriteria": [
+      "Generates dual HMAC signatures during 48-hour key rotation transition window",
+      "Auto-retires old secret keys seamlessly without delivery downtime"
+    ],
+    "testingRequirements": [
+      "Unit test dual-signature key rotation manager"
+    ]
+  },
+  {
+    "id": 126,
+    "title": "[SECURITY]: Build Zero-Knowledge Proof (ZKP) Anonymous Account Subscription Verification Guard",
+    "category": "Security",
+    "milestone": "Milestone 23 – Advanced Soroban & Security",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "security",
+      "zkp",
+      "privacy",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Verify Groth16 ZK-snark proofs for privacy-preserving alert subscriptions.",
+    "background": "Users want to receive payment alerts without revealing plaintext email or IP address linkages.",
+    "problemStatement": "Public account registration links email identity to public Stellar key.",
+    "proposedSolution": "Integrate snarkjs Groth16 verifier validating proof of ownership off-chain.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/zkp-verifier.ts",
+      "apps/api/src/modules/wallets/wallets.service.ts"
+    ],
+    "acceptanceCriteria": [
+      "Valid ZK proof allows alert subscription without storing plaintext email linkage",
+      "Invalid ZK proof rejected with HTTP 400"
+    ],
+    "testingRequirements": [
+      "Unit test Groth16 proof verifier"
+    ]
+  },
+  {
+    "id": 127,
+    "title": "[RELIABILITY]: Build Distributed Circuit Breaker & Health Scorecard Engine for External Webhook Destinations",
+    "category": "Reliability",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "webhooks",
+      "circuit-breaker",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Track consecutive HTTP failures per webhook endpoint and automatically trip circuit breakers.",
+    "background": "Failing downstream servers cause worker thread starvation and memory backpressure.",
+    "problemStatement": "Continuous retries to broken webhook endpoints degrade overall queue performance.",
+    "proposedSolution": "Use opossum circuit breaker opening endpoint status after 5 consecutive 5xx errors.",
+    "filesLikelyAffected": [
+      "apps/api/src/lib/queue.ts",
+      "apps/api/src/utils/circuit-breaker.ts"
+    ],
+    "acceptanceCriteria": [
+      "Trips circuit breaker to OPEN state after 5 consecutive delivery failures",
+      "Auto-probes endpoint health in HALF-OPEN state after 60-second cooldown"
+    ],
+    "testingRequirements": [
+      "Unit test circuit breaker state transition handler"
+    ]
+  },
+  {
+    "id": 128,
+    "title": "[RELIABILITY]: Implement Multi-Region Active-Passive Database Storage Replicas & Automatic Failover Manager",
+    "category": "Reliability",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reliability",
+      "database",
+      "failover",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Automated failover monitor promoting read-replica database to primary during primary region outages.",
+    "background": "Regional infrastructure outages (e.g. AWS us-east-1 downtime) halt database writes.",
+    "problemStatement": "No automated promotion mechanism for secondary database replicas during outages.",
+    "proposedSolution": "Build FailoverManager probing primary DB health and executing replica promotion scripts.",
+    "filesLikelyAffected": [
+      "scripts/dr-failover.ts",
+      "apps/api/src/lib/prisma.ts"
+    ],
+    "acceptanceCriteria": [
+      "Detects primary database downtime within 15 seconds",
+      "Promotes secondary read-replica to primary and switches application connection string"
+    ],
+    "testingRequirements": [
+      "Unit test failover state promotion manager"
+    ]
+  },
+  {
+    "id": 129,
+    "title": "[FEATURE]: Build Automated Multi-Asset Ledger Statements Generator (PDF/CSV/Excel Format)",
+    "category": "Features",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "reporting",
+      "pdf",
+      "export",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Generate downloadable PDF & Excel accounting ledger statements for tax and auditing compliance.",
+    "background": "Businesses need formal financial ledger statements summarizing payment history.",
+    "problemStatement": "Manual data exports lack branded headers, tax summaries, and multi-asset formatting.",
+    "proposedSolution": "Build LedgerReportGenerator using pdfkit to compile multi-page PDF statements with charts.",
+    "filesLikelyAffected": [
+      "apps/api/src/utils/pdf-generator.ts",
+      "apps/api/src/modules/payments/payments.controller.ts"
+    ],
+    "acceptanceCriteria": [
+      "Generates formatted multi-page PDF ledger report with monthly asset totals and transaction table",
+      "Exposes GET /payments/export/pdf REST endpoint"
+    ],
+    "testingRequirements": [
+      "Unit test PDF generator output stream"
+    ]
+  },
+  {
+    "id": 130,
+    "title": "[FEATURE]: Implement Real-Time Telegram Mini App (TMA) Alert Management & Push Interface",
+    "category": "Features",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "High",
+    "estimatedPoints": 200,
+    "labels": [
+      "telegram",
+      "tma",
+      "frontend",
+      "drips-wave",
+      "complexity:high",
+      "200-pts"
+    ],
+    "summary": "Build Telegram Mini App (TMA) allowing users to manage wallet alerts inside Telegram.",
+    "background": "Telegram Mini Apps provide native web app experiences directly inside Telegram chats.",
+    "problemStatement": "Users have to leave Telegram to configure their wallet alert preferences.",
+    "proposedSolution": "Build Next.js TMA view using @telegram-apps/sdk authenticated via Telegram WebApp initData.",
+    "filesLikelyAffected": [
+      "apps/web/src/app/tma/page.tsx",
+      "apps/api/src/modules/auth/auth.controller.ts"
+    ],
+    "acceptanceCriteria": [
+      "Renders fully responsive TMA dashboard inside Telegram client window",
+      "Authenticates user via HMAC-SHA256 initData validation"
+    ],
+    "testingRequirements": [
+      "Unit test Telegram initData signature validator"
+    ]
+  },
+  {
+    "id": 131,
+    "title": "[FRONTEND]: Build Interactive Wallet Activity Heatmap Component with Date Range Filters",
+    "category": "Frontend",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "Medium",
+    "estimatedPoints": 150,
+    "labels": [
+      "frontend",
+      "react",
+      "heatmap",
+      "drips-wave",
+      "complexity:medium",
+      "150-pts"
+    ],
+    "summary": "Visual activity heatmap grid displaying daily transaction frequency over the past year.",
+    "background": "GitHub-style contribution heatmaps provide instant visual activity patterns.",
+    "problemStatement": "No historical activity visualization showing daily payment density.",
+    "proposedSolution": "Build ActivityHeatmap component rendering 365-day color-coded square grid.",
+    "filesLikelyAffected": [
+      "apps/web/src/components/dashboard/ActivityHeatmap.tsx"
+    ],
+    "acceptanceCriteria": [
+      "Renders 365-day transaction density heatmap with hover tooltips",
+      "Darker green shading indicates higher transaction counts on that day"
+    ],
+    "testingRequirements": [
+      "Component snapshot test"
+    ]
+  },
+  {
+    "id": 132,
+    "title": "[DEVX]: Implement Automated OpenAPI Client SDK Generator & TypeScript Schema Sync Script",
+    "category": "DevX",
+    "milestone": "Milestone 24 – Enterprise Resiliency & Analytics",
+    "complexity": "Medium",
+    "estimatedPoints": 150,
+    "labels": [
+      "devx",
+      "openapi",
+      "typescript",
+      "drips-wave",
+      "complexity:medium",
+      "150-pts"
+    ],
+    "summary": "Script auto-generating TypeScript client SDK types directly from Fastify Zod OpenAPI schemas.",
+    "background": "Manual DTO updates can lead to backend/frontend type drift.",
+    "problemStatement": "Type definitions must be manually synchronized when routes change.",
+    "proposedSolution": "Build openapi-typescript generator script running pre-commit to refresh packages/shared types.",
+    "filesLikelyAffected": [
+      "scripts/generate-types.ts",
+      "package.json"
+    ],
+    "acceptanceCriteria": [
+      "Script exports openapi.json and generates typed TypeScript API client",
+      "Fails CI if generated types differ from committed files"
+    ],
+    "testingRequirements": [
+      "Test type generation script output"
+    ]
   }
 ]

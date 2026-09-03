@@ -462,3 +462,503 @@ export function shouldRenew(remainingTtl: number, threshold: number): boolean {
   return remainingTtl <= threshold;
 }
 
+export type FlashLoanOperationType = "borrow" | "repay" | "swap" | "transfer" | "invoke";
+
+export interface SorobanTransactionOperationInput {
+  id: string;
+  parentId?: string;
+  type: string;
+  asset?: string;
+  amount?: string | number | bigint;
+  contractId?: string;
+  tokenIn?: string;
+  tokenOut?: string;
+  amountIn?: string | number | bigint;
+  amountOut?: string | number | bigint;
+  profit?: string | number | bigint;
+  fee?: string | number | bigint;
+}
+
+export interface FlashLoanOperationNode {
+  id: string;
+  parentId?: string;
+  type: FlashLoanOperationType;
+  asset: string;
+  amount: bigint;
+  amountFormatted: string;
+  contractId?: string;
+  children: FlashLoanOperationNode[];
+}
+
+export interface ParsedFlashLoanAlert {
+  txHash: string;
+  ledgerSeq?: number;
+  contractId: string;
+  borrowedAsset: string;
+  borrowedAmount: string;
+  feeAmount: string;
+  netArbitrageProfit: string;
+}
+
+const FLASH_LOAN_BORROW_TOPICS = new Set(["borrow", "flash_loan", "loan", "flashloan"]);
+const FLASH_LOAN_REPAY_TOPICS = new Set(["repay", "flash_repay", "repay_loan", "repay_flash_loan"]);
+
+function normalizeOperationType(rawType: string): FlashLoanOperationType {
+  const normalized = rawType.toLowerCase();
+  if (FLASH_LOAN_BORROW_TOPICS.has(normalized)) return "borrow";
+  if (FLASH_LOAN_REPAY_TOPICS.has(normalized)) return "repay";
+  if (normalized === "swap") return "swap";
+  if (normalized === "transfer") return "transfer";
+  return "invoke";
+}
+
+function toBigIntAmount(value: string | number | bigint | undefined | null): bigint | null {
+  if (value === undefined || value === null) return null;
+  try {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number") return BigInt(Math.trunc(value));
+    const decoded = decodeScAmount(value);
+    if (decoded !== null) return decoded;
+    if (/^\d+$/.test(String(value))) return BigInt(String(value));
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function formatAmount(value: bigint): string {
+  return formatTokenAmount(value);
+}
+
+/**
+ * Parses a Soroban contract event into a normalized flash-loan operation node input.
+ */
+export function parseFlashLoanOperationFromEvent(event: any): SorobanTransactionOperationInput | null {
+  if (!event?.topic?.length) return null;
+
+  const topic = extractSwapTopicValue(event.topic[0]);
+  if (!topic) return null;
+
+  const normalized = topic.toLowerCase();
+  if (
+    !FLASH_LOAN_BORROW_TOPICS.has(normalized) &&
+    !FLASH_LOAN_REPAY_TOPICS.has(normalized) &&
+    normalized !== "swap" &&
+    normalized !== "transfer"
+  ) {
+    return null;
+  }
+
+  const value = event.value || event.data || {};
+  const contractId = event.contractId || value.contract_id || value.contractId;
+
+  if (normalized === "swap") {
+    const amountIn = decodeScAmount(value.amount_in ?? value.amountIn);
+    const amountOut = decodeScAmount(value.amount_out ?? value.amountOut);
+    if (amountIn === null || amountOut === null) return null;
+
+    return {
+      id: `${event.txHash || event.transactionHash || contractId || "swap"}:${event.id || event.eventIndex || `${value.token_in}-${value.token_out}`}`,
+      parentId: value.parent_id || value.parentId,
+      type: "swap",
+      contractId,
+      tokenIn: asAddressString(value.token_in ?? value.tokenIn ?? value.asset_in),
+      tokenOut: asAddressString(value.token_out ?? value.tokenOut ?? value.asset_out),
+      amountIn: amountIn.toString(),
+      amountOut: amountOut.toString(),
+    };
+  }
+
+  const asset = asAddressString(value.asset ?? value.token ?? value.currency);
+  const amount = decodeScAmount(value.amount ?? value.borrowed_amount ?? value.repaid_amount);
+  if (!asset || amount === null) return null;
+
+  return {
+    id: `${event.txHash || event.transactionHash || contractId}:${event.id || event.eventIndex || `${normalized}-${asset}`}`,
+    parentId: value.parent_id || value.parentId,
+    type: normalized,
+    asset,
+    amount: amount.toString(),
+    contractId,
+    fee: value.fee ?? value.flash_fee,
+    profit: value.profit ?? value.arbitrage_profit ?? value.net_profit,
+  };
+}
+
+/**
+ * Builds an atomic transaction operation tree from flat Soroban invocation records.
+ */
+export function buildFlashLoanOperationTree(
+  operations: SorobanTransactionOperationInput[],
+): FlashLoanOperationNode[] {
+  const nodes = new Map<string, FlashLoanOperationNode>();
+
+  for (const operation of operations) {
+    const type = normalizeOperationType(operation.type);
+    const asset =
+      operation.asset ||
+      (type === "swap" ? operation.tokenIn || operation.tokenOut || "" : "");
+    const amount =
+      type === "swap"
+        ? toBigIntAmount(operation.amountIn)
+        : toBigIntAmount(operation.amount);
+
+    if (!asset || amount === null) continue;
+
+    nodes.set(operation.id, {
+      id: operation.id,
+      parentId: operation.parentId,
+      type,
+      asset,
+      amount,
+      amountFormatted: formatAmount(amount),
+      contractId: operation.contractId,
+      children: [],
+    });
+  }
+
+  const roots: FlashLoanOperationNode[] = [];
+  for (const node of nodes.values()) {
+    if (node.parentId && nodes.has(node.parentId)) {
+      nodes.get(node.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
+function calculateNetArbitrageProfit(
+  operations: SorobanTransactionOperationInput[],
+  borrowedAsset: string,
+  borrowAmount: bigint,
+  repayAmount: bigint,
+): bigint {
+  for (const operation of operations) {
+    const explicitProfit = toBigIntAmount(operation.profit);
+    if (explicitProfit !== null && explicitProfit > 0n) {
+      return explicitProfit;
+    }
+  }
+
+  let swapDelta = 0n;
+  for (const operation of operations) {
+    if (normalizeOperationType(operation.type) !== "swap") continue;
+
+    const tokenIn = operation.tokenIn || "";
+    const tokenOut = operation.tokenOut || "";
+    const amountIn = toBigIntAmount(operation.amountIn);
+    const amountOut = toBigIntAmount(operation.amountOut);
+    if (amountIn === null || amountOut === null) continue;
+
+    if (tokenOut === borrowedAsset) swapDelta += amountOut;
+    if (tokenIn === borrowedAsset) swapDelta -= amountIn;
+  }
+
+  const surplus = borrowAmount + swapDelta - repayAmount;
+  return surplus > 0n ? surplus : 0n;
+}
+
+/**
+ * Detects atomic flash-loan borrow/repay invariants within a single transaction tree.
+ */
+export function detectFlashLoanInTransaction(
+  txHash: string,
+  operations: SorobanTransactionOperationInput[],
+  ledgerSeq?: number,
+): ParsedFlashLoanAlert | null {
+  if (!txHash || operations.length === 0) return null;
+
+  buildFlashLoanOperationTree(operations);
+
+  const borrowOps = operations.filter((op) => normalizeOperationType(op.type) === "borrow");
+  const repayOps = operations.filter((op) => normalizeOperationType(op.type) === "repay");
+
+  if (borrowOps.length === 0 || repayOps.length === 0) return null;
+
+  for (const borrowOp of borrowOps) {
+    const borrowedAsset = borrowOp.asset || "";
+    const borrowAmount = toBigIntAmount(borrowOp.amount);
+    if (!borrowedAsset || borrowAmount === null || borrowAmount <= 0n) continue;
+
+    const matchingRepay = repayOps.find((repayOp) => (repayOp.asset || "") === borrowedAsset);
+    if (!matchingRepay) continue;
+
+    const repayAmount = toBigIntAmount(matchingRepay.amount);
+    if (repayAmount === null || repayAmount < borrowAmount) continue;
+
+    let feeAmount = repayAmount - borrowAmount;
+    const explicitFee = toBigIntAmount(matchingRepay.fee ?? borrowOp.fee);
+    if (explicitFee !== null && explicitFee >= 0n) {
+      feeAmount = explicitFee;
+    }
+
+    const netArbitrageProfit = calculateNetArbitrageProfit(
+      operations,
+      borrowedAsset,
+      borrowAmount,
+      repayAmount,
+    );
+
+    return {
+      txHash,
+      ledgerSeq,
+      contractId: borrowOp.contractId || matchingRepay.contractId || "",
+      borrowedAsset,
+      borrowedAmount: formatAmount(borrowAmount),
+      feeAmount: formatAmount(feeAmount),
+      netArbitrageProfit: formatAmount(netArbitrageProfit),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Parses atomic transaction operation trees for flash-loan borrow/repay invariants.
+ */
+export class FlashLoanDetector {
+  parseOperationTree(operations: SorobanTransactionOperationInput[]): FlashLoanOperationNode[] {
+    return buildFlashLoanOperationTree(operations);
+  }
+
+  detect(transaction: {
+    txHash: string;
+    ledgerSeq?: number;
+    operations: SorobanTransactionOperationInput[];
+  }): ParsedFlashLoanAlert | null {
+    return detectFlashLoanInTransaction(
+      transaction.txHash,
+      transaction.operations,
+      transaction.ledgerSeq,
+    );
+  }
+
+  detectFromEvents(events: any[], txHash: string, ledgerSeq?: number): ParsedFlashLoanAlert | null {
+    const operations = events
+      .map((event) => parseFlashLoanOperationFromEvent(event))
+      .filter((operation): operation is SorobanTransactionOperationInput => operation !== null);
+
+    return this.detect({ txHash, ledgerSeq, operations });
+  }
+}
+
+export const flashLoanDetector = new FlashLoanDetector();
+
+export interface ParsedStakingRewardEvent {
+  contractId: string;
+  account: string;
+  rewardToken: string;
+  poolContractId: string;
+  amount: string;
+  rawAmount: bigint;
+  topic: string;
+  epoch?: number;
+  ledgerSeq?: number;
+  txHash?: string;
+}
+
+const STAKING_REWARD_TOPICS = new Set([
+  "distribute",
+  "reward",
+  "claim",
+  "emitted",
+  "emission",
+  "stake_reward",
+  "yield_distribution",
+  "reward_distributed",
+  "yield",
+  "reward_emission",
+  "staking_reward",
+]);
+
+/**
+ * Parses a raw Soroban RPC event into a staking / LP yield reward distribution event.
+ */
+export function parseStakingRewardEvent(event: any): ParsedStakingRewardEvent | null {
+  if (!event || !event.topic || event.topic.length === 0) {
+    return null;
+  }
+
+  const rawTopic = extractSwapTopicValue(event.topic[0]);
+  if (!rawTopic) return null;
+
+  const topicNormalized = rawTopic.toLowerCase();
+  if (!STAKING_REWARD_TOPICS.has(topicNormalized)) {
+    return null;
+  }
+
+  const value = event.value || event.data || {};
+  const contractId = event.contractId || "";
+
+  const account = asAddressString(
+    value.account ??
+      value.recipient ??
+      value.staker ??
+      value.user ??
+      value.to ??
+      (value.distribute && (value.distribute.account || value.distribute.recipient))
+  );
+
+  if (!account) return null;
+
+  const rewardToken = asAddressString(
+    value.reward_token ??
+      value.rewardToken ??
+      value.asset ??
+      value.token ??
+      value.reward_asset ??
+      value.rewardAsset ??
+      contractId
+  );
+
+  const poolContractId = asAddressString(
+    value.pool_contract_id ??
+      value.poolContractId ??
+      value.pool ??
+      value.lp_token ??
+      value.lpToken ??
+      value.staking_pool ??
+      contractId
+  );
+
+  const rawAmount = decodeScAmount(
+    value.amount ??
+      value.reward_amount ??
+      value.rewardAmount ??
+      value.yield ??
+      value.emission ??
+      value.reward_emission
+  );
+
+  if (rawAmount === null || rawAmount <= 0n) {
+    return null;
+  }
+
+  const epoch =
+    value.epoch !== undefined && value.epoch !== null && !Number.isNaN(Number(value.epoch))
+      ? Number(value.epoch)
+      : undefined;
+
+  return {
+    contractId,
+    account,
+    rewardToken,
+    poolContractId,
+    amount: formatTokenAmount(rawAmount),
+    rawAmount,
+    topic: topicNormalized,
+    epoch,
+    ledgerSeq: event.ledgerSeq || event.ledger,
+    txHash: event.txHash || event.transactionHash,
+  };
+}
+
+/**
+ * StakingRewardTracker aggregates cumulative LP yield emissions and staking reward distributions
+ * across Soroban liquidity pools per account.
+ */
+export class StakingRewardTracker {
+  private accountTotals = new Map<string, Map<string, bigint>>();
+  private poolTotals = new Map<string, bigint>();
+
+  /**
+   * Aggregates a single parsed reward event into cumulative tracker state.
+   */
+  processRewardEvent(event: ParsedStakingRewardEvent): {
+    accountCumulativeAmount: string;
+    poolCumulativeAmount: string;
+  } {
+    const { account, rewardToken, poolContractId, rawAmount } = event;
+
+    // Account cumulative total
+    if (!this.accountTotals.has(account)) {
+      this.accountTotals.set(account, new Map());
+    }
+    const tokenMap = this.accountTotals.get(account)!;
+    const currentAccountTotal = tokenMap.get(rewardToken) || 0n;
+    const newAccountTotal = currentAccountTotal + rawAmount;
+    tokenMap.set(rewardToken, newAccountTotal);
+
+    // Pool-specific account total
+    const poolKey = `${account}:${poolContractId}:${rewardToken}`;
+    const currentPoolTotal = this.poolTotals.get(poolKey) || 0n;
+    const newPoolTotal = currentPoolTotal + rawAmount;
+    this.poolTotals.set(poolKey, newPoolTotal);
+
+    return {
+      accountCumulativeAmount: formatTokenAmount(newAccountTotal),
+      poolCumulativeAmount: formatTokenAmount(newPoolTotal),
+    };
+  }
+
+  /**
+   * Processes a batch of raw Soroban RPC events, parsing reward events and aggregating yield emissions.
+   */
+  processEventBatch(events: any[]): {
+    event: ParsedStakingRewardEvent;
+    accountCumulativeAmount: string;
+    poolCumulativeAmount: string;
+  }[] {
+    const results: {
+      event: ParsedStakingRewardEvent;
+      accountCumulativeAmount: string;
+      poolCumulativeAmount: string;
+    }[] = [];
+
+    for (const rawEvent of events) {
+      const parsed = parseStakingRewardEvent(rawEvent);
+      if (!parsed) continue;
+
+      const totals = this.processRewardEvent(parsed);
+      results.push({
+        event: parsed,
+        accountCumulativeAmount: totals.accountCumulativeAmount,
+        poolCumulativeAmount: totals.poolCumulativeAmount,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Gets cumulative yield emission for a specific account and reward token.
+   */
+  getCumulativeYield(account: string, rewardToken: string = "default"): string {
+    const tokenMap = this.accountTotals.get(account);
+    if (!tokenMap) return "0";
+
+    if (rewardToken === "default") {
+      let total = 0n;
+      for (const amount of tokenMap.values()) {
+        total += amount;
+      }
+      return formatTokenAmount(total);
+    }
+
+    const amount = tokenMap.get(rewardToken) || 0n;
+    return formatTokenAmount(amount);
+  }
+
+  /**
+   * Gets cumulative yield emission for an account within a specific pool and reward token.
+   */
+  getCumulativeYieldByPool(account: string, poolContractId: string, rewardToken: string): string {
+    const poolKey = `${account}:${poolContractId}:${rewardToken}`;
+    const amount = this.poolTotals.get(poolKey) || 0n;
+    return formatTokenAmount(amount);
+  }
+
+  /**
+   * Resets all accumulated yield metrics.
+   */
+  reset(): void {
+    this.accountTotals.clear();
+    this.poolTotals.clear();
+  }
+}
+
+export const stakingRewardTracker = new StakingRewardTracker();
+
+

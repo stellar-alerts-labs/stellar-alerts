@@ -1,40 +1,26 @@
 name: Dependency Security Audit
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  push:
+    branches: [main]
   schedule:
-    # Daily, so newly-disclosed CVEs against already-installed dependencies
-    # are caught between releases, not just when package-lock.json changes.
     - cron: '0 6 * * *'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 jobs:
   osv-scan:
     name: OSV Dependency Vulnerability Scan
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Run OSV security audit
-        run: npm run security:audit -- --report security-audit-report.json
-
-      - name: Upload vulnerability report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-audit-report
-          path: security-audit-report.json
-          if-no-files-found: ignore
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.5.0
+    with:
+      scan-args: |-
+        --recursive
+        ./
+      results-file-name: security-audit-report.sarif
+      fail-on-vuln: true
+    secrets: inherit

@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import CircuitBreaker from "opossum";
 import { prisma } from "./prisma";
 import { generateWebhookSignature } from "../utils/webhook-signer";
+import { applyWebhookPayloadTemplate } from "../utils/payload-template";
 import { adaptiveWebhookRateLimiter, waitForAdaptiveBackoff } from "../utils/rate-limiter";
 
 export interface AlertJobData {
@@ -176,7 +177,21 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       await waitForAdaptiveBackoff(adaptiveDelayMs);
     }
 
-    const payloadString = JSON.stringify(payload);
+    const templateResult = applyWebhookPayloadTemplate(payload, webhook.payloadTemplate);
+    if (!templateResult.ok) {
+      console.warn(
+        `[WebhookDispatch] Payload template error for webhook ${webhookId}: ${templateResult.error}`,
+      );
+      await prisma.webhookLog.create({
+        data: {
+          webhookId,
+          error: `Payload template ${templateResult.phase} error: ${templateResult.error}`,
+        },
+      });
+      return;
+    }
+
+    const payloadString = templateResult.body;
     const signature = generateWebhookSignature(payloadString, webhook.secret);
 
     const breaker = await getOrCreateCircuitBreaker(webhookId);
@@ -332,13 +347,49 @@ export const paymentAlertWorkerProcessor = async (job: { data: AlertJobData }) =
   return resendData;
 };
 
-try {
-  const connection = {
+export function createRedisConnectionConfig() {
+  const sentinelsRaw = process.env.REDIS_SENTINELS;
+  const masterName = process.env.REDIS_SENTINEL_MASTER_NAME || "mymaster";
+  const sentinelPassword = process.env.REDIS_SENTINEL_PASSWORD;
+
+  if (sentinelsRaw) {
+    const sentinels = sentinelsRaw.split(',').map((s) => {
+      const parts = s.trim().split(':');
+      return { host: parts[0] || 'localhost', port: parseInt(parts[1] || '26379', 10) };
+    });
+
+    console.log(`[Queue] 🛡️ Configuring Redis Sentinel failover with master "${masterName}" across ${sentinels.length} sentinel(s)`);
+
+    return {
+      sentinels,
+      name: masterName,
+      sentinelPassword,
+      role: 'master',
+      enableReadyCheck: false,
+      maxRetriesPerRequest: null,
+      retryStrategy: (times: number) => Math.min(times * 100, 3000),
+      reconnectOnError: (err: Error) => {
+        if (err.message && err.message.includes('READONLY')) {
+          console.warn('[Queue] ⚡ Master promoted during Sentinel failover (READONLY received), reconnecting...');
+          return true;
+        }
+        return false;
+      },
+    };
+  }
+
+  const redisHost = process.env.REDIS_HOST || "localhost";
+  const redisPort = parseInt(process.env.REDIS_PORT || "6379", 10);
+  return {
     host: redisHost,
     port: redisPort,
     lazyConnect: true,
-    maxRetriesPerRequest: 1,
+    maxRetriesPerRequest: null,
   };
+}
+
+try {
+  const connection = createRedisConnectionConfig() as any;
 
   alertQueue = new Queue<AlertJobData>("payment-alerts", {
     connection,

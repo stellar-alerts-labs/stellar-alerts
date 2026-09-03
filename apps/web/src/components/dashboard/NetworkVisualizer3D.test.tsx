@@ -8,9 +8,7 @@ import type { PaymentDTO } from '@stellar-alerts/shared';
 // without touching GL. The scene-graph logic itself is covered via the pure
 // helpers below.
 vi.mock('@react-three/fiber', () => ({
-  Canvas: ({ children: _children }: { children?: React.ReactNode }) => (
-    <div data-testid="r3f-canvas" />
-  ),
+  Canvas: () => <div data-testid="r3f-canvas" />,
   useFrame: () => undefined,
 }));
 

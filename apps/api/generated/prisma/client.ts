@@ -129,3 +129,8 @@ export type SorobanTopicIndexCursor = Prisma.SorobanTopicIndexCursorModel
  * 
  */
 export type DexSwapEvent = Prisma.DexSwapEventModel
+/**
+ * Model SecurityAuditLog
+ * 
+ */
+export type SecurityAuditLog = Prisma.SecurityAuditLogModel

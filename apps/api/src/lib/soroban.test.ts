@@ -4,6 +4,13 @@ import {
   hashSorobanLedgerEntry,
   verifySorobanContractStateProof,
   parseSwapEvent,
+  FlashLoanDetector,
+  buildFlashLoanOperationTree,
+  detectFlashLoanInTransaction,
+  flashLoanDetector,
+  parseStakingRewardEvent,
+  StakingRewardTracker,
+  stakingRewardTracker,
 } from "./soroban";
 import { buildMerkleTree, generateMerkleProof, hashMerkleLeaf } from "../utils/merkle-verifier";
 
@@ -294,3 +301,228 @@ describe("parseSwapEvent", () => {
     expect(parseSwapEvent(event)).toBeNull();
   });
 });
+
+describe("FlashLoanDetector transaction tree parser (#186)", () => {
+  const detector = new FlashLoanDetector();
+
+  it("detects atomic borrow and repay operations within a single transaction", () => {
+    const operations = [
+      {
+        id: "borrow-1",
+        type: "flash_loan",
+        asset: "CASSETXLM",
+        amount: "1000000000",
+        contractId: "CBLEND",
+      },
+      {
+        id: "swap-1",
+        parentId: "borrow-1",
+        type: "swap",
+        contractId: "CBLEND",
+        tokenIn: "CASSETXLM",
+        tokenOut: "CASSETUSDC",
+        amountIn: "1000000000",
+        amountOut: "250000000",
+      },
+      {
+        id: "swap-2",
+        parentId: "swap-1",
+        type: "swap",
+        contractId: "CBLEND",
+        tokenIn: "CASSETUSDC",
+        tokenOut: "CASSETXLM",
+        amountIn: "250000000",
+        amountOut: "1005000000",
+      },
+      {
+        id: "repay-1",
+        parentId: "borrow-1",
+        type: "flash_repay",
+        asset: "CASSETXLM",
+        amount: "1000500000",
+        fee: "5000000",
+        contractId: "CBLEND",
+      },
+    ];
+
+    const tree = buildFlashLoanOperationTree(operations);
+    expect(tree.length).toBeGreaterThan(0);
+    expect(tree[0].children.length).toBeGreaterThan(0);
+
+    const alert = detectFlashLoanInTransaction("tx-flash-1", operations, 1200);
+    expect(alert).not.toBeNull();
+    expect(alert?.borrowedAsset).toBe("CASSETXLM");
+    expect(alert?.borrowedAmount).toBe("100");
+    expect(alert?.feeAmount).toBe("0.5");
+    expect(Number(alert?.netArbitrageProfit)).toBeGreaterThan(0);
+  });
+
+  it("emits borrowed asset, fee amount, and net arbitrage profit in the alert payload", () => {
+    const events = [
+      {
+        contractId: "CBLEND",
+        topic: ["borrow"],
+        txHash: "tx-profit-1",
+        ledger: 1500,
+        value: { asset: "CASSETXLM", amount: "2000000000" },
+      },
+      {
+        contractId: "CBLEND",
+        topic: ["swap"],
+        txHash: "tx-profit-1",
+        ledger: 1500,
+        value: {
+          token_in: "CASSETXLM",
+          token_out: "CASSETUSDC",
+          amount_in: "2000000000",
+          amount_out: "500000000",
+        },
+      },
+      {
+        contractId: "CBLEND",
+        topic: ["repay"],
+        txHash: "tx-profit-1",
+        ledger: 1500,
+        value: {
+          asset: "CASSETXLM",
+          amount: "2010000000",
+          fee: "10000000",
+          profit: "5000000",
+        },
+      },
+    ];
+
+    const alert = flashLoanDetector.detectFromEvents(events, "tx-profit-1", 1500);
+
+    expect(alert).not.toBeNull();
+    expect(alert?.borrowedAsset).toBe("CASSETXLM");
+    expect(alert?.borrowedAmount).toBe("200");
+    expect(alert?.feeAmount).toBe("1");
+    expect(alert?.netArbitrageProfit).toBe("0.5");
+  });
+
+  it("returns null when repay is missing for a borrow within the transaction tree", () => {
+    const alert = detector.detect({
+      txHash: "tx-incomplete",
+      operations: [
+        {
+          id: "borrow-1",
+          type: "borrow",
+          asset: "CASSETXLM",
+          amount: "1000000000",
+          contractId: "CBLEND",
+        },
+      ],
+    });
+
+    expect(alert).toBeNull();
+  });
+
+  it("returns null when repay amount is less than borrow amount", () => {
+    const alert = detector.detect({
+      txHash: "tx-undercollateralized",
+      operations: [
+        {
+          id: "borrow-1",
+          type: "borrow",
+          asset: "CASSETXLM",
+          amount: "1000000000",
+          contractId: "CBLEND",
+        },
+        {
+          id: "repay-1",
+          type: "repay",
+          asset: "CASSETXLM",
+          amount: "900000000",
+          contractId: "CBLEND",
+        },
+      ],
+    });
+
+    expect(alert).toBeNull();
+  });
+});
+
+describe("StakingRewardTracker & parseStakingRewardEvent (#212)", () => {
+  it("parses staking reward emission events from Soroban topic logs", () => {
+    const rawEvent = {
+      contractId: "CPOOLSTAKE",
+      topic: ["distribute"],
+      value: {
+        account: "GACCOUNT123",
+        reward_token: "CREWARDTOKEN",
+        pool_contract_id: "CPOOLSTAKE",
+        amount: "100000000",
+        epoch: 42,
+      },
+      ledger: 5000,
+      txHash: "tx-reward-1",
+    };
+
+    const parsed = parseStakingRewardEvent(rawEvent);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.account).toBe("GACCOUNT123");
+    expect(parsed?.rewardToken).toBe("CREWARDTOKEN");
+    expect(parsed?.poolContractId).toBe("CPOOLSTAKE");
+    expect(parsed?.amount).toBe("10");
+    expect(parsed?.epoch).toBe(42);
+    expect(parsed?.ledgerSeq).toBe(5000);
+    expect(parsed?.txHash).toBe("tx-reward-1");
+  });
+
+  it("returns null for events with non-reward topics or non-positive amounts", () => {
+    const nonRewardEvent = {
+      contractId: "CPOOLSTAKE",
+      topic: ["unknown_action"],
+      value: { account: "GACCOUNT123", amount: "10000000" },
+    };
+    expect(parseStakingRewardEvent(nonRewardEvent)).toBeNull();
+
+    const zeroAmountEvent = {
+      contractId: "CPOOLSTAKE",
+      topic: ["reward"],
+      value: { account: "GACCOUNT123", amount: "0" },
+    };
+    expect(parseStakingRewardEvent(zeroAmountEvent)).toBeNull();
+  });
+
+  it("aggregates cumulative LP yield emissions per account across Soroban liquidity pools", () => {
+    const tracker = new StakingRewardTracker();
+
+    const event1 = {
+      contractId: "CPOOL-A",
+      topic: ["yield_distribution"],
+      value: {
+        account: "GACCOUNT-ALICE",
+        reward_token: "CREWARD-X",
+        pool_contract_id: "CPOOL-A",
+        amount: "50000000", // 5.0
+      },
+    };
+
+    const event2 = {
+      contractId: "CPOOL-B",
+      topic: ["distribute"],
+      value: {
+        account: "GACCOUNT-ALICE",
+        reward_token: "CREWARD-X",
+        pool_contract_id: "CPOOL-B",
+        amount: "30000000", // 3.0
+      },
+    };
+
+    const batch = tracker.processEventBatch([event1, event2]);
+
+    expect(batch.length).toBe(2);
+    expect(batch[0].poolCumulativeAmount).toBe("5");
+    expect(batch[1].poolCumulativeAmount).toBe("3");
+
+    // Account cumulative across pools
+    expect(tracker.getCumulativeYield("GACCOUNT-ALICE", "CREWARD-X")).toBe("8");
+    // Pool cumulative specifically
+    expect(tracker.getCumulativeYieldByPool("GACCOUNT-ALICE", "CPOOL-A", "CREWARD-X")).toBe("5");
+    expect(tracker.getCumulativeYieldByPool("GACCOUNT-ALICE", "CPOOL-B", "CREWARD-X")).toBe("3");
+  });
+});
+
