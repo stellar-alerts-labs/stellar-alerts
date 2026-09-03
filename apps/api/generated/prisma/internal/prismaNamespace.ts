@@ -395,7 +395,6 @@ export type FieldRef<Model, FieldType> = runtime.FieldRef<Model, FieldType>
 
 type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRef<Model, FieldType>
 
-
 export const ModelName = {
   User: 'User',
   Wallet: 'Wallet',
@@ -412,6 +411,8 @@ export const ModelName = {
   PendingMultisigTransaction: 'PendingMultisigTransaction',
   AnchorTransactionWatch: 'AnchorTransactionWatch',
   DexSwapWatch: 'DexSwapWatch',
+  SorobanTopicIndex: 'SorobanTopicIndex',
+  SorobanTopicIndexCursor: 'SorobanTopicIndexCursor',
   DexSwapEvent: 'DexSwapEvent',
   SecurityAuditLog: 'SecurityAuditLog'
 } as const
@@ -429,7 +430,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "wallet" | "ingestionCursor" | "payment" | "notificationPreference" | "webhook" | "webhookLog" | "webhookCircuitBreaker" | "sorobanEventSnapshot" | "sorobanContractSubscription" | "multisigTreasury" | "multisigSignerWatcher" | "pendingMultisigTransaction" | "anchorTransactionWatch" | "dexSwapWatch" | "dexSwapEvent" | "securityAuditLog"
+    modelProps: "user" | "wallet" | "ingestionCursor" | "payment" | "notificationPreference" | "webhook" | "webhookLog" | "webhookCircuitBreaker" | "sorobanEventSnapshot" | "sorobanContractSubscription" | "multisigTreasury" | "multisigSignerWatcher" | "pendingMultisigTransaction" | "anchorTransactionWatch" | "dexSwapWatch" | "sorobanTopicIndex" | "sorobanTopicIndexCursor" | "dexSwapEvent" | "securityAuditLog"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1543,6 +1544,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    SorobanTopicIndex: {
+      payload: Prisma.$SorobanTopicIndexPayload<ExtArgs>
+      fields: Prisma.SorobanTopicIndexFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SorobanTopicIndexFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SorobanTopicIndexFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        findFirst: {
+          args: Prisma.SorobanTopicIndexFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SorobanTopicIndexFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        findMany: {
+          args: Prisma.SorobanTopicIndexFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>[]
+        }
+        create: {
+          args: Prisma.SorobanTopicIndexCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        createMany: {
+          args: Prisma.SorobanTopicIndexCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SorobanTopicIndexCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>[]
+        }
+        delete: {
+          args: Prisma.SorobanTopicIndexDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        update: {
+          args: Prisma.SorobanTopicIndexUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        deleteMany: {
+          args: Prisma.SorobanTopicIndexDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SorobanTopicIndexUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SorobanTopicIndexUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>[]
+        }
+        upsert: {
+          args: Prisma.SorobanTopicIndexUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexPayload>
+        }
+        aggregate: {
+          args: Prisma.SorobanTopicIndexAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSorobanTopicIndex>
+        }
+        groupBy: {
+          args: Prisma.SorobanTopicIndexGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanTopicIndexGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SorobanTopicIndexCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanTopicIndexCountAggregateOutputType> | number
+        }
+      }
+    }
+    SorobanTopicIndexCursor: {
+      payload: Prisma.$SorobanTopicIndexCursorPayload<ExtArgs>
+      fields: Prisma.SorobanTopicIndexCursorFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SorobanTopicIndexCursorFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SorobanTopicIndexCursorFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        findFirst: {
+          args: Prisma.SorobanTopicIndexCursorFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SorobanTopicIndexCursorFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        findMany: {
+          args: Prisma.SorobanTopicIndexCursorFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>[]
+        }
+        create: {
+          args: Prisma.SorobanTopicIndexCursorCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        createMany: {
+          args: Prisma.SorobanTopicIndexCursorCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SorobanTopicIndexCursorCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>[]
+        }
+        delete: {
+          args: Prisma.SorobanTopicIndexCursorDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        update: {
+          args: Prisma.SorobanTopicIndexCursorUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        deleteMany: {
+          args: Prisma.SorobanTopicIndexCursorDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SorobanTopicIndexCursorUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SorobanTopicIndexCursorUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>[]
+        }
+        upsert: {
+          args: Prisma.SorobanTopicIndexCursorUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SorobanTopicIndexCursorPayload>
+        }
+        aggregate: {
+          args: Prisma.SorobanTopicIndexCursorAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSorobanTopicIndexCursor>
+        }
+        groupBy: {
+          args: Prisma.SorobanTopicIndexCursorGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanTopicIndexCursorGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SorobanTopicIndexCursorCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SorobanTopicIndexCursorCountAggregateOutputType> | number
+        }
+      }
+    }
     DexSwapEvent: {
       payload: Prisma.$DexSwapEventPayload<ExtArgs>
       fields: Prisma.DexSwapEventFieldRefs
@@ -1928,6 +2077,33 @@ export const DexSwapWatchScalarFieldEnum = {
 export type DexSwapWatchScalarFieldEnum = (typeof DexSwapWatchScalarFieldEnum)[keyof typeof DexSwapWatchScalarFieldEnum]
 
 
+export const SorobanTopicIndexScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  ledgerSeq: 'ledgerSeq',
+  txHash: 'txHash',
+  topicXdrJson: 'topicXdrJson',
+  topics: 'topics',
+  topicSymbols: 'topicSymbols',
+  topicSymbol: 'topicSymbol',
+  topicsHash: 'topicsHash',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanTopicIndexScalarFieldEnum = (typeof SorobanTopicIndexScalarFieldEnum)[keyof typeof SorobanTopicIndexScalarFieldEnum]
+
+
+export const SorobanTopicIndexCursorScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  ledgerSeq: 'ledgerSeq',
+  updatedAt: 'updatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanTopicIndexCursorScalarFieldEnum = (typeof SorobanTopicIndexCursorScalarFieldEnum)[keyof typeof SorobanTopicIndexCursorScalarFieldEnum]
+
+
 export const DexSwapEventScalarFieldEnum = {
   id: 'id',
   poolContractId: 'poolContractId',
@@ -2269,6 +2445,8 @@ export type GlobalOmitConfig = {
   pendingMultisigTransaction?: Prisma.PendingMultisigTransactionOmit
   anchorTransactionWatch?: Prisma.AnchorTransactionWatchOmit
   dexSwapWatch?: Prisma.DexSwapWatchOmit
+  sorobanTopicIndex?: Prisma.SorobanTopicIndexOmit
+  sorobanTopicIndexCursor?: Prisma.SorobanTopicIndexCursorOmit
   dexSwapEvent?: Prisma.DexSwapEventOmit
   securityAuditLog?: Prisma.SecurityAuditLogOmit
 }
