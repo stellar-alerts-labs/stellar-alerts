@@ -122,10 +122,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   }, [isOpen]);
 
-  // Reset navigation highlight when results shrink below the active index.
-  useEffect(() => {
-    setActiveIndex((i) => Math.max(0, Math.min(i, flattened.length - 1)));
-  }, [flattened.length]);
+  // Keep the highlight valid when filtered results shrink.
+  const boundedActiveIndex = flattened.length === 0
+    ? 0
+    : Math.min(activeIndex, flattened.length - 1);
 
   // Lock background scroll while the palette is open.
   useEffect(() => {
@@ -147,7 +147,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       setActiveIndex((i) => (i - 1 + flattened.length) % flattened.length);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      runItem(activeIndex);
+      runItem(boundedActiveIndex);
     } else if (e.key === 'Tab') {
       e.preventDefault();
       setActiveIndex((i) => (i + 1) % flattened.length);
@@ -158,8 +158,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     const activeEl = listRef.current?.querySelector<HTMLElement>(
       '[data-active-item="true"]'
     );
-    activeEl?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex]);
+    activeEl?.scrollIntoView?.({ block: 'nearest' });
+  }, [boundedActiveIndex]);
 
   if (!isOpen) return null;
 

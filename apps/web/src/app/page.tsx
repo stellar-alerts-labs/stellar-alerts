@@ -1,17 +1,26 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import NetworkVisualizer3D from '@/components/dashboard/NetworkVisualizer3D';
+import AuditWorkspace from '@/components/dashboard/AuditWorkspace';
 import { signOut, useSession } from 'next-auth/react';
 import { WalletDTO, PaymentDTO } from '@stellar-alerts/shared';
 import { WatcherForm } from '@/components/WatcherForm';
 import {
   DashboardGrid,
   SummaryStats,
+  VolumeChart,
+  WebhookSandbox,
   WalletList,
   PaymentTable,
   NotificationModal,
+  ActivityHeatmap,
+  EmailTemplatePreview,
 } from '@/components/dashboard';
+import { EmailTemplateConfig } from '@/components/dashboard/EmailTemplatePreview';
 import { CommandPalette } from '@/components/CommandPalette';
+
+type AppSession = { accessToken?: string };
 
 export default function Home() {
   const { data: session } = useSession();
@@ -33,12 +42,14 @@ export default function Home() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [totalVolumeXLM, setTotalVolumeXLM] = useState<number>(0);
   const [totalPaymentsCount, setTotalPaymentsCount] = useState<number>(0);
+  const [crossLedgerAnalytics, setCrossLedgerAnalytics] = useState<any>(null);
 
   // Helper to get auth headers
   const getHeaders = useCallback(() => {
     const headers: Record<string, string> = {};
-    if (session && (session as any).accessToken) {
-      headers['Authorization'] = `Bearer ${(session as any).accessToken}`;
+    const accessToken = (session as (typeof session & AppSession) | null)?.accessToken;
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
     }
     return headers;
   }, [session]);
@@ -98,13 +109,35 @@ export default function Home() {
     }
   }, [session, getHeaders]);
 
-  useEffect(() => {
-    if (session) {
-      fetchWallets();
-      fetchPayments();
-      fetchSummary();
+  // Fetch cross ledger analytics
+  const fetchCrossLedgerAnalytics = useCallback(async () => {
+    if (!session) return;
+    try {
+      const url = selectedWalletId
+        ? `http://localhost:3001/payments/analytics/cross-ledger?walletId=${encodeURIComponent(selectedWalletId)}`
+        : 'http://localhost:3001/payments/analytics/cross-ledger';
+      const res = await fetch(url, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.analytics) {
+          setCrossLedgerAnalytics(data.analytics);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch cross ledger analytics:', err);
     }
-  }, [session, selectedWalletId, fetchWallets, fetchPayments, fetchSummary]);
+  }, [session, selectedWalletId, getHeaders]);
+
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setTimeout(() => {
+      void fetchWallets();
+      void fetchPayments();
+      void fetchSummary();
+      void fetchCrossLedgerAnalytics();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session, selectedWalletId, fetchWallets, fetchPayments, fetchSummary, fetchCrossLedgerAnalytics]);
 
   const handleRemoveWallet = async (id: string) => {
     try {
@@ -122,6 +155,21 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Failed to remove wallet:', err);
+    }
+  };
+
+  const handleSaveEmailTemplate = async (template: EmailTemplateConfig) => {
+    try {
+      await fetch('http://localhost:3001/notifications/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getHeaders(),
+        },
+        body: JSON.stringify({ emailTemplate: template }),
+      });
+    } catch (err) {
+      console.error('Failed to save email template preferences:', err);
     }
   };
 
@@ -232,7 +280,7 @@ export default function Home() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setIsCommandPaletteOpen(true)}
-                title="Search commands (⌘K)"
+                title="Search commands (?K)"
                 className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-2 transition-colors cursor-pointer hover:border-cyan-500/40"
               >
                 <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -240,14 +288,14 @@ export default function Home() {
                 </svg>
                 <span className="hidden sm:inline">Search</span>
                 <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono text-gray-400">
-                  ⌘K
+                  ?K
                 </kbd>
               </button>
               <button
                 onClick={() => setIsNotificationModalOpen(true)}
                 className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-300 flex items-center gap-2 transition-colors cursor-pointer hover:border-cyan-500/40"
               >
-                <span>🔔</span> Alert Settings
+                <span>??</span> Alert Settings
               </button>
               <div className="hidden sm:flex flex-col items-end">
                 <p className="font-semibold text-sm text-gray-200">{session.user?.name || 'Explorer'}</p>
@@ -280,7 +328,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Customizable Dashboard Grid — reorder widgets by dragging their headers */}
+          {/* Customizable Dashboard Grid ? reorder widgets by dragging their headers */}
           <DashboardGrid
             items={[
               {
@@ -291,8 +339,34 @@ export default function Home() {
                     totalPaymentsCount={totalPaymentsCount || payments.length}
                     totalVolumeXLM={totalVolumeXLM}
                     activeWalletsCount={wallets.length}
+                    crossLedgerAnalytics={crossLedgerAnalytics}
                   />
                 ),
+              },
+              {
+                id: 'volume-chart',
+                label: 'Currency Volume',
+                content: (
+                  <VolumeChart
+                    payments={payments}
+                    totalVolumeXLM={totalVolumeXLM}
+                  />
+                ),
+              },
+              {
+                id: 'activity-heatmap',
+                label: 'Activity Heatmap',
+                content: <ActivityHeatmap payments={payments} />,
+              },
+              {
+                id: 'email-template-preview',
+                label: 'Email Receipt Template',
+                content: <EmailTemplatePreview onSaveTemplate={handleSaveEmailTemplate} />,
+              },
+              {
+                id: 'webhook-sandbox',
+                label: 'Webhook Sandbox',
+                content: <WebhookSandbox />,
               },
               {
                 id: 'wallets',
@@ -327,6 +401,24 @@ export default function Home() {
                   </div>
                 ),
               },
+              {
+                id: 'network-visualizer',
+                label: 'Live Payment Stream Network',
+                content: <NetworkVisualizer3D payments={payments} />,
+              },
+              {
+                id: 'audit-workspace',
+                label: 'Collaborative Audit Workspace',
+                content: (
+                  <AuditWorkspace
+                    payments={payments}
+                    currentUser={{
+                      id: (session.user as { id?: string } | undefined)?.id || session.user?.email || 'anonymous',
+                      name: session.user?.name || session.user?.email || 'Auditor',
+                    }}
+                  />
+                ),
+              },
             ]}
           />
         </main>
@@ -338,7 +430,7 @@ export default function Home() {
           onSavePreferences={handleSavePreferences}
         />
 
-        {/* Command Palette — press ⌘K / Ctrl+K to navigate & run quick actions */}
+        {/* Command Palette ? press ?K / Ctrl+K to navigate & run quick actions */}
         <CommandPalette
           open={isCommandPaletteOpen}
           onOpenChange={setIsCommandPaletteOpen}
@@ -399,7 +491,7 @@ export default function Home() {
     );
   }
 
-  // Unauthenticated State — World-Class Landing Page
+  // Unauthenticated State ? World-Class Landing Page
   return (
     <div className="min-h-screen bg-[#030307] text-gray-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden relative">
       {/* Background Ambient Glows & Grid Pattern */}
@@ -452,7 +544,7 @@ export default function Home() {
           <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          Horizon Network Ingestion • Zero-Delay Alerts
+          Horizon Network Ingestion ? Zero-Delay Alerts
         </div>
 
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.1] mb-8">
@@ -565,7 +657,7 @@ export default function Home() {
                     href={devMagicUrl}
                     className="block w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs text-center shadow-lg transition-all cursor-pointer"
                   >
-                    ⚡ Click to Authenticate Instantly
+                    ? Click to Authenticate Instantly
                   </a>
                 </div>
               )}
@@ -825,7 +917,7 @@ export default function Home() {
                     href={devMagicUrl}
                     className="block w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs text-center shadow-lg transition-all cursor-pointer mt-2"
                   >
-                    ⚡ Click to Authenticate Instantly (Dev)
+                    ? Click to Authenticate Instantly (Dev)
                   </a>
                 )}
               </div>
@@ -845,7 +937,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">StellarAlerts</span>
-            <span className="text-xs text-gray-500">— Non-Custodial Stellar Payment Tracker</span>
+            <span className="text-xs text-gray-500">? Non-Custodial Stellar Payment Tracker</span>
           </div>
           <p className="text-xs text-gray-500">Released under the MIT License</p>
         </div>

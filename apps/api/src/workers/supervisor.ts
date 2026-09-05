@@ -1,5 +1,6 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
+import { env } from '../config/env';
 
 // How often the supervisor pings a worker over IPC to check it's alive.
 const PING_INTERVAL_MS = 10_000;
@@ -129,6 +130,15 @@ export class WorkerSupervisor {
 export function startSupervisor(): WorkerSupervisor {
   const supervisor = new WorkerSupervisor();
   supervisor.spawn('watcher', 'watcher.worker');
+
+  if (env.SOROBAN_RENT_WORKER_ENABLED === 'true') {
+    supervisor.spawn('soroban-rent', 'soroban-rent.worker');
+  }
+
+  if (env.SOROBAN_STAKING_REWARD_WORKER_ENABLED === 'true') {
+    supervisor.spawn('staking-reward', 'staking-reward.worker');
+  }
+
   return supervisor;
 }
 

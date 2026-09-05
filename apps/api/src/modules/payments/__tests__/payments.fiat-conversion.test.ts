@@ -18,6 +18,8 @@ vi.mock('../../lib/exchange-rates', () => ({
   SUPPORTED_FIAT_CURRENCIES: ['USD', 'EUR', 'CAD', 'JPY', 'GBP', 'AUD'],
 }));
 
+const AUTH_USER = { id: 'user-1', email: 'user-1@example.com' };
+
 describe('PaymentsController - Fiat Currency Conversion', () => {
   let mockRequest: any;
   let mockReply: any;
@@ -34,11 +36,11 @@ describe('PaymentsController - Fiat Currency Conversion', () => {
     const mockSummary = { totalReceived: 1000, paymentCount: 5 };
     (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
 
-    mockRequest = { query: { walletId: 'wallet-1' } };
+    mockRequest = { query: { walletId: 'wallet-1' }, user: AUTH_USER };
 
     await paymentsController.getPaymentsSummary(mockRequest, mockReply);
 
-    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('wallet-1', undefined);
+    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', 'wallet-1', undefined);
     expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
   });
 
@@ -54,33 +56,57 @@ describe('PaymentsController - Fiat Currency Conversion', () => {
     };
     (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
 
-    mockRequest = { query: { walletId: 'wallet-1', fiat: 'JPY' } };
+    mockRequest = { query: { walletId: 'wallet-1', fiat: 'JPY' }, user: AUTH_USER };
 
     await paymentsController.getPaymentsSummary(mockRequest, mockReply);
 
-    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('wallet-1', 'JPY');
+    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', 'wallet-1', 'JPY');
     expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
   });
 
-  it('should return 400 for invalid query parameters', async () => {
-    mockRequest = { query: {} }; // Missing required walletId
+  it('should return summary across all of the user\'s wallets when walletId is omitted', async () => {
+    const mockSummary = { totalReceived: 4200, paymentCount: 12 };
+    (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
+
+    mockRequest = { query: {}, user: AUTH_USER };
+
+    await paymentsController.getPaymentsSummary(mockRequest, mockReply);
+
+    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', undefined, undefined);
+    expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
+  });
+
+  it('should return 400 for a malformed query (wrong type)', async () => {
+    // walletId must be a string when present.
+    mockRequest = { query: { walletId: 12345 }, user: AUTH_USER };
 
     await paymentsController.getPaymentsSummary(mockRequest, mockReply);
 
     expect(mockReply.status).toHaveBeenCalledWith(400);
     expect(mockReply.send).toHaveBeenCalled();
+    expect(paymentsService.getPaymentsSummary).not.toHaveBeenCalled();
   });
 
-  it('should handle unsupported fiat currency gracefully', async () => {
-    const mockSummary = { totalReceived: 1000, paymentCount: 5 };
-    (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
-
-    mockRequest = { query: { walletId: 'wallet-1', fiat: 'XYZ' } };
+  it('should return 401 when there is no authenticated user', async () => {
+    mockRequest = { query: { walletId: 'wallet-1' }, user: undefined };
 
     await paymentsController.getPaymentsSummary(mockRequest, mockReply);
 
-    // Unsupported currency should be passed as undefined to service
-    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('wallet-1', 'XYZ');
+    expect(mockReply.status).toHaveBeenCalledWith(401);
+    expect(paymentsService.getPaymentsSummary).not.toHaveBeenCalled();
+  });
+
+  it('should pass an unsupported fiat currency through to the service as-is', async () => {
+    const mockSummary = { totalReceived: 1000, paymentCount: 5 };
+    (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
+
+    mockRequest = { query: { walletId: 'wallet-1', fiat: 'XYZ' }, user: AUTH_USER };
+
+    await paymentsController.getPaymentsSummary(mockRequest, mockReply);
+
+    // Validity of the currency code is the service's concern (via
+    // isSupportedFiatCurrency), not the controller's.
+    expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', 'wallet-1', 'XYZ');
     expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
   });
 
@@ -92,12 +118,12 @@ describe('PaymentsController - Fiat Currency Conversion', () => {
       const mockSummary = { totalReceived: 1000, paymentCount: 5 };
       (paymentsService.getPaymentsSummary as any).mockResolvedValue(mockSummary);
 
-      mockRequest = { query: { walletId: 'wallet-1', fiat: currency } };
+      mockRequest = { query: { walletId: 'wallet-1', fiat: currency }, user: AUTH_USER };
       mockReply = { status: vi.fn().mockReturnThis(), send: vi.fn() };
 
       await paymentsController.getPaymentsSummary(mockRequest, mockReply);
 
-      expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('wallet-1', currency);
+      expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', 'wallet-1', currency);
       expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
     }
   });

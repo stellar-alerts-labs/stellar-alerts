@@ -3,7 +3,9 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { env } from './config/env';
 import prismaPlugin from './plugins/prisma';
+import metricsPlugin from './plugins/metrics';
 import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
@@ -25,7 +27,7 @@ export const buildApp = async () => {
 
   await app.register(rateLimit, {
     global: true,
-    max: 100,
+    max: env.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
   });
 
@@ -36,6 +38,7 @@ export const buildApp = async () => {
   });
 
   await app.register(prismaPlugin);
+  await app.register(metricsPlugin);
 
   app.get('/health', async () => {
     return { status: 'ok' };

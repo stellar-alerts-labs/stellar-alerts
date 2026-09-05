@@ -32,6 +32,11 @@ const GENERATED_FILE = path.resolve(
   '../packages/shared/src/generated/api-types.ts'
 );
 
+const GENERATED_OPENAPI_FILE = path.resolve(
+  __dirname,
+  '../openapi.json'
+);
+
 const HEADER = [
   '/**',
   ' * AUTO-GENERATED FILE. DO NOT EDIT BY HAND.',
@@ -84,31 +89,45 @@ async function readExisting(filePath: string): Promise<string | null> {
 export async function run({
   check = false,
   targetFile = GENERATED_FILE,
-}: { check?: boolean; targetFile?: string } = {}): Promise<boolean> {
+  openapiFile = GENERATED_OPENAPI_FILE,
+}: { check?: boolean; targetFile?: string; openapiFile?: string } = {}): Promise<boolean> {
   const document = await buildOpenApiDocument();
   const generated = await generateTypesSource(document);
+  const openapiJson = JSON.stringify(document, null, 2) + '\n';
+
+  let success = true;
 
   if (check) {
-    const existing = await readExisting(targetFile);
-    if (existing === null) {
+    const existingTypes = await readExisting(targetFile);
+    const existingOpenApi = await readExisting(openapiFile);
+    
+    if (existingTypes === null || existingTypes !== generated) {
       console.error(
-        `[generate-types] ${path.relative(process.cwd(), targetFile)} does not exist. Run \`npm run generate:types\` and commit the result.`
+        `[generate-types] ${path.relative(process.cwd(), targetFile)} is out of date or does not exist. Run \`npm run generate:types\` and commit the result.`
       );
-      return false;
+      success = false;
     }
-    if (existing !== generated) {
+
+    if (existingOpenApi === null || existingOpenApi !== openapiJson) {
       console.error(
-        `[generate-types] ${path.relative(process.cwd(), targetFile)} is out of date with the OpenAPI schema. Run \`npm run generate:types\` and commit the result.`
+        `[generate-types] ${path.relative(process.cwd(), openapiFile)} is out of date or does not exist. Run \`npm run generate:types\` and commit the result.`
       );
-      return false;
+      success = false;
     }
-    console.log('[generate-types] Generated types are up to date.');
-    return true;
+
+    if (success) {
+      console.log('[generate-types] Generated types and openapi.json are up to date.');
+    }
+    return success;
   }
 
   await fs.mkdir(path.dirname(targetFile), { recursive: true });
   await fs.writeFile(targetFile, generated, 'utf8');
   console.log(`[generate-types] Wrote ${path.relative(process.cwd(), targetFile)}`);
+
+  await fs.mkdir(path.dirname(openapiFile), { recursive: true });
+  await fs.writeFile(openapiFile, openapiJson, 'utf8');
+  console.log(`[generate-types] Wrote ${path.relative(process.cwd(), openapiFile)}`);
   return true;
 }
 
@@ -126,3 +145,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1;
   });
 }
+
