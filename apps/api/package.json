@@ -12,7 +12,7 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:fuzz": "vitest run src/utils/__tests__/webhook-fuzzer.test.ts",
-    "test:e2e": "vitest run src/__tests__/e2e.test.ts",
+    "test:e2e": "vitest run src/__tests_/e2e.test.ts",
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
@@ -39,6 +39,7 @@
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
+    "@keep-network/tss": "^2.2.0",
     "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "bullmq": "^5.41.6",

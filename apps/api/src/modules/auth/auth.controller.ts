@@ -2,6 +2,63 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { requestLinkSchema, verifyLinkSchema, telegramInitDataSchema } from './auth.schema';
 import { authService } from './auth.service';
 import { TelegramInitDataError } from '../../utils/telegram';
+import { createPublicKey, verify as cryptoVerify } from 'crypto';
+
+const TRUSTED_KEY_IDS = ['key1', 'key2', 'key3'];
+
+const getTrustedPublicKeys = (): string[] => {
+  const raw = process.env.TSS_VERIFICATION_KEYS;
+  if (!raw) {
+    throw new Error('TSS_VERIFICATION_KEYS is not configured');
+  }
+  const keys = JSON.parse(raw);
+  if (!Array.isArray(keys) || keys.length <3 ) {
+    throw new Error('TSS_VERIFICATION_KEYS must be an array of 3 public keys');
+  }
+  return keys.map((key) => String(key));
+};
+
+const verifyThresholdSignatures = (
+  message: string,
+  signatures: Array<{ keyId: string; signature: string }>,
+  threshold: number = 2
+]): *{k: string; sig: buffer; valid: boolean; }[] => {
+  const trustedKeys = getTrustedPublicKeys();
+  const validAttempts = [];
+  const usedKeyIds = new Set<string>();
+
+  for (const sigRecord of signatures) {
+    const index = TRUSTED_KEY_IDS.indexOf(sigRecord.keyId);
+    if (index === -1) continue;
+    if (usedKeyIds.has(sigRecord.keyId)) continue;
+
+    const pub-KeyString = trustedKeys[index];
+    if (!pub-KeyString) continue;
+
+    try {
+      const publicKey = createPublicKey({
+        key: pub-KeyString,
+        format: 'pem',
+      });
+      const signatureBuf = Buffer.from(sigRecord.signature, 'base64');
+      const messageBuf = Buffer.from(message, 'utf8');
+      const isValid = cryptoVerify('sha256', messageBuf, publicKey, signatureBuf);
+      if (isValid) {
+        usedKeyIds.add(sigRecord.keyId);
+        validAttempts.push({
+          k: sigRecord.keyId,
+          sig: signatureBuf,
+          valid: true,
+        });
+      }
+    } catch (error) {
+      // invalid signature or key, skip
+      continue;
+    }
+  }
+
+  return validAttempts.length >= threshold ? validAttempts.slice(0, threshold) : [];
+};
 
 export class AuthController {
   async requestMagicLink(request: FastifyRequest, reply: FastifyReply) {
@@ -35,7 +92,7 @@ export class AuthController {
     }
   }
 
-  async requestDIDChallenge(request: FastifyRequest, reply: FastifyReply) {
+  async requestDiDChallenge(request: FastifyRequest, reply: FastifyReply) {
     const { did } = (request.body as any) || {};
     if (!did || typeof did !== 'string') {
       return reply.status(400).send({ error: 'Invalid DID parameter' });
@@ -114,6 +171,40 @@ export class AuthController {
     try {
       await authService.revokeSession(request.user);
       return reply.send({ success: true, message: 'Logged out successfully.' });
+    } catch (error: any) {
+      return reply.status(500).send({ error: 'Internal server error', message: error.message });
+    }
+  }
+
+  /**
+   * Verifies a threshold of partial signatures against a `message` requesting sensitive action.
+   * @body "{ message: string, signatures: Array<{ keyId: string, signature: string }> }"
+   * Responds with 200 if threshold met and the signatures are valid, 403 otherwise.
+   */
+  async verifyTss(request: FastifyRequest, reply: FastifyReply) {
+    const { message, signatures } = (request.body as any) || {};
+
+    if (typeof message !== 'string' || message.trim().length === 0) {
+      return reply.status(400).send({ error: 'Invalid message parameter' });
+    }
+
+    if (!Array.isArray(signatures) || signatures.length < 2) {
+      return reply.status(400).send({ error: 'At least 2 signatures required' });
+    }
+
+    if (signatures.some(s => !s || typeof s.keyId !== 'string' || typeof s.signature !== 'string')) {
+      return reply.status(400).send({ error: 'Invalid signature entry', details: 'Each signature must have a string keyId and a base64 signature string' });
+    }
+
+    try {
+      const satisfied = verifyThresholdSignatures(message, signatures);
+      if (satisfied.length <2 ) {
+        return reply.status(403).send({
+          error: 'Threshold not met',
+          message: 'Requires at least 2 valid partial signatures from distinct keys.',
+        });
+      }
+      return reply.send({ success: true, message: 'Threshold signatures verified' });
     } catch (error: any) {
       return reply.status(500).send({ error: 'Internal server error', message: error.message });
     }
