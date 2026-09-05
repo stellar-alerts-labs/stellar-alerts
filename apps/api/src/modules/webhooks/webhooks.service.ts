@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+
 import { prisma } from '../../lib/prisma';
 import { generateWebhookSignature } from '../../utils/webhook-signer';
 import { validateHandlebarsTemplate } from '../../utils/payload-template';
@@ -26,7 +27,7 @@ export class WebhooksService {
   /**
    * Computes the 7-day delivery success rate and latency health scorecard for a webhook.
    */
-  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date; sentAt?: Date }>): WebhookHealthScorecard {
+  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date | null; sentAt?: Date | null }>): WebhookHealthScorecard {
     if (!logs || logs.length === 0) {
       return {
         healthPercentage: 100.0,
@@ -61,8 +62,6 @@ export class WebhooksService {
   }
 
   async addWebhook(userId: string, url: string, payloadTemplate?: string) {
-    console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
-
     if (payloadTemplate) {
       const validation = validateHandlebarsTemplate(payloadTemplate);
       if (!validation.ok) {
@@ -170,7 +169,7 @@ export class WebhooksService {
       },
     });
 
-    const signature = await signWebhookPayload(payload, { secret: webhook.secret });
+    const signature = await generateWebhookSignature(payload, { secret: webhook.secret });
 
     try {
       const response = await fetch(webhook.url, {
@@ -191,16 +190,14 @@ export class WebhooksService {
           ? 'Ping payload delivered successfully.'
           : `Endpoint responded with status ${response.status}.`,
       };
-    } catch (error: any) {
-      console.error(`[WebhooksService] Failed to deliver test ping to ${webhook.url}:`, error.message);
+    } catch (error) {
       return {
         success: false,
         status: null,
-        message: `Failed to reach endpoint: ${error.message}`,
+        message: `Failed to reach endpoint: ${(error as Error).message}`,
       };
     }
   }
 }
 
 export const webhooksService = new WebhooksService();
-

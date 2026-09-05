@@ -5,10 +5,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id          String                   @id @default(cuid())
+  id           String                  @id @default(cuid())
   email       String                   @unique
   createdAt   DateTime                 @default(now())
   wallets     Wallet[]
@@ -26,7 +27,7 @@ model Wallet {
   user       User             @relation(fields: [userId], references: [id])
   publicKey  String           @unique
   label      String?
-  createdAt  DateTime         @default(now())
+  createdAt   DateTime         @default(now())
   payments   Payment[]
   cursor     IngestionCursor?
 }
@@ -136,6 +137,33 @@ model SorobanContractSubscription {
   @@unique([userId, contractId, topic])
   @@index([contractId])
   @@index([userId])
+}
+
+model SacTokenMintBurnEvent {
+  id         String   @id @default(cuid())
+  contractId   String
+  supply       SacTokenSupply @relation(fields: [contractId], references: [contractId], onDelete: Cascade)
+  eventType   String   @default("mint")
+  amount       Decimal
+  from         String?
+  to           String?
+  ledgerSeq    Int
+  txHash        String?
+  createdAt     DateTime @default(now())
+
+  @@index([contractId, ledgerSeq])
+  @@index([eventType])
+  @@index([ledgerSeq])
+}
+
+model SacTokenSupply {
+  contractId        String   @id
+  mintBurnEvents    SacTokenMintBurnEvent[]
+  circulatingSupply Decimal  @default("0")
+  totalMinted       Decimal  @default("0")
+  totalBurned        Decimal  @default("0")
+  updatedAt          DateTime @updatedAt
+  createdAt           DateTime @default(now())
 }
 
 // A Stellar multisig account (e.g. a DAO treasury) being watched for pending
@@ -273,4 +301,3 @@ model SecurityAuditLog {
   @@index([txHash])
   @@index([createdAt])
 }
-

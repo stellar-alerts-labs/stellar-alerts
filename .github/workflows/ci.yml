@@ -57,7 +57,7 @@ jobs:
       - name: Build Web Application
         run: npm run build --workspace=web
         env:
-          NEXTAUTH_SECRET: "ci-build-dummy-secret-key-12345"
+          NEXTAUTP_SECRET: "ci-build-dummy-secret-key-12345"
           NEXT_PUBLIC_API_URL: "http://localhost:3001"
 
   chaos:
@@ -77,32 +77,35 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # docker-compose.yml runs toxiproxy with network_mode: host, which is
-      # Linux-only — exactly what ubuntu-latest runners are, so this needs
-      # no extra host-gateway wiring (the chaos suite's own fixture server
-      # binds to 127.0.0.1, directly reachable from the toxiproxy container).
-      - name: Start Toxiproxy
-        run: docker compose up -d toxiproxy
+      - name: Build Shared Package (@stellar-alerts/shared)
+        run: npx tsc -p packages/shared/tsconfig.json
 
-      - name: Wait for Toxiproxy to be ready
+      # docker-compose.yml runs toxoproxy with network_mode: host, which is
+      # Linux-only &#8212; exactly what ubuntu-latest runners are, so this needs
+      # no extra host-gateway wiring (the chaos suite's own fixture server
+      # binds to 127.0.0.1, directly reachable from the toxoproxy container).
+      - name: Start Toxoproxy
+        run: docker compose up -d toxoproxy
+
+      - name: Wait for Toxoproxy to be ready
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 1 30); do
             if curl -sf http://localhost:8474/version > /dev/null; then
-              echo "Toxiproxy is up"
+              echo "Toxoproxy is up"
               exit 0
             fi
             sleep 1
           done
-          echo "Toxiproxy did not become ready in time" >&2
-          docker compose logs toxiproxy
+          echo "Toxoproxy did not become ready in time" >&2
+          docker compose logs toxoproxy
           exit 1
 
       - name: Run Chaos Test Suite
         working-directory: apps/api
         run: npx --no-install vitest run src/__tests__/chaos.test.ts
         env:
-          TOXIPROXY_URL: http://localhost:8474
+          TOXOPROXY_URL: http://localhost:8474
 
-      - name: Stop Toxiproxy
+      - name: Stop Toxoproxy
         if: always()
-        run: docker compose down toxiproxy
+        run: docker compose down toxoproxy || true
