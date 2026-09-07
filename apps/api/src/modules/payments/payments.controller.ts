@@ -3,12 +3,19 @@ import { z } from 'zod';
 import { paymentsService } from './payments.service';
 
 const getPaymentsSchema = z.object({
-  walletId: z.string(),
+  // Optional: omitted by the dashboard's "All Wallets" view (see apps/web
+  // src/app/page.tsx fetchPayments/fetchSummary), which previously 400'd here.
+  walletId: z.string().optional(),
   limit: z.coerce.number().optional().default(20),
 });
 
 const getSummarySchema = z.object({
-  walletId: z.string(),
+  walletId: z.string().optional(),
+  fiat: z.string().optional(),
+});
+
+const getCrossLedgerSchema = z.object({
+  walletId: z.string().optional(),
 });
 
 const estimateFeeBodySchema = z.object({
@@ -22,8 +29,15 @@ export class PaymentsController {
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
     }
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    }
 
-    const payments = await paymentsService.getPayments(parsed.data.walletId, parsed.data.limit);
+    const payments = await paymentsService.getPayments(
+      request.user.id,
+      parsed.data.walletId,
+      parsed.data.limit,
+    );
     return reply.send({ success: true, payments });
   }
 
@@ -32,8 +46,15 @@ export class PaymentsController {
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
     }
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    }
 
-    const summary = await paymentsService.getPaymentsSummary(parsed.data.walletId);
+    const summary = await paymentsService.getPaymentsSummary(
+      request.user.id,
+      parsed.data.walletId,
+      parsed.data.fiat,
+    );
     return reply.send({ success: true, summary });
   }
 

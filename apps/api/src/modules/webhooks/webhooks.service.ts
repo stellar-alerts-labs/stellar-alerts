@@ -60,7 +60,7 @@ export class WebhooksService {
     };
   }
 
-  async addWebhook(userId: string, url: string) {
+  async addWebhook(userId: string, url: string, payloadTemplate?: string) {
     console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
     const rawSecret = crypto.randomBytes(32).toString('hex');
     // Encrypt the secret before persisting — only the vault-encrypted form is stored
@@ -71,10 +71,12 @@ export class WebhooksService {
         userId,
         url,
         secret,
+        payloadTemplate,
       },
       select: {
         id: true,
         url: true,
+        payloadTemplate: true,
         isActive: true,
         createdAt: true,
       },
