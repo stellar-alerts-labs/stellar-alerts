@@ -10,17 +10,7 @@ const envSchema = z.object({
   REDIS_SENTINEL_MASTER_NAME: z.string().optional().default("mymaster"),
   REDIS_SENTINEL_PASSWORD: z.string().optional(),
   PORT: z.string().optional().default("3001"),
-  // Requests/minute allowed per client before @fastify/rate-limit responds 429.
-  // Overridable so load-test runs (k6, etc.) can measure real server capacity
-  // instead of hitting the rate limiter almost immediately.
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().optional().default(100),
-  SOROBAN_RENT_WORKER_ENABLED: z.string().optional().default("true"),
-  SOROBAN_RENT_WORKER_INTERVAL_MS: z.string().optional().default("60000"),
-  SOROBAN_RENT_WORKER_SECRET: z.string().optional(),
-  SOROBAN_RENT_RENEWAL_THRESHOLD: z.string().optional().default("5000"),
-  SOROBAN_RENT_TARGET_TTL: z.string().optional().default("10000"),
-  SOROBAN_RENT_MAX_CONCURRENCY: z.string().optional().default("5"),
-  SOROBAN_STAKING_REWARD_WORKER_ENABLED: z.string().optional().default("true"),
+  APP_URL: z.string().optional().default("http://localhost:3000"),
 });
 export type Env = z.infer<typeof envSchema>;
 
