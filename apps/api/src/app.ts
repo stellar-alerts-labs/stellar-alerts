@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { z } from 'zod';
+import { env } from './config/env';
 import prismaPlugin from './plugins/prisma';
 import { env } from './config/env';
 import { createOriginValidator, parseAllowedOrigins } from './config/cors';
@@ -12,16 +12,9 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
 import { webhooksRoutes } from './modules/webhooks/webhooks.routes';
-import { requestLinkSchema, verifyLinkSchema } from './modules/auth/auth.schema';
-import { createWalletSchema } from './modules/wallets/wallets.schema';
-import { createWebhookSchema } from './modules/webhooks/webhooks.schema';
+import { openApiOptions } from './openapi.config';
 
-const openApiComponentSchemas = {
-  RequestLinkInput: z.toJSONSchema(requestLinkSchema),
-  VerifyLinkInput: z.toJSONSchema(verifyLinkSchema),
-  CreateWalletInput: z.toJSONSchema(createWalletSchema),
-  CreateWebhookInput: z.toJSONSchema(createWebhookSchema),
-};
+export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
 export const buildApp = async () => {
   const app = Fastify({
@@ -67,29 +60,11 @@ export const buildApp = async () => {
 
   await app.register(rateLimit, {
     global: true,
-    max: 100,
+    max: env.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
   });
 
-  await app.register(swagger, {
-    openapi: {
-      info: {
-        title: 'Stellar Alerts API',
-        description:
-          'Interactive API documentation for the Stellar Payment Tracker. Register wallets, monitor payments and manage webhook alert endpoints.',
-        version: '1.0.0',
-      },
-      tags: [
-        { name: 'auth', description: 'Magic-link authentication' },
-        { name: 'wallets', description: 'Watched Stellar wallet management' },
-        { name: 'payments', description: 'Incoming payment history and summaries' },
-        { name: 'webhooks', description: 'Custom webhook alert endpoint management' },
-      ],
-      components: {
-        schemas: openApiComponentSchemas,
-      },
-    },
-  });
+  await app.register(swagger, openApiOptions);
 
   await app.register(swaggerUi, {
     routePrefix: '/docs',
@@ -99,6 +74,7 @@ export const buildApp = async () => {
   });
 
   await app.register(prismaPlugin);
+  await app.register(metricsPlugin);
 
   app.get('/health', async () => {
     return { status: 'ok' };
