@@ -18,6 +18,11 @@ const start = async () => {
       runWatcher().catch((err) => console.error('⚠️ Watcher worker error:', err));
     }
 
+    if (process.env.START_OUTBOX_RELAY !== 'false') {
+      const { runOutboxRelay } = await import('./workers/outbox.worker');
+      runOutboxRelay();
+    }
+
     const shutdown = async () => {
       console.log('🛑 Graceful shutdown initiated...');
       setTimeout(() => {

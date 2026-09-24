@@ -6,6 +6,10 @@ Payment alert jobs use a bounded retry policy. Transient infrastructure and prov
 
 Quarantined jobs are copied to the `payment-alerts-dlq` queue and persisted as `DeadLetter` records with the job ID, failure class, failure reason, attempts made, and configured attempt cap. The dead-letter API exposes this metadata for operator inspection and preserves the existing replay and suppression workflow. The default cap is backward-compatible with the previous five-attempt behavior; set `WORKER_MAX_ATTEMPTS` during rollout if a different cap is required.
 
+## Durable payment outbox
+
+New payments and their `payment.alert` and `payment.realtime` events are committed atomically in PostgreSQL. The outbox relay polls pending events, publishes alert jobs to BullMQ and realtime messages through Redis, and retries failures with backoff. Processed rows are retained for audit and replay diagnostics. Set `START_OUTBOX_RELAY=false` when running a process that should not relay events; at least one API/worker process must leave it enabled.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5.10-green.svg)](https://fastify.dev/)
