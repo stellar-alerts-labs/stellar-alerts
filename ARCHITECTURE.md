@@ -115,6 +115,10 @@ The ingestion worker ([watcher.worker.ts](file:///c:/Users/user/OneDrive/Documen
 4. **Idempotent Persistence**: Checks `prisma.payment.findUnique({ where: { txHash } })` to guarantee idempotent database insertion.
 5. **BullMQ Queue Enqueueing**: Publishes alert payload to `payment-alerts` queue with exponential retry backoff (5 attempts).
 
+### Worker poison-job handling
+
+The queue classifies failures as `retryable` or `permanent`. Retryable failures continue with exponential backoff until `WORKER_MAX_ATTEMPTS` (default `5`, bounded to `20`); permanent failures, including malformed alert payloads, are quarantined after the first failure. Both paths write a `DeadLetter` record and a `payment-alerts-dlq` entry. The record includes `jobId`, `failureClass`, `failureReason`, `attemptsMade`, and `maxAttempts`, making the reason visible to operators through the existing dead-letter API. Existing channel-level dead letters and replay/suppression behavior remain compatible.
+
 ---
 
 ## 5.1 Soroban Topic Indexer Engine

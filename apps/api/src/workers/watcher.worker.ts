@@ -1,7 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
 import { prisma, connectWithRetry } from '../lib/prisma';
 import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
-import { enqueuePaymentAlert } from '../lib/queue';
 import {
   getSorobanLatestLedger,
   loadContractRegistry,
@@ -94,20 +93,70 @@ export async function processPaymentRecord(
       const existing = await prisma.payment.findUnique({ where: { txHash } });
       let payment: { id: string } | null = existing;
       let isNewPayment = false;
+      let shouldSendAlert = true;
+
+      if (wallet.userId) {
+        const notifyPrefs = await prisma.notificationPreference.findUnique({
+          where: { userId: wallet.userId },
+        });
+
+        if ((notifyPrefs as any)?.filterRules) {
+          const paymentContext: PaymentContext = {
+            amount: Number(amount),
+            asset,
+            fromAddress,
+            memo,
+          };
+
+          shouldSendAlert = shouldAlert((notifyPrefs as any)?.filterRules, paymentContext);
+
+          if (!shouldSendAlert) {
+            console.log(
+              `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
+                0,
+                8
+              )}...): ${amount} ${asset}`
+            );
+          }
+        }
+      }
 
       if (!existing) {
         try {
-          payment = await prisma.payment.create({
-            data: {
-              walletId: wallet.id,
-              txHash,
-              fromAddress,
-              amount: Number(amount),
-              asset,
-              assetIssuer,
-              memo,
-              receivedAt,
-            },
+          payment = await prisma.$transaction(async (tx) => {
+            const createdPayment = await tx.payment.create({
+              data: {
+                walletId: wallet.id,
+                txHash,
+                fromAddress,
+                amount: Number(amount),
+                asset,
+                assetIssuer,
+                memo,
+                receivedAt,
+              },
+            });
+
+            if (shouldSendAlert) {
+              const alertPayload = {
+                paymentId: createdPayment.id,
+                txHash,
+                walletId: wallet.id,
+                amount,
+                asset,
+                assetIssuer,
+                fromAddress,
+                receivedAt: receivedAt.toISOString(),
+              };
+              await tx.outboxEvent.createMany({
+                data: [
+                  { eventType: 'payment.alert', aggregateId: createdPayment.id, payload: alertPayload },
+                  { eventType: 'payment.realtime', aggregateId: createdPayment.id, payload: alertPayload },
+                ],
+              });
+            }
+
+            return createdPayment;
           });
           isNewPayment = true;
         } catch (err: any) {
@@ -125,45 +174,7 @@ export async function processPaymentRecord(
       }
 
       if (isNewPayment && payment) {
-        let shouldSendAlert = true;
-
-        if (wallet.userId) {
-          const notifyPrefs = await prisma.notificationPreference.findUnique({
-            where: { userId: wallet.userId },
-          });
-
-          if ((notifyPrefs as any)?.filterRules) {
-            const paymentContext: PaymentContext = {
-              amount: Number(amount),
-              asset,
-              fromAddress,
-              memo,
-            };
-
-            shouldSendAlert = shouldAlert((notifyPrefs as any)?.filterRules, paymentContext);
-
-            if (!shouldSendAlert) {
-              console.log(
-                `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
-                  0,
-                  8
-                )}...): ${amount} ${asset}`
-              );
-            }
-          }
-        }
-
         if (shouldSendAlert) {
-          await enqueuePaymentAlert({
-            paymentId: payment.id,
-            txHash,
-            walletId: wallet.id,
-            amount,
-            asset,
-            assetIssuer,
-            fromAddress,
-            receivedAt: receivedAt.toISOString(),
-          });
           span.setAttribute('payment.enqueued', true);
         } else {
           span.setAttribute('payment.enqueued', false);
