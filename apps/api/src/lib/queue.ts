@@ -141,7 +141,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     });
 
     if (!webhook) {
-      console.warn(`[WebhookDispatch] Webhook ${webhookId} not found`);
+      queueLog.warn(`[WebhookDispatch] Webhook ${webhookId} not found`);
       return;
     }
 
@@ -153,7 +153,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       const now = Date.now();
 
       if (now - openedAt < CIRCUIT_BREAKER_TIMEOUT) {
-        console.warn(
+        queueLog.warn(
           `[WebhookDispatch] Circuit breaker OPEN for webhook ${webhookId}, skipping dispatch`,
         );
         await prisma.webhookLog.create({
@@ -166,7 +166,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       } else {
         // Transition to half-open
         await updateCircuitBreakerState(webhookId, "half-open");
-        console.log(
+        queueLog.info(
           `[WebhookDispatch] Circuit breaker HALF-OPEN for webhook ${webhookId}, attempting recovery`,
         );
       }
@@ -174,13 +174,13 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
 
     const adaptiveDelayMs = adaptiveWebhookRateLimiter.getDelayMs(webhook.url);
     if (adaptiveDelayMs > 0) {
-      console.warn(`[WebhookDispatch] Pausing webhook domain for ${adaptiveDelayMs}ms before retry`);
+      queueLog.warn(`[WebhookDispatch] Pausing webhook domain for ${adaptiveDelayMs}ms before retry`);
       await waitForAdaptiveBackoff(adaptiveDelayMs);
     }
 
     const templateResult = applyWebhookPayloadTemplate(payload, webhook.payloadTemplate);
     if (!templateResult.ok) {
-      console.warn(
+      queueLog.warn(
         `[WebhookDispatch] Payload template error for webhook ${webhookId}: ${templateResult.error}`,
       );
       await prisma.webhookLog.create({
@@ -215,18 +215,18 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     // Reset circuit breaker to closed on success
     if (webhook.circuitBreaker?.state === "half-open") {
       await updateCircuitBreakerState(webhookId, "closed", 0);
-      console.log(
+      queueLog.info(
         `[WebhookDispatch] Circuit breaker CLOSED for webhook ${webhookId}, service recovered`,
       );
     }
 
-    console.log(
+    queueLog.info(
       `[WebhookDispatch] Webhook ${webhookId} dispatched, status: ${response.status}`,
     );
   } catch (error: any) {
     // Handle circuit breaker open error
     if (error.message && error.message.includes("breaker is open")) {
-      console.warn(
+      queueLog.warn(
         `[WebhookDispatch] Circuit breaker prevented request for webhook ${webhookId}`,
       );
       await prisma.webhookLog.create({
@@ -249,12 +249,12 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       });
 
       if (!retryAfterBackoff) {
-        console.warn(`[WebhookDispatch] Rate limited by ${targetUrl}; retrying after ${delayMs}ms`);
+        queueLog.warn(`[WebhookDispatch] Rate limited by ${targetUrl}; retrying after ${delayMs}ms`);
         await waitForAdaptiveBackoff(delayMs);
         return dispatchWebhookAndLog(webhookId, payload, true);
       }
 
-      console.warn(`[WebhookDispatch] Endpoint still rate limited after adaptive retry for ${webhookId}`);
+      queueLog.warn(`[WebhookDispatch] Endpoint still rate limited after adaptive retry for ${webhookId}`);
       return;
     }
 
@@ -270,7 +270,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     // Open circuit if threshold reached
     if (failureCount >= CIRCUIT_BREAKER_THRESHOLD) {
       await updateCircuitBreakerState(webhookId, "open", failureCount);
-      console.error(
+      queueLog.error(
         `[WebhookDispatch] Circuit breaker OPENED for webhook ${webhookId} after ${failureCount} failures`,
       );
     } else {
@@ -284,7 +284,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       },
     });
 
-    console.error(
+    queueLog.error(
       `[WebhookDispatch] Failed to dispatch webhook ${webhookId}: ${error.message}`,
     );
   }
@@ -303,7 +303,7 @@ export function createRedisConnectionConfig() {
       return { host: parts[0] || 'localhost', port: parseInt(parts[1] || '26379', 10) };
     });
 
-    console.log(`[Queue] 🛡️ Configuring Redis Sentinel failover with master "${masterName}" across ${sentinels.length} sentinel(s)`);
+    queueLog.info(`[Queue] 🛡️ Configuring Redis Sentinel failover with master "${masterName}" across ${sentinels.length} sentinel(s)`);
 
     return {
       sentinels,
@@ -315,7 +315,7 @@ export function createRedisConnectionConfig() {
       retryStrategy: (times: number) => Math.min(times * 100, 3000),
       reconnectOnError: (err: Error) => {
         if (err.message && err.message.includes('READONLY')) {
-          console.warn('[Queue] ⚡ Master promoted during Sentinel failover (READONLY received), reconnecting...');
+          queueLog.warn('[Queue] ⚡ Master promoted during Sentinel failover (READONLY received), reconnecting...');
           return true;
         }
         return false;
@@ -384,12 +384,12 @@ export async function failedJobHandler({ jobId, failedReason }: { jobId?: string
       await dlqQueue.add("dispatch-alert-failed", job.data, {
         jobId: `dlq-${jobId}`,
       });
-      console.log(
+      queueLog.info(
         `[Queue] 📨 Moved failed job ${jobId} to DLQ. Reason: ${failedReason}`,
       );
     }
   } catch (err: any) {
-    console.warn(`[Queue] Failed to process DLQ routing for ${jobId}: ${err.message}`);
+    queueLog.warn(`[Queue] Failed to process DLQ routing for ${jobId}: ${err.message}`);
   }
 }
 
@@ -454,7 +454,7 @@ export async function processAlertDispatch(data: AlertJobData) {
         dispatchWebhookAndLog(webhook.id, webhookPayload),
       ),
     ).catch((err) => {
-      console.warn(`[Worker] Webhook dispatch had errors: ${err.message}`);
+      queueLog.warn(`[Worker] Webhook dispatch had errors: ${err.message}`);
     });
   }
 
@@ -477,12 +477,12 @@ export async function processAlertDispatch(data: AlertJobData) {
       });
 
       if (!response.ok) {
-        console.warn(`[Worker] Failed to send Telegram message for ${data.paymentId}`);
+        queueLog.warn(`[Worker] Failed to send Telegram message for ${data.paymentId}`);
       } else {
-        console.log(`[Worker] Sent Telegram receipt for ${data.paymentId}`);
+        queueLog.info(`[Worker] Sent Telegram receipt for ${data.paymentId}`);
       }
     } catch (dbErr: any) {
-      console.warn(`[Worker] Failed to send Telegram notification for ${data.paymentId}: ${dbErr.message}`);
+      queueLog.warn(`[Worker] Failed to send Telegram notification for ${data.paymentId}: ${dbErr.message}`);
     }
   }
 
@@ -503,13 +503,13 @@ export async function processAlertDispatch(data: AlertJobData) {
     });
 
     if (error) {
-      console.warn(`[Worker] Resend Email Notice: ${error.message}`);
+      queueLog.warn(`[Worker] Resend Email Notice: ${error.message}`);
     } else {
-      console.log(`[Worker] Sent email receipt for ${data.paymentId}`);
+      queueLog.info(`[Worker] Sent email receipt for ${data.paymentId}`);
     }
     return resendData;
   } catch (err: any) {
-    console.warn(`[Worker] Email dispatch error: ${err.message}`);
+    queueLog.warn(`[Worker] Email dispatch error: ${err.message}`);
     return null;
   }
 }

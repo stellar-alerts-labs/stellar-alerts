@@ -115,7 +115,7 @@ export async function processPaymentRecord(
             shouldSendAlert = shouldAlert((notifyPrefs as any)?.filterRules, paymentContext);
 
             if (!shouldSendAlert) {
-              console.log(
+              log.info(
                 `[WatcherWorker] 🔕 Payment filtered by rules for wallet (${wallet.publicKey.substring(
                   0,
                   8
@@ -201,7 +201,7 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
   return tracer.startActiveSpan('watcher.processWalletPayments', async (span) => {
     try {
       if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
-        console.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
+        log.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
         span.setStatus({ code: SpanStatusCode.OK });
         span.end();
         return;
@@ -238,7 +238,7 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
         }
       }
 
-      console.warn(
+      log.warn(
         `[WatcherWorker] Catch-up page limit reached for ${wallet.publicKey.substring(0, 8)}..., resuming next poll from ${cursor}`,
       );
       span.setStatus({ code: SpanStatusCode.OK });
@@ -321,7 +321,7 @@ export async function startHorizonSSEStream(
     const resetHeartbeat = () => {
       if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
       heartbeatTimeout = setTimeout(() => {
-        console.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting...`);
+        log.warn(`[WatcherStream] ⚠️ Heartbeat timeout for ${wallet.publicKey.substring(0, 8)}... Reconnecting...`);
         connect();
       }, 60000);
     };
@@ -338,14 +338,14 @@ export async function startHorizonSSEStream(
           onmessage: async (record: any) => {
             resetHeartbeat();
             attempts = 1;
-            console.log(`[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`);
+            log.info(`[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`);
             await processPaymentRecord(wallet, record);
             if (record.paging_token) {
               await saveCursor(wallet.id, record.paging_token);
             }
           },
           onerror: (error: any) => {
-            console.error(`[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`, error);
+            log.error({ err: error instanceof Error ? error.message : String(error), publicKeyPrefix: wallet.publicKey.substring(0, 8) }, 'SSE stream error');
             cleanupCurrent();
             if (isClosed) return;
             if (attempts < maxAttempts) {
@@ -359,7 +359,7 @@ export async function startHorizonSSEStream(
 
         currentClose = connector(cursor, handlers);
       } catch (err: any) {
-        console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
+        log.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
       }
     };
 
@@ -386,7 +386,7 @@ export async function startHorizonSSEStream(
  * process mid-request, not an uncontrolled crash.
  */
 export function gracefulRestart(reason: string, snapshot: MemorySnapshot): void {
-  console.error(
+  log.error(
     `[WatcherWorker] 💥 Initiating graceful restart: ${reason} ` +
       `(heap ${(snapshot.usageRatio * 100).toFixed(1)}%, ${Math.round(snapshot.heapUsed / 1024 / 1024)}MB used)`,
   );
@@ -399,7 +399,7 @@ export function gracefulRestart(reason: string, snapshot: MemorySnapshot): void 
 export function startMemoryMonitor(): MemoryMonitor {
   const monitor = new MemoryMonitor({
     onCleanup: (snapshot, gcRan) => {
-      console.warn(
+      log.warn(
         `[WatcherWorker] Heap cleanup pass ${gcRan ? "ran" : "skipped (start with --expose-gc to enable it)"} ` +
           `at ${(snapshot.usageRatio * 100).toFixed(1)}% usage.`,
       );
@@ -424,7 +424,7 @@ export async function pollOnce() {
         try {
           await processWalletPayments({ id: wallet.id, publicKey: wallet.publicKey, userId: wallet.userId });
         } catch (err: any) {
-          console.error(`[WatcherWorker] Error processing wallet ${wallet.publicKey}:`, err.message || err);
+          log.error({ err: err instanceof Error ? err.message : String(err), publicKey: wallet.publicKey }, 'Error processing wallet');
         }
       }
       const contractIds = getActiveContractIds();
@@ -433,13 +433,13 @@ export async function pollOnce() {
           try {
             await processSorobanContractEvents(contractId);
           } catch (err: any) {
-            console.error(`[WatcherWorker] Error processing contract ${contractId}:`, err.message || err);
+            log.error({ err: err instanceof Error ? err.message : String(err), contractId }, 'Error processing contract');
           }
         }
       }
       pollSpan.setStatus({ code: SpanStatusCode.OK });
     } catch (err: any) {
-      console.error('[WatcherWorker] Error in pollOnce:', err.message || err);
+      log.error({ err: err instanceof Error ? err.message : String(err) }, 'Error in pollOnce');
       pollSpan.setStatus({ code: SpanStatusCode.OK });
     } finally {
       pollSpan.end();
@@ -448,7 +448,7 @@ export async function pollOnce() {
 }
 
 export async function runWatcher() {
-  console.log("[WatcherWorker] 🚀 Starting Stellar Testnet Watcher Worker...");
+  log.info("[WatcherWorker] 🚀 Starting Stellar Testnet Watcher Worker...");
 
   startMemoryMonitor();
 
@@ -459,7 +459,7 @@ export async function runWatcher() {
       try {
         const wallets = await prisma.wallet.findMany();
         if (wallets.length === 0) {
-          console.log(
+          log.info(
             "[WatcherWorker] No wallets registered in DB to watch. Waiting for next poll...",
           );
           pollSpan.setStatus({ code: SpanStatusCode.OK });
@@ -467,7 +467,7 @@ export async function runWatcher() {
           return;
         }
 
-        console.log(
+        log.info(
           `[WatcherWorker] Checking ${wallets.length} registered wallet(s)...`,
         );
         for (const wallet of wallets) {
@@ -476,7 +476,7 @@ export async function runWatcher() {
 
         const contractIds = getActiveContractIds();
         if (contractIds.length > 0) {
-          console.log(
+          log.info(
             `[WatcherWorker] Processing ${contractIds.length} Soroban contract subscriptions...`,
           );
           for (const contractId of contractIds) {
@@ -542,7 +542,7 @@ async function processSorobanContractEvents(contractId: string) {
           const routes = routeEventToUsers(event);
 
           for (const route of routes) {
-            console.log(
+            log.info(
               `[SorobanRouter] Event ${route.topic} from ${contractId.substring(0, 8)}... routed to ${route.userIds.length} user(s)`,
             );
 
@@ -568,7 +568,7 @@ async function processSorobanContractEvents(contractId: string) {
               });
             } catch (err: any) {
               if (err.code !== "P2025") {
-                console.warn(
+                log.warn(
                   "[SorobanRouter] Error storing event snapshot:",
                   err.message,
                 );
@@ -580,9 +580,9 @@ async function processSorobanContractEvents(contractId: string) {
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error: any) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-      console.error(
-        `[SorobanRouter] Error processing contract ${contractId}:`,
-        error.message,
+      log.error(
+        { err: error instanceof Error ? error.message : String(error), contractId },
+        'SorobanRouter error processing contract',
       );
     } finally {
       span.end();

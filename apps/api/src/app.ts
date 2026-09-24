@@ -13,12 +13,14 @@ import { webhooksRoutes } from './modules/webhooks/webhooks.routes';
 import { sorobanStateRoutes } from './modules/soroban-state/soroban-state.routes';
 import { notificationsRoutes } from './modules/notifications/notifications.routes';
 import { openApiOptions } from './openapi.config';
+import { loggerOptions } from './lib/logger';
 
 export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
 export const buildApp = async () => {
   const app = Fastify({
-    logger: true,
+    logger: loggerOptions,
+    requestIdLogLabel: 'requestId',
     pluginTimeout: 30000,
     /**
      * Correlation ID strategy:
@@ -26,7 +28,7 @@ export const buildApp = async () => {
      *  2. Otherwise generate a fresh UUID v4 via the Node built-in crypto module.
      *
      * Fastify automatically binds the resolved ID to `request.id` and injects
-     * it into every Pino log line produced via `request.log.*` as the `reqId`
+     * it into every Pino log line produced via `request.log.*` as the `requestId`
      * field, giving full per-request traceability at zero extra cost.
      */
     requestIdHeader: 'x-request-id',
