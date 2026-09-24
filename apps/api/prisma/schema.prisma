@@ -442,6 +442,12 @@ model DeadLetter {
   payload      Json?
   error        String
   status       String   @default("pending") // pending | retried | suppressed
+  failureClass String   @default("permanent") // retryable | permanent
+  failureReason String?
+  jobId        String?
+  attemptsMade Int      @default(0)
+  maxAttempts  Int?
+  quarantinedAt DateTime?
   retryCount   Int      @default(0)
   failedAt     DateTime @default(now())
   createdAt    DateTime @default(now())
@@ -453,6 +459,8 @@ model DeadLetter {
   @@index([status])
   @@index([userId])
   @@index([failedAt])
+  @@index([jobId])
+  @@index([failureClass])
 }
 
 model DeadLetterAudit {

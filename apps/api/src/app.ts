@@ -14,6 +14,7 @@ import { sorobanStateRoutes } from './modules/soroban-state/soroban-state.routes
 import { notificationsRoutes } from './modules/notifications/notifications.routes';
 import { deadLettersRoutes } from './modules/dead-letters/dead-letters.routes';
 import { openApiOptions } from './openapi.config';
+import { csrfProtectionHook } from './middleware/csrf.middleware';
 
 export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
@@ -49,9 +50,15 @@ export const buildApp = async () => {
     void reply.header('x-request-id', request.id);
   });
 
-  await app.register(cors, {
-    origin: true // Allow all origins for dev, or specify 'http://localhost:3000'
+  app.addHook('onRequest', csrfProtectionHook);
 
+  const allowedOrigins = env.CSRF_ALLOWED_ORIGINS.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  await app.register(cors, {
+    origin: allowedOrigins,
+    credentials: true,
   });
 
   await app.register(rateLimit, {
