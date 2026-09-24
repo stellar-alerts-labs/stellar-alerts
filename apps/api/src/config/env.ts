@@ -17,6 +17,7 @@ const envSchema = z.object({
   // Overridable so load-test runs (k6, etc.) can measure real server capacity
   // instead of hitting the rate limiter almost immediately.
   RATE_LIMIT_MAX: z.coerce.number().int().positive().optional().default(100),
+  WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().max(20).optional().default(5),
   SOROBAN_RENT_WORKER_ENABLED: z.string().optional().default("true"),
   SOROBAN_RENT_WORKER_INTERVAL_MS: z.string().optional().default("60000"),
   SOROBAN_RENT_WORKER_SECRET: z.string().optional(),
@@ -80,6 +81,7 @@ const parseEnv = (): Env => {
       REDIS_SENTINEL_PASSWORD: undefined,
       PORT: "3001",
       RATE_LIMIT_MAX: 100,
+      WORKER_MAX_ATTEMPTS: 5,
       SOROBAN_RENT_WORKER_ENABLED: "true",
       SOROBAN_RENT_WORKER_INTERVAL_MS: "60000",
       SOROBAN_RENT_WORKER_SECRET: undefined,
@@ -106,6 +108,7 @@ const parseEnv = (): Env => {
     REDIS_SENTINEL_PASSWORD: undefined,
     PORT: "3001",
     RATE_LIMIT_MAX: 100,
+    WORKER_MAX_ATTEMPTS: 5,
     SOROBAN_RENT_WORKER_ENABLED: "true",
     SOROBAN_RENT_WORKER_INTERVAL_MS: "60000",
     SOROBAN_RENT_WORKER_SECRET: undefined,
