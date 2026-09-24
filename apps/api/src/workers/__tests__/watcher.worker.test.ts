@@ -63,6 +63,7 @@ import {
   handleStreamRecord,
   startHorizonSSEStream,
   processPaymentRecord,
+  streamMetrics,
   type StreamConnector,
 } from '../watcher.worker';
 
@@ -378,6 +379,90 @@ describe('Horizon SSE stream lifecycle', () => {
 
     expect(connections).toHaveLength(0);
     expect(typeof close).toBe('function');
+  });
+
+  it('grows the reconnect delay exponentially on repeated drops', async () => {
+    const { connector, connections } = makeConnector();
+
+    const close = await startHorizonSSEStream(wallet, {
+      connector,
+      reconnectDelayMs: 10,
+      maxReconnectDelayMs: 1000,
+    });
+    expect(connections).toHaveLength(1);
+
+    // 1st drop: base delay (10ms).
+    connections[0].handlers.onerror(new Error('drop-1'));
+    await vi.advanceTimersByTimeAsync(9);
+    expect(connections).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(connections).toHaveLength(2);
+
+    // 2nd drop: delay doubles to 20ms.
+    connections[1].handlers.onerror(new Error('drop-2'));
+    await vi.advanceTimersByTimeAsync(19);
+    expect(connections).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(connections).toHaveLength(3);
+
+    close();
+  });
+
+  it('caps the reconnect delay at maxReconnectDelayMs', async () => {
+    const { connector, connections } = makeConnector();
+
+    const close = await startHorizonSSEStream(wallet, {
+      connector,
+      reconnectDelayMs: 10,
+      maxReconnectDelayMs: 15,
+    });
+
+    // 1st drop: 10ms. 2nd drop would be 20ms uncapped, but is capped to 15ms.
+    connections[0].handlers.onerror(new Error('drop-1'));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(connections).toHaveLength(2);
+
+    connections[1].handlers.onerror(new Error('drop-2'));
+    await vi.advanceTimersByTimeAsync(14);
+    expect(connections).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(connections).toHaveLength(3);
+
+    close();
+  });
+
+  it('processes messages one at a time and drops beyond the backpressure limit', async () => {
+    vi.useRealTimers();
+    const { connector, connections } = makeConnector();
+    let resolveFirst: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    vi.mocked(prisma.payment.create).mockImplementationOnce(async () => {
+      await gate;
+      return { id: 'payment-1' } as any;
+    });
+
+    const close = await startHorizonSSEStream(wallet, { connector, maxQueuedMessages: 2 });
+    const before = streamMetrics.backpressureDropped;
+
+    // First message starts processing immediately (occupying 1 of 2 slots) and
+    // blocks on `gate` — not awaited here so the next messages can be dispatched
+    // while it's in flight.
+    const first = connections[0].handlers.onmessage(paymentRecord('4201', 'hash-1'));
+    // Second message fills the remaining slot, queued behind the in-flight one.
+    const second = connections[0].handlers.onmessage(paymentRecord('4202', 'hash-2'));
+    // Third message exceeds the bounded queue (2/2 slots taken) and is dropped.
+    await connections[0].handlers.onmessage(paymentRecord('4203', 'hash-3'));
+
+    expect(streamMetrics.backpressureDropped).toBe(before + 1);
+
+    resolveFirst();
+    await Promise.all([first, second]);
+    expect(prisma.payment.create).toHaveBeenCalledTimes(2);
+
+    close();
+    vi.useFakeTimers();
   });
 });
 
