@@ -1,5 +1,11 @@
 # Stellar Alerts ⚡
 
+## Worker failure quarantine
+
+Payment alert jobs use a bounded retry policy. Transient infrastructure and provider failures are retried up to `WORKER_MAX_ATTEMPTS` (default `5`, maximum `20`) with exponential backoff. Invalid or otherwise permanent jobs are quarantined immediately and are not retried.
+
+Quarantined jobs are copied to the `payment-alerts-dlq` queue and persisted as `DeadLetter` records with the job ID, failure class, failure reason, attempts made, and configured attempt cap. The dead-letter API exposes this metadata for operator inspection and preserves the existing replay and suppression workflow. The default cap is backward-compatible with the previous five-attempt behavior; set `WORKER_MAX_ATTEMPTS` during rollout if a different cap is required.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5.10-green.svg)](https://fastify.dev/)
