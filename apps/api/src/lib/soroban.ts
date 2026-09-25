@@ -16,6 +16,7 @@ const MAX_ACTIVE_CONTRACTS = 100;
 
 export const sorobanServer = new (StellarSdk as any).rpc.Server(
   SOROBAN_RPC_URL,
+  { timeout: env.SOROBAN_RPC_TIMEOUT_MS },
 );
 
 export interface ParsedSorobanTransfer {
@@ -222,8 +223,18 @@ export interface SorobanLedgerEntrySnapshot {
  * Fetches contract storage entries at a ledger and records JSON state diffs.
  * RPC errors are allowed to propagate so callers can retry the ledger.
  */
-export async function snapshotContractState(contractId: string, ledgerSeq: number): Promise<number> {
-  const response = await sorobanServer.getLedgerEntries([getContractInstanceLedgerKey(contractId)]);
+export async function snapshotContractState(
+  contractId: string,
+  ledgerSeq: number,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<number> {
+  const timeoutMs = options.timeoutMs ?? env.SOROBAN_RPC_TIMEOUT_MS;
+  const response: any = await withDeadline(
+    () => sorobanServer.getLedgerEntries([getContractInstanceLedgerKey(contractId)]),
+    timeoutMs,
+    options.signal,
+    'Soroban RPC getLedgerEntries',
+  );
   const entries = response.entries || [];
   let recorded = 0;
 
@@ -236,9 +247,17 @@ export async function snapshotContractState(contractId: string, ledgerSeq: numbe
   return recorded;
 }
 
-export async function getSorobanLatestLedger(): Promise<number> {
+export async function getSorobanLatestLedger(
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<number> {
+  const timeoutMs = options.timeoutMs ?? env.SOROBAN_RPC_TIMEOUT_MS;
   try {
-    const health = await sorobanServer.getLatestLedger();
+    const health: any = await withDeadline(
+      () => sorobanServer.getLatestLedger(),
+      timeoutMs,
+      options.signal,
+      'Soroban RPC getLatestLedger',
+    );
     return health.sequence;
   } catch (error: any) {
     console.warn(
@@ -254,17 +273,25 @@ export async function getSorobanLatestLedger(): Promise<number> {
 export async function fetchContractEvents(
   contractId: string,
   startLedger: number,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<any[]> {
+  const timeoutMs = options.timeoutMs ?? env.SOROBAN_RPC_TIMEOUT_MS;
   try {
-    const response = await sorobanServer.getEvents({
-      startLedger,
-      filters: [
-        {
-          type: "contract",
-          contractIds: [contractId],
-        },
-      ],
-    });
+    const response: any = await withDeadline(
+      () =>
+        sorobanServer.getEvents({
+          startLedger,
+          filters: [
+            {
+              type: "contract",
+              contractIds: [contractId],
+            },
+          ],
+        }),
+      timeoutMs,
+      options.signal,
+      'Soroban RPC getEvents',
+    );
     return response.events || [];
   } catch (error: any) {
     console.error(
@@ -297,16 +324,22 @@ export async function* fetchContractEventsInRange(
         `[SorobanRPC] Fetching events for ${contractId} from ledger ${currentStart} to ${batchEnd}`,
       );
 
-      const response = await sorobanServer.getEvents({
-        startLedger: currentStart,
-        endLedger: batchEnd,
-        filters: [
-          {
-            type: "contract",
-            contractIds: [contractId],
-          },
-        ],
-      });
+      const response: any = await withDeadline(
+        () =>
+          sorobanServer.getEvents({
+            startLedger: currentStart,
+            endLedger: batchEnd,
+            filters: [
+              {
+                type: "contract",
+                contractIds: [contractId],
+              },
+            ],
+          }),
+        env.SOROBAN_RPC_TIMEOUT_MS,
+        undefined,
+        'Soroban RPC getEvents',
+      );
 
       const events: SorobanRpcEvent[] = response.events || [];
 

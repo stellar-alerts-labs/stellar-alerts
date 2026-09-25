@@ -338,6 +338,7 @@ export class MultiNodeHorizonClient {
       return { records: [], allNodesFailed: false, lastError: null };
     }
 
+    const timeoutMs = options.timeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
     let lastError: string | null = null;
 
     for (let i = 0; i < this.servers.length; i++) {
@@ -438,15 +439,22 @@ export const stellar = {
   // Horizon. Returns null for an invalid public key or if the account
   // cannot be loaded (e.g. not yet funded on this network).
   async getAccountSigners(
-    publicKey: string
+    publicKey: string,
+    options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<{ signers: MultisigSigner[]; thresholds: MultisigThresholds } | null> {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
       console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return null;
     }
 
+    const timeoutMs = options.timeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
     try {
-      const account = await server.loadAccount(publicKey);
+      const account = await withDeadline(
+        () => server.loadAccount(publicKey),
+        timeoutMs,
+        options.signal,
+        'Horizon',
+      );
       return {
         signers: account.signers.map((s) => ({ key: s.key, weight: s.weight })),
         thresholds: {
@@ -467,6 +475,7 @@ export const stellar = {
       return [];
     }
 
+    const timeoutMs = options.timeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
     try {
       const payments = await server.payments()
         .forAccount(publicKey)
