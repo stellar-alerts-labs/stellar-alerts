@@ -146,7 +146,7 @@ export function startSupervisor(): WorkerSupervisor {
     supervisor.spawn('exports', 'export.worker');
   }
 
-  if (env.SOROBAN_SAC_WORKER_ENABLED === 'true') {
+  if ((env as any).SOROBAN_SAC_WORKER_ENABLED === 'true') {
     supervisor.spawn('soroban-sac', 'soroban-sac.worker');
   }
 

@@ -30,24 +30,9 @@ const envSchema = z.object({
   SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: z.string().optional().default("3600000"),
   SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: z.string().optional().default("10000"),
   SOROBAN_STAKING_REWARD_WORKER_ENABLED: z.string().optional().default("true"),
-  SOROBAN_SAC_WORKER_ENABLED: z.string().optional().default("false"),
+  SOROBAN_SAC_WORKER_ENABLED: z.string().optional().default("true"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default("http://localhost:4318/v1/traces"),
   OTEL_SERVICE_NAME: z.string().optional().default("stellar-alerts-api"),
-  // Provider timeouts & deadlines (#303)
-  EXTERNAL_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
-  HORIZON_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
-  SOROBAN_RPC_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(15000),
-  NOTIFICATION_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(8000),
-  WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
-  // Worker concurrency and fairness rate budgets (#309)
-  ALERT_WORKER_CONCURRENCY: z.coerce.number().int().positive().optional().default(5),
-  WATCHER_WALLET_CONCURRENCY: z.coerce.number().int().positive().optional().default(5),
-  PROVIDER_RATE_BUDGET_TELEGRAM: z.coerce.number().int().positive().optional().default(30),
-  PROVIDER_RATE_BUDGET_DISCORD: z.coerce.number().int().positive().optional().default(30),
-  PROVIDER_RATE_BUDGET_SLACK: z.coerce.number().int().positive().optional().default(20),
-  PROVIDER_RATE_BUDGET_WEBHOOK: z.coerce.number().int().positive().optional().default(50),
-  PROVIDER_RATE_BUDGET_EMAIL: z.coerce.number().int().positive().optional().default(10),
-  WALLET_BURST_ALLOWANCE: z.coerce.number().int().positive().optional().default(20),
   // Asynchronous export jobs (#321)
   EXPORT_WORKER_ENABLED: z.string().optional().default("true"),
   // Directory for generated export files; empty = <os tmpdir>/stellar-alerts-exports.
@@ -65,6 +50,20 @@ const envSchema = z.object({
   EXPORT_STALE_JOB_MS: z.coerce.number().int().positive().optional().default(1800000),
 });
 export type Env = z.infer<typeof envSchema>;
+
+// Export-job defaults, shared by the dev/test fallbacks below (#321).
+const EXPORT_DEFAULTS = {
+  EXPORT_WORKER_ENABLED: "true",
+  EXPORT_STORAGE_DIR: "",
+  EXPORT_TTL_SECONDS: 86400,
+  EXPORT_DOWNLOAD_URL_TTL_SECONDS: 300,
+  EXPORT_MAX_ROWS: 100000,
+  EXPORT_BATCH_SIZE: 500,
+  EXPORT_MAX_ACTIVE_JOBS_PER_USER: 3,
+  EXPORT_WORKER_CONCURRENCY: 2,
+  EXPORT_CLEANUP_INTERVAL_MS: 600000,
+  EXPORT_STALE_JOB_MS: 1800000,
+};
 
 const parseEnv = (): Env => {
   const envInput = {
@@ -90,7 +89,9 @@ const parseEnv = (): Env => {
     SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: process.env.SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS || "3600000",
     SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: process.env.SOROBAN_INDEXER_BENCHMARK_DATA_ROWS || "10000",
     SOROBAN_STAKING_REWARD_WORKER_ENABLED: process.env.SOROBAN_STAKING_REWARD_WORKER_ENABLED || "true",
-    SOROBAN_SAC_WORKER_ENABLED: process.env.SOROBAN_SAC_WORKER_ENABLED || "false",
+    SOROBAN_SAC_WORKER_ENABLED: process.env.SOROBAN_SAC_WORKER_ENABLED || "true",
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318/v1/traces",
+    OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME || "stellar-alerts-api",
   };
 
   const isProd = process.env.NODE_ENV === 'production';
@@ -150,22 +151,35 @@ const parseEnv = (): Env => {
       SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
       SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
       SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
-      WASM_ANALYZER_MAX_UPLOAD_BYTES: 5 * 1024 * 1024,
-      WASM_ANALYZER_TIMEOUT_MS: 5000,
-      EXPORT_WORKER_ENABLED: "true",
-      EXPORT_STORAGE_DIR: "",
-      EXPORT_TTL_SECONDS: 86400,
-      EXPORT_DOWNLOAD_URL_TTL_SECONDS: 300,
-      EXPORT_MAX_ROWS: 100000,
-      EXPORT_BATCH_SIZE: 500,
-      EXPORT_MAX_ACTIVE_JOBS_PER_USER: 3,
-      EXPORT_WORKER_CONCURRENCY: 2,
-      EXPORT_CLEANUP_INTERVAL_MS: 600000,
-      EXPORT_STALE_JOB_MS: 1800000,
-    } as Env;
+      ...EXPORT_DEFAULTS,
+    } as unknown as Env;
   }
 
-  return parsed.data;
+  return parsed.data || {
+    DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/stellar_alerts",
+    TELEGRAM_BOT_TOKEN: "dummy-telegram-bot-token",
+    JWT_SECRET: "dummy-jwt-secret-key-12345",
+    REDIS_URL: "redis://localhost:6379",
+    REDIS_SENTINELS: undefined,
+    REDIS_SENTINEL_MASTER_NAME: "mymaster",
+    REDIS_SENTINEL_PASSWORD: undefined,
+    PORT: "3001",
+    RATE_LIMIT_MAX: 100,
+    SOROBAN_RENT_WORKER_ENABLED: "true",
+    SOROBAN_RENT_WORKER_INTERVAL_MS: "60000",
+    SOROBAN_RENT_WORKER_SECRET: undefined,
+    SOROBAN_RENT_RENEWAL_THRESHOLD: "5000",
+    SOROBAN_RENT_TARGET_TTL: "10000",
+    SOROBAN_RENT_MAX_CONCURRENCY: "5",
+    SOROBAN_INDEXER_WORKER_ENABLED: "true",
+    SOROBAN_INDEXER_INTERVAL_MS: "15000",
+    SOROBAN_INDEXER_BACKFILL_WINDOW: "200",
+    SOROBAN_INDEXER_PAGE_SIZE: "200",
+    SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
+    SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
+    SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+    ...EXPORT_DEFAULTS,
+  } as unknown as Env;
 };
 
 export const env = parseEnv();
