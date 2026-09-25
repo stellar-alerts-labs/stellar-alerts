@@ -45,6 +45,16 @@ export class NotificationsController {
         });
       }
 
+      if (
+        error.message.startsWith('Invalid WhatsApp number') ||
+        error.message.startsWith('A valid WhatsApp number is required')
+      ) {
+        return reply.status(400).send({
+          error: 'Invalid WhatsApp preferences',
+          message: error.message,
+        });
+      }
+
       return reply.status(500).send({
         error: 'Failed to update preferences',
         message: error.message,
@@ -69,6 +79,40 @@ export class NotificationsController {
     } catch (error: any) {
       return reply.status(500).send({
         error: 'Failed to get preferences',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * Send a one-off test ping on a configured channel (used by the
+   * onboarding wizard to verify a link before activation).
+   */
+  async sendTestPing(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const body = request.body as { channel?: string };
+    const channel = body?.channel;
+
+    if (channel !== 'telegram') {
+      return reply.status(400).send({
+        error: 'Invalid channel',
+        message: 'channel must be "telegram"',
+      });
+    }
+
+    try {
+      const result = await notificationsService.sendTestPing(request.user.id, channel);
+      return reply.status(result.success ? 200 : 502).send({
+        success: result.success,
+        message: result.message,
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: 'Failed to send test ping',
         message: error.message,
       });
     }

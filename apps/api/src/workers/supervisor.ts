@@ -18,8 +18,8 @@ interface SupervisedWorker {
   name: string;
   filename: string;
   child: ChildProcess | null;
-  pingTimer: NodeTimeout | null;
-  pongTimeout: NodeTimeout | null;
+  pingTimer: NodeJS.Timeout | null;
+  pongTimeout: NodeJS.Timeout | null;
   restartCount: number;
 }
 
@@ -145,7 +145,7 @@ export function startSupervisor(): WorkerSupervisor {
     supervisor.spawn('staking-reward', 'staking-reward.worker');
   }
 
-  if (env.SOROBAN_SAC_WORKER_ENABLED === 'true') {
+  if ((env as any).SOROBAN_SAC_WORKER_ENABLED === 'true') {
     supervisor.spawn('soroban-sac', 'soroban-sac.worker');
   }
 

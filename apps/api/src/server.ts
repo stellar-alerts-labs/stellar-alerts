@@ -5,6 +5,7 @@ import { startTelemetry, shutdownTelemetry } from './lib/telemetry';
 import { createLogger } from './lib/logger';
 
 const log = createLogger({ module: 'ApiServer' });
+import { closeRedisConnections } from './lib/redis';
 
 const start = async () => {
   try {
@@ -34,6 +35,8 @@ const start = async () => {
       await prisma.$disconnect();
       await shutdownTelemetry();
       log.info('Server and Prisma closed cleanly');
+      await closeRedisConnections();
+      console.log('✅ Server, Prisma, and Redis closed cleanly');
       process.exit(0);
     };
 

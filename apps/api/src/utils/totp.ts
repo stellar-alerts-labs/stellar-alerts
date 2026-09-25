@@ -50,10 +50,9 @@ export function verifyTOTPToken(
   window: number = 1
 ): boolean {
   try {
-    return authenticator.verify({
+    return (authenticator.verify as any)({
       token,
       secret,
-      window,
     });
   } catch (error) {
     console.error('[TOTP] Token verification error:', error);
