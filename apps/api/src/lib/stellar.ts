@@ -1,4 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
+import { asHorizonOperationRecords, isHorizonOperationRecord, type HorizonOperationRecord } from '../types/horizon';
+import type { SorobanRpcEvent } from '../types/soroban-event';
 
 const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
 
@@ -31,14 +33,20 @@ export interface SacTransfer {
  * Native XLM payments resolve to { assetCode: 'XLM', assetIssuer: null } while
  * credit_alphanum4 / credit_alphanum12 records carry their own code + issuer.
  */
-export function decodeHorizonAsset(record: any): DecodedStellarAsset {
-  if (record?.asset_type === 'native' || !record?.asset_type) {
+export function decodeHorizonAsset(record: HorizonOperationRecord): DecodedStellarAsset {
+  const rec = record as {
+    asset_type?: string;
+    asset_code?: string;
+    asset_issuer?: string;
+  };
+
+  if (rec.asset_type === 'native' || !rec.asset_type) {
     return { assetCode: 'XLM', assetIssuer: null };
   }
 
   return {
-    assetCode: record.asset_code || 'Unknown',
-    assetIssuer: record.asset_issuer || null,
+    assetCode: rec.asset_code || 'Unknown',
+    assetIssuer: rec.asset_issuer || null,
   };
 }
 
@@ -146,19 +154,19 @@ function extractTopicValue(topicEntry: any): string | null {
  * transfer with the decimal-adjusted amount. Supports both canonical RPC
  * events (topic: [symbol, from, to] + i128 data) and simplified payloads.
  */
-export function parseSacTransferEvent(event: any, decimals: number = 7): SacTransfer | null {
+export function parseSacTransferEvent(event: SorobanRpcEvent, decimals: number = 7): SacTransfer | null {
   if (!event) return null;
 
   const topics = Array.isArray(event.topic) ? event.topic : [];
   const action = extractTopicValue(topics[0]) ?? (typeof event.topic === 'string' ? event.topic : '');
 
-  const value = event.value ?? event.data ?? {};
-  const from = (topics.length > 1 ? decodeScAddress(topics[1]) : null) ?? value.from ?? '';
-  const to = (topics.length > 2 ? decodeScAddress(topics[2]) : null) ?? value.to ?? '';
+  const rawValue = (event.value ?? event.data ?? {}) as Record<string, unknown>;
+  const from = (topics.length > 1 ? decodeScAddress(topics[1]) : null) ?? (rawValue['from'] as string | undefined) ?? '';
+  const to = (topics.length > 2 ? decodeScAddress(topics[2]) : null) ?? (rawValue['to'] as string | undefined) ?? '';
 
-  let rawAmount = decodeScAmount(value.amount);
-  if (rawAmount === null && !value.amount && !value.from && !value.to) {
-    rawAmount = decodeScAmount(value);
+  let rawAmount = decodeScAmount(rawValue['amount']);
+  if (rawAmount === null && !rawValue['amount'] && !rawValue['from'] && !rawValue['to']) {
+    rawAmount = decodeScAmount(rawValue);
   }
 
   if (!action || action !== 'transfer' || rawAmount === null) {
@@ -308,7 +316,7 @@ export class MultiNodeHorizonClient {
     this.servers = endpoints.map((url) => new StellarSdk.Horizon.Server(url));
   }
 
-  async getPaymentsSince(publicKey: string, cursor: string, limit = 50): Promise<any[]> {
+  async getPaymentsSince(publicKey: string, cursor: string, limit = 50): Promise<HorizonOperationRecord[]> {
     const result = await this.getPaymentsSinceResult(publicKey, cursor, limit);
     return result.records;
   }
@@ -324,7 +332,7 @@ export class MultiNodeHorizonClient {
     publicKey: string,
     cursor: string,
     limit = 50,
-  ): Promise<{ records: any[]; allNodesFailed: boolean; lastError: string | null }> {
+  ): Promise<{ records: HorizonOperationRecord[]; allNodesFailed: boolean; lastError: string | null }> {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
       console.warn(`[MultiNodeHorizon] Skipping invalid public key checksum: "${publicKey}"`);
       return { records: [], allNodesFailed: false, lastError: null };
@@ -342,9 +350,10 @@ export class MultiNodeHorizonClient {
           .order('asc')
           .limit(limit)
           .call();
-        return { records: payments.records, allNodesFailed: false, lastError: null };
-      } catch (error: any) {
-        lastError = error?.message || String(error);
+        return { records: asHorizonOperationRecords(payments.records), allNodesFailed: false, lastError: null };
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        lastError = errMsg;
         console.warn(
           `[MultiNodeHorizon] Horizon node ${this.endpoints[i]} failed: ${lastError}. Trying fallback node...`,
         );
@@ -356,8 +365,8 @@ export class MultiNodeHorizonClient {
   streamPaymentsMultiNode(
     publicKey: string,
     cursor: string,
-    onMessage: (record: any, nodeUrl: string) => Promise<void> | void,
-    onError?: (error: any, nodeUrl: string) => void
+    onMessage: (record: HorizonOperationRecord, nodeUrl: string) => Promise<void> | void,
+    onError?: (error: unknown, nodeUrl: string) => void,
   ): () => void {
     const seenPagingTokens = new Set<string>();
     const activeCloseFns: Array<() => void> = [];
@@ -374,8 +383,9 @@ export class MultiNodeHorizonClient {
             .forAccount(publicKey)
             .cursor(cursor)
             .stream({
-              onmessage: async (record: any) => {
-                const token = record.paging_token || record.id || record.transaction_hash;
+              onmessage: async (record: unknown) => {
+                const typedRecord = isHorizonOperationRecord(record) ? record : null;
+                const token = typedRecord?.paging_token || (typeof record === 'object' && record && 'id' in record ? String((record as Record<string, unknown>).id ?? '') : '') || (typeof record === 'object' && record && 'transaction_hash' in record ? String((record as Record<string, unknown>).transaction_hash ?? '') : '');
                 if (token && seenPagingTokens.has(token)) {
                   return; // Deduplicate across concurrent multi-node SSE streams
                 }
@@ -386,9 +396,12 @@ export class MultiNodeHorizonClient {
                     if (first) seenPagingTokens.delete(first);
                   }
                 }
-                await onMessage(record, nodeUrl);
+                if (!typedRecord) {
+                  return;
+                }
+                await onMessage(typedRecord, nodeUrl);
               },
-              onerror: (error: any) => {
+              onerror: (error: unknown) => {
                 if (onError) onError(error, nodeUrl);
                 // Reconnect failover worker connection for this specific node
                 setTimeout(() => {
@@ -401,7 +414,7 @@ export class MultiNodeHorizonClient {
             isClosed = true;
             if (closeStream) closeStream();
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           if (onError) onError(err, nodeUrl);
         }
       };
@@ -448,7 +461,7 @@ export const stellar = {
     }
   },
   // Helper to fetch recent payments for a given account
-  async getRecentPayments(publicKey: string, limit: number = 10) {
+  async getRecentPayments(publicKey: string, limit: number = 10): Promise<HorizonOperationRecord[]> {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
       console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return [];
@@ -460,9 +473,9 @@ export const stellar = {
         .order('desc')
         .limit(limit)
         .call();
-      
-      return payments.records;
-    } catch (error: any) {
+
+      return asHorizonOperationRecords(payments.records);
+    } catch (error: unknown) {
       logPaymentsError(publicKey, error);
       return [];
     }
@@ -482,6 +495,6 @@ export const stellar = {
   // Paging token of the most recent payment, used to seed a fresh cursor
   async getLatestPagingToken(publicKey: string): Promise<string> {
     const records = await this.getRecentPayments(publicKey, 1);
-    return (records[0] as any)?.paging_token || '0';
+    return records[0]?.paging_token || '0';
   }
 };
