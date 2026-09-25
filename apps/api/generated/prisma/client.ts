@@ -169,3 +169,13 @@ export type DeadLetter = Prisma.DeadLetterModel
  * 
  */
 export type DeadLetterAudit = Prisma.DeadLetterAuditModel
+/**
+ * Model IdempotencyKey
+ * Persisted idempotency records for mutating HTTP endpoints (#334).
+ * 
+ * A client sends `Idempotency-Key` on a POST/DELETE; the middleware reserves
+ * the key before the handler runs and stores the response afterwards. A retry
+ * carrying the same key replays the stored response instead of re-running the
+ * side effect.
+ */
+export type IdempotencyKey = Prisma.IdempotencyKeyModel

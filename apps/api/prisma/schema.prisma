@@ -481,3 +481,36 @@ model DeadLetterAudit {
   @@index([deadLetterId])
   @@index([createdAt])
 }
+
+/// Persisted idempotency records for mutating HTTP endpoints (#334).
+///
+/// A client sends `Idempotency-Key` on a POST/DELETE; the middleware reserves
+/// the key before the handler runs and stores the response afterwards. A retry
+/// carrying the same key replays the stored response instead of re-running the
+/// side effect.
+model IdempotencyKey {
+  id          String   @id @default(cuid())
+  /// Client-supplied `Idempotency-Key` header value.
+  key         String
+  /// Route scope, so the same key used on two endpoints stays independent.
+  scope       String
+  /// Owner of the key. Null when the endpoint is unauthenticated.
+  userId      String?
+  /// Hash of the request body, to reject a reused key with a different payload.
+  requestHash String
+  /// in_progress | completed
+  status      String   @default("in_progress")
+  /// Stored response for replay. Null while in progress.
+  statusCode  Int?
+  response    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  /// Set once the record is old enough for the reaper to delete.
+  expiresAt   DateTime
+
+  /// One record per (key, scope): the same key on another endpoint is a
+  /// different operation, and a retry after completion must find the first.
+  @@unique([key, scope])
+  @@index([expiresAt])
+  @@index([userId])
+}
