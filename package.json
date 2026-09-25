@@ -22,6 +22,7 @@
     "test:api": "npm run test --workspace=api",
     "test:e2e": "npm run test:e2e --workspace=api",
     "test:coverage": "npm run test:coverage --workspace=api",
+    "test:coverage:ci": "npm run test:coverage:ci --workspace=api",
     "test": "npm run test --workspaces --if-present",
     "generate:types": "tsx scripts/generate-types.ts",
     "generate:types:check": "tsx scripts/generate-types.ts --check",

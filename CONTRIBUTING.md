@@ -77,9 +77,30 @@ Run the automated Vitest test suite and TypeScript typechecks before opening a P
 
 ```bash
 npm run test:api
+npm run test:coverage --workspace=api
 npx tsc -p apps/api/tsconfig.json --noEmit
 npx tsc -p apps/web/tsconfig.json --noEmit
 ```
+
+#### Coverage standards and exception process
+
+The API package enforces a minimum coverage gate to prevent regressions in changed code. CI fails when the combined coverage for the package drops below these thresholds:
+
+- Lines: 85%
+- Functions: 85%
+- Branches: 80%
+- Statements: 85%
+
+Coverage output is written to `apps/api/coverage/` and the GitHub Actions job uploads the report as an artifact so reviewers can inspect the HTML and LCOV report without rerunning the suite locally.
+
+If a change cannot meet the threshold, the PR must include a documented exception request with:
+
+1. The affected package and files.
+2. A brief rationale for why the uncovered code is unavoidable.
+3. The owner who will maintain the exception.
+4. An expiry date and follow-up task to remove the exception.
+
+Exceptions are approved by a maintainer and should be kept to the smallest possible scope. The exception should be noted in the PR description and the relevant issue before the coverage gate is bypassed.
 
 ---
 
