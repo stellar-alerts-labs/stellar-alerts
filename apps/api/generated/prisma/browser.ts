@@ -162,3 +162,8 @@ export type DeadLetterAudit = Prisma.DeadLetterAuditModel
  * 
  */
 export type MfaRecoveryCode = Prisma.MfaRecoveryCodeModel
+/**
+ * Model ExportJob
+ * 
+ */
+export type ExportJob = Prisma.ExportJobModel

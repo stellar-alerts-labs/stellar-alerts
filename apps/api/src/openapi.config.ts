@@ -7,6 +7,12 @@ import {
   listDeadLettersQuerySchema,
   suppressDeadLetterSchema,
 } from './modules/dead-letters/dead-letters.schema';
+import {
+  createExportSchema,
+  downloadExportQuerySchema,
+  exportIdSchema,
+  listExportsQuerySchema,
+} from './modules/exports/exports.schema';
 
 /**
  * The `@fastify/swagger` registration options shared by `buildApp()`
@@ -30,6 +36,10 @@ export const openApiComponentSchemas = {
   DeadLetterIdParams: z.toJSONSchema(deadLetterIdSchema),
   ListDeadLettersQuery: z.toJSONSchema(listDeadLettersQuerySchema),
   SuppressDeadLetterInput: z.toJSONSchema(suppressDeadLetterSchema),
+  CreateExportInput: z.toJSONSchema(createExportSchema),
+  ExportIdParams: z.toJSONSchema(exportIdSchema),
+  ListExportsQuery: z.toJSONSchema(listExportsQuerySchema),
+  DownloadExportQuery: z.toJSONSchema(downloadExportQuerySchema),
 };
 
 export const openApiOptions = {
@@ -46,6 +56,7 @@ export const openApiOptions = {
       { name: 'payments', description: 'Incoming payment history and summaries' },
       { name: 'webhooks', description: 'Custom webhook alert endpoint management' },
       { name: 'dead-letters', description: 'Inspection, replay and suppression of failed notification deliveries' },
+      { name: 'exports', description: 'Asynchronous CSV/PDF export jobs with progress and signed downloads' },
     ],
     components: {
       schemas: openApiComponentSchemas as Record<string, any>,

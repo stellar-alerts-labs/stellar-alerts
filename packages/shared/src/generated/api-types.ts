@@ -53,6 +53,28 @@ export interface components {
         SuppressDeadLetterInput: {
             note?: string;
         };
+        CreateExportInput: {
+            /** @enum {string} */
+            type: "ledger_csv" | "ledger_pdf" | "tax_csv";
+            walletId?: string;
+            periodStart?: string;
+            periodEnd?: string;
+            /** @enum {string} */
+            format?: "cointracker" | "koinly" | "irs8949";
+        };
+        ExportIdParams: {
+            id: string;
+        };
+        ListExportsQuery: {
+            /** @default 1 */
+            page: number;
+            /** @default 20 */
+            pageSize: number;
+        };
+        DownloadExportQuery: {
+            expires: number;
+            sig: string;
+        };
     };
     responses: never;
     parameters: never;

@@ -48,6 +48,21 @@ const envSchema = z.object({
   PROVIDER_RATE_BUDGET_WEBHOOK: z.coerce.number().int().positive().optional().default(50),
   PROVIDER_RATE_BUDGET_EMAIL: z.coerce.number().int().positive().optional().default(10),
   WALLET_BURST_ALLOWANCE: z.coerce.number().int().positive().optional().default(20),
+  // Asynchronous export jobs (#321)
+  EXPORT_WORKER_ENABLED: z.string().optional().default("true"),
+  // Directory for generated export files; empty = <os tmpdir>/stellar-alerts-exports.
+  EXPORT_STORAGE_DIR: z.string().optional().default(""),
+  // How long a finished export stays downloadable before cleanup deletes it.
+  EXPORT_TTL_SECONDS: z.coerce.number().int().positive().optional().default(86400),
+  // Lifetime of each signed download URL handed out by GET /exports/:id.
+  EXPORT_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().optional().default(300),
+  EXPORT_MAX_ROWS: z.coerce.number().int().positive().optional().default(100000),
+  EXPORT_BATCH_SIZE: z.coerce.number().int().positive().optional().default(500),
+  EXPORT_MAX_ACTIVE_JOBS_PER_USER: z.coerce.number().int().positive().optional().default(3),
+  EXPORT_WORKER_CONCURRENCY: z.coerce.number().int().positive().optional().default(2),
+  EXPORT_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().optional().default(600000),
+  // A job stuck in `running` longer than this (e.g. worker crash) is failed.
+  EXPORT_STALE_JOB_MS: z.coerce.number().int().positive().optional().default(1800000),
 });
 export type Env = z.infer<typeof envSchema>;
 
@@ -137,6 +152,16 @@ const parseEnv = (): Env => {
       SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
       WASM_ANALYZER_MAX_UPLOAD_BYTES: 5 * 1024 * 1024,
       WASM_ANALYZER_TIMEOUT_MS: 5000,
+      EXPORT_WORKER_ENABLED: "true",
+      EXPORT_STORAGE_DIR: "",
+      EXPORT_TTL_SECONDS: 86400,
+      EXPORT_DOWNLOAD_URL_TTL_SECONDS: 300,
+      EXPORT_MAX_ROWS: 100000,
+      EXPORT_BATCH_SIZE: 500,
+      EXPORT_MAX_ACTIVE_JOBS_PER_USER: 3,
+      EXPORT_WORKER_CONCURRENCY: 2,
+      EXPORT_CLEANUP_INTERVAL_MS: 600000,
+      EXPORT_STALE_JOB_MS: 1800000,
     } as Env;
   }
 

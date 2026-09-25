@@ -32,12 +32,16 @@ describe('OpenAPI schema sync & type generator (issue #162)', () => {
     expect(document.openapi).toMatch(/^3\./);
     const schemas = (document as any).components.schemas;
     expect(Object.keys(schemas).sort()).toEqual([
+      'CreateExportInput',
       'CreateWalletInput',
       'CreateWebhookInput',
       'DIDChallengeInput',
       'DIDVerifyInput',
       'DeadLetterIdParams',
+      'DownloadExportQuery',
+      'ExportIdParams',
       'ListDeadLettersQuery',
+      'ListExportsQuery',
       'RequestLinkInput',
       'SuppressDeadLetterInput',
       'VerifyLinkInput',
@@ -60,6 +64,10 @@ describe('OpenAPI schema sync & type generator (issue #162)', () => {
       'DeadLetterIdParams',
       'ListDeadLettersQuery',
       'SuppressDeadLetterInput',
+      'CreateExportInput',
+      'ExportIdParams',
+      'ListExportsQuery',
+      'DownloadExportQuery',
     ]) {
       expect(source).toContain(schema);
     }

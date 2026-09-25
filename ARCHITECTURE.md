@@ -106,6 +106,10 @@ stellar-alerts/
 | `/wallets/:id` | DELETE | Yes | Remove a wallet by ID |
 | `/payments` | GET | Yes | Fetch payment transaction history |
 | `/payments/summary`| GET | Yes | Aggregate payment stats (total payments, volume) |
+| `/exports` | POST | Yes | Start an asynchronous CSV/PDF export job (`202 Accepted`) — see [docs/exports.md](docs/exports.md) |
+| `/exports` | GET | Yes | List the current user's export jobs |
+| `/exports/:id` | GET | Yes | Export status and progress; includes a short-lived signed download URL once completed |
+| `/exports/:id/download` | GET | Signed URL | Stream a completed export file (`expires` + `sig` query params) |
 | `/wasm-analyzer/analyze` | POST | Yes | Upload a Soroban contract WASM binary (`multipart/form-data`, field `file`) for static security analysis — see [§6.1](#61-wasm-analyzer-api) |
 
 ---

@@ -142,6 +142,10 @@ export function startSupervisor(): WorkerSupervisor {
     supervisor.spawn('staking-reward', 'staking-reward.worker');
   }
 
+  if (env.EXPORT_WORKER_ENABLED === 'true') {
+    supervisor.spawn('exports', 'export.worker');
+  }
+
   if (env.SOROBAN_SAC_WORKER_ENABLED === 'true') {
     supervisor.spawn('soroban-sac', 'soroban-sac.worker');
   }
