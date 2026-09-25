@@ -8,6 +8,8 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
     "dev": "turbo dev",
     "dev:api": "npm run dev --workspace=api",
     "dev:worker": "npm run dev:worker --workspace=api",
@@ -32,6 +34,9 @@
     "prepare": "husky"
   },
   "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3"
   },

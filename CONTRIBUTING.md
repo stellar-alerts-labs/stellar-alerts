@@ -73,13 +73,21 @@ npm run db:studio
 
 ### 5. Running Tests & Typechecks
 
-Run the automated Vitest test suite and TypeScript typechecks before opening a PR:
+CI runs one supported Node version (pinned in [`.nvmrc`](.nvmrc), Node 20) and
+typechecks/builds **every** workspace — `apps/api`, `apps/web`,
+`packages/shared`, and `packages/cli`. Run the same contract before opening a PR:
 
 ```bash
-npm run test:api
-npx tsc -p apps/api/tsconfig.json --noEmit
-npx tsc -p apps/web/tsconfig.json --noEmit
+npm run typecheck   # turbo typecheck across all workspaces
+npm run build       # turbo build across all workspaces
+npm run test:api    # API Vitest suite
+npm run test --workspace=web
+npm run test --workspace=stellar-alerts-cli
 ```
+
+To scope a command to a single workspace, use its path:
+`npm run typecheck --workspace=apps/web`. See
+[`docs/ci.md`](docs/ci.md) for how the CI matrix is wired.
 
 ---
 
