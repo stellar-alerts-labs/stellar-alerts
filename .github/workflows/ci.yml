@@ -81,6 +81,23 @@ jobs:
           MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
           NODE_ENV: "test"
 
+      - name: Run API Coverage Gate
+        run: npm run test:coverage --workspace=api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+          REDIS_URL: "redis://localhost:6379"
+          JWT_SECRET: "ci-unit-test-secret-key-min-32-chars!!"
+          MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          NODE_ENV: "test"
+
+      - name: Upload API coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          if-no-files-found: error
+
       - name: Run Web Lint
         run: npm run lint --workspace=web
 
