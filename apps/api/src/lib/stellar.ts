@@ -1,8 +1,9 @@
 import * as StellarSdk from 'stellar-sdk';
 import { asHorizonOperationRecords, isHorizonOperationRecord, type HorizonOperationRecord } from '../types/horizon';
 import type { SorobanRpcEvent } from '../types/soroban-event';
+import { stellarNetwork } from '../config/network';
 
-const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+const server = new StellarSdk.Horizon.Server(stellarNetwork.horizonEndpoints[0]);
 
 export const STROOPS_PER_UNIT = 10_000_000;
 
@@ -302,9 +303,7 @@ export function countMultisigSignatures(
 }
 
 export const DEFAULT_HORIZON_ENDPOINTS = [
-  process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  process.env.HORIZON_URL_NODE2 || 'https://horizon-testnet.publicnode.org',
-  process.env.HORIZON_URL_NODE3 || 'https://horizon-testnet.lobstr.co',
+  ...stellarNetwork.horizonEndpoints,
 ];
 
 export class MultiNodeHorizonClient {

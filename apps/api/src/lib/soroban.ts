@@ -6,11 +6,11 @@ import {
   MerkleProofStep,
 } from "../utils/merkle-verifier";
 import { decodeScAddress, decodeScAmount, formatTokenAmount } from "./stellar";
+import { stellarNetwork } from "../config/network";
 import { sorobanStateService } from "../modules/soroban-state/soroban-state.service";
 import type { SorobanRpcEvent, EnrichedSorobanEvent } from "../types/soroban-event";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+export const SOROBAN_RPC_URL = stellarNetwork.sorobanRpcUrl;
 const LEDGER_BATCH_SIZE = 100;
 const MAX_ACTIVE_CONTRACTS = 100;
 

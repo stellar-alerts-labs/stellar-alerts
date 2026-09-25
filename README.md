@@ -82,6 +82,22 @@ Fund a fresh keypair on Stellar Testnet via Friendbot and verify automated inges
 npx tsx --env-file=apps/api/.env apps/api/scripts/seed-and-trigger-payment.ts
 ```
 
+### Stellar Network Profiles
+
+The API uses the `testnet` profile by default. Set `STELLAR_NETWORK_PROFILE=mainnet` to switch Horizon, Soroban RPC, and transaction network passphrase together. This prevents a Horizon/Soroban network mismatch.
+
+For a private network or proxy, use `STELLAR_NETWORK_PROFILE=custom` and provide all of the following:
+
+```dotenv
+STELLAR_CUSTOM_HORIZON_URL=https://horizon.example.com
+STELLAR_CUSTOM_HORIZON_URLS=https://horizon-2.example.com
+STELLAR_CUSTOM_SOROBAN_RPC_URL=https://rpc.example.com
+STELLAR_CUSTOM_NETWORK_PASSPHRASE=Custom Network
+STELLAR_CUSTOM_ALLOWED_HOSTS=horizon.example.com,horizon-2.example.com,rpc.example.com
+```
+
+Custom endpoints must be HTTPS and their hostnames must be listed in `STELLAR_CUSTOM_ALLOWED_HOSTS`. The previous `HORIZON_URL*`, `SOROBAN_RPC_URL`, and `STELLAR_NETWORK_PASSPHRASE` variables are accepted as compatibility aliases only when `custom` is selected. Existing deployments therefore remain on testnet until they opt into a profile; review the selected profile before moving funds or signing transactions.
+
 ---
 
 ## 🏆 Grant Qualification & Documentation
