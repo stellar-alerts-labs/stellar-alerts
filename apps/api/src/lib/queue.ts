@@ -10,6 +10,7 @@ import { createLogger } from './logger';
 import { publishDeliveryEvent } from './realtime';
 import { deliverWithIdempotency } from './delivery';
 import { persistDeadLetter } from './dead-letter';
+import { dispatchWhatsAppAlert, WhatsAppInvalidNumberError } from '../utils/whatsapp';
 
 function decryptWebhookSecret(webhook: {
   keyVersion: number;

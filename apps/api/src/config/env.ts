@@ -33,6 +33,8 @@ const envSchema = z.object({
   SOROBAN_SAC_WORKER_ENABLED: z.string().optional().default("false"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default("http://localhost:4318/v1/traces"),
   OTEL_SERVICE_NAME: z.string().optional().default("stellar-alerts-api"),
+  WASM_ANALYZER_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional().default(5 * 1024 * 1024),
+  WASM_ANALYZER_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(5000),
 });
 export type Env = z.infer<typeof envSchema>;
 
@@ -61,6 +63,10 @@ const parseEnv = (): Env => {
     SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: process.env.SOROBAN_INDEXER_BENCHMARK_DATA_ROWS || "10000",
     SOROBAN_STAKING_REWARD_WORKER_ENABLED: process.env.SOROBAN_STAKING_REWARD_WORKER_ENABLED || "true",
     SOROBAN_SAC_WORKER_ENABLED: process.env.SOROBAN_SAC_WORKER_ENABLED || "false",
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318/v1/traces",
+    OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME || "stellar-alerts-api",
+    WASM_ANALYZER_MAX_UPLOAD_BYTES: process.env.WASM_ANALYZER_MAX_UPLOAD_BYTES,
+    WASM_ANALYZER_TIMEOUT_MS: process.env.WASM_ANALYZER_TIMEOUT_MS,
   };
   const parsed = envSchema.safeParse(envInput);
 
@@ -79,6 +85,9 @@ const parseEnv = (): Env => {
       REDIS_SENTINEL_MASTER_NAME: "mymaster",
       REDIS_SENTINEL_PASSWORD: undefined,
       PORT: "3001",
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",
+      MASTER_ENCRYPTION_KEY_VERSION: "1",
+      MASTER_ENCRYPTION_OLD_KEYS: "{}",
       RATE_LIMIT_MAX: 100,
       SOROBAN_RENT_WORKER_ENABLED: "true",
       SOROBAN_RENT_WORKER_INTERVAL_MS: "60000",
@@ -93,6 +102,9 @@ const parseEnv = (): Env => {
       SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
       SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
       SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+      SOROBAN_SAC_WORKER_ENABLED: "false",
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
+      OTEL_SERVICE_NAME: "stellar-alerts-api",
       WASM_ANALYZER_MAX_UPLOAD_BYTES: 5 * 1024 * 1024,
       WASM_ANALYZER_TIMEOUT_MS: 5000,
     } as Env;
