@@ -2,6 +2,34 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { apiClient } from '../lib/api.js';
 import { PaymentDTO } from '../lib/types.js';
+import { CursorStore, defaultCursorFile } from '../lib/cursor-store.js';
+import { runResilientStream } from '../lib/resilient-stream.js';
+
+interface WatchOptions {
+  wallet?: string;
+  token?: string;
+  color?: boolean;
+  cursor?: string;
+  cursorFile?: string;
+  resume?: boolean;
+  maxRetries?: string;
+  maxBackoff?: string;
+}
+
+function warn(message: string): void {
+  console.warn(chalk.yellow(`⚠  ${message}`));
+}
+
+/** Returns undefined when unset, null (after reporting) when invalid. */
+function parseNonNegativeInt(value: string | undefined, flag: string): number | undefined | null {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    console.error(chalk.red(`❌ ${flag} must be a non-negative integer, got "${value}"`));
+    return null;
+  }
+  return parsed;
+}
 
 function formatPayment(payment: PaymentDTO): string {
   const time = new Date(payment.receivedAt).toLocaleTimeString();
@@ -40,42 +68,76 @@ export function registerStreamCommands(program: Command): void {
     .option('-w, --wallet <walletId>', 'Filter by specific wallet ID')
     .option('-t, --token <token>', 'API authentication token')
     .option('--no-color', 'Disable colored output')
-    .action(async (options: { wallet?: string; token?: string; color?: boolean }) => {
-      try {
-        if (options.token) {
-          apiClient['apiKey'] = options.token;
+    .option('--cursor <token>', 'Resume after this cursor ("now" = live tail, ignore saved cursor)')
+    .option('--cursor-file <path>', 'Where the resume cursor is stored (default: ~/.stellar-alerts/stream-cursor[-<wallet>].json)')
+    .option('--no-resume', 'Do not read or write the saved cursor')
+    .option('--max-retries <number>', 'Consecutive reconnect attempts before giving up (default: unlimited)')
+    .option('--max-backoff <ms>', 'Upper bound for the reconnect delay in milliseconds', '60000')
+    .action(async (options: WatchOptions) => {
+      if (options.token) {
+        apiClient['apiKey'] = options.token;
+      }
+
+      const maxRetries = parseNonNegativeInt(options.maxRetries, '--max-retries');
+      const maxDelayMs = parseNonNegativeInt(options.maxBackoff, '--max-backoff');
+      if (maxRetries === null || maxDelayMs === null) {
+        process.exitCode = 1;
+        return;
+      }
+
+      const abortController = new AbortController();
+      const shutdown = () => {
+        if (abortController.signal.aborted) {
+          // Second signal: the user wants out now.
+          process.exit(130);
         }
+        abortController.abort();
+      };
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
 
-        printHeader();
+      const store = options.resume === false
+        ? undefined
+        : new CursorStore(options.cursorFile ?? defaultCursorFile(options.wallet), warn);
+      const initialCursor = options.cursor === undefined ? undefined : options.cursor === 'now' ? '' : options.cursor;
 
-        let paymentCount = 0;
+      printHeader();
+      console.log(chalk.gray('Connecting to payment stream...'));
 
-        const abortController = new AbortController();
-
-        // Handle graceful shutdown
-        process.on('SIGINT', () => {
-          console.log(chalk.yellow('\n\n⏹  Stream stopped.'));
-          console.log(chalk.gray(`Total payments received: ${paymentCount}`));
-          abortController.abort();
-          process.exit(0);
-        });
-
-        console.log(chalk.gray('Connecting to payment stream...'));
-
-        await apiClient.streamPayments(
-          (payment: PaymentDTO) => {
-            paymentCount++;
+      try {
+        const result = await runResilientStream({
+          connect: (cursor, signal) =>
+            apiClient.openPaymentStream({ cursor: cursor || undefined, walletId: options.wallet, signal }),
+          onPayment: (payment: PaymentDTO) => {
             console.log(formatPayment(payment));
           },
-          abortController.signal
-        );
-      } catch (error) {
-        if ((error as Error).name === 'AbortError') {
-          console.log(chalk.yellow('\n⏹  Stream disconnected.'));
-        } else {
-          console.error(chalk.red(`\n❌ Error: ${(error as Error).message}`));
-          process.exit(1);
+          signal: abortController.signal,
+          store,
+          initialCursor,
+          maxRetries: maxRetries ?? Infinity,
+          maxDelayMs: maxDelayMs ?? undefined,
+          onConnected: (cursor) => {
+            console.log(chalk.gray(cursor ? `Connected (resuming after ${cursor}).` : 'Connected (live).'));
+          },
+          onReconnect: ({ attempt, delayMs, error }) => {
+            console.log(
+              chalk.yellow(`⚠  Stream interrupted (${(error as Error)?.message ?? error}); reconnecting in ${(delayMs / 1000).toFixed(1)}s [attempt ${attempt}]`)
+            );
+          },
+          onWarning: warn,
+        });
+
+        console.log(chalk.yellow('\n⏹  Stream stopped.'));
+        console.log(chalk.gray(`Total payments received: ${result.received}`));
+        if (result.suppressed > 0) {
+          console.log(chalk.gray(`Duplicates suppressed: ${result.suppressed}`));
         }
+      } catch (error) {
+        console.error(chalk.red(`\n❌ Error: ${(error as Error).message}`));
+        process.exitCode = 1;
+      } finally {
+        process.off('SIGINT', shutdown);
+        process.off('SIGTERM', shutdown);
       }
     });
 
