@@ -16,6 +16,8 @@ import { deliverWithIdempotency } from './delivery';
 import { persistDeadLetter } from './dead-letter';
 import { validateUrlForSsrf } from '../utils/ssrf';
 import { decryptPersonalField } from '../utils/privacy';
+import { dispatchWhatsAppAlert } from '../utils/whatsapp';
+import { emailService } from '../services/email.service';
 
 function decryptWebhookSecret(webhook: {
   keyVersion: number;
@@ -581,50 +583,112 @@ export async function processAlertDispatch(data: AlertJobData) {
       );
     }
 
-  // Dispatch Telegram alert if configured
-  if (wallet?.user?.notifyPrefs?.telegramEnabled && wallet.user.notifyPrefs.telegramChatId) {
-    const rawChatId = wallet.user.notifyPrefs.telegramChatId;
-    const chatId = decryptPersonalField(rawChatId) || rawChatId;
-    await deliverWithIdempotency(
-      {
-        paymentId: data.paymentId,
-        channel: "email",
-        destination: data.fromAddress,
-        userId,
-      },
-      async () => {
-        await workerFairnessManager.acquireProviderBudget('email');
-        const { data: resendData, error } = await withDeadline(
-          () =>
-            resend.emails.send({
-              from: "Stellar Alerts <alerts@resend.dev>",
-              to: [data.fromAddress],
-              subject: `Payment Receipt: ${data.amount} ${data.asset}`,
-              html: `
-        <h1>Payment Receipt</h1>
-        <p><strong>Payment ID:</strong> ${data.paymentId}</p>
-        <p><strong>Transaction Hash:</strong> ${data.txHash}</p>
-        <p><strong>Amount:</strong> ${data.amount} ${data.asset}</p>
-        <p><strong>From Address:</strong> ${data.fromAddress}</p>
-        <p><strong>Received At:</strong> ${data.receivedAt}</p>
-      `,
-            }),
-          env.NOTIFICATION_PROVIDER_TIMEOUT_MS,
-          undefined,
-          'Resend Email',
-        );
+    // Dispatch a Telegram alert if the user linked and enabled a chat.
+    if (wallet?.user?.notifyPrefs?.telegramEnabled && wallet.user.notifyPrefs.telegramChatId) {
+      const rawChatId = wallet.user.notifyPrefs.telegramChatId;
+      const chatId = decryptPersonalField(rawChatId) || rawChatId;
+      await fetchWithTimeout(
+        `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: buildTelegramPaymentCard(data),
+            parse_mode: 'HTML',
+          }),
+        },
+        env.NOTIFICATION_PROVIDER_TIMEOUT_MS,
+        undefined,
+        'Telegram',
+      ).catch((err: any) => {
+        console.warn(`[Worker] Telegram dispatch error: ${err.message}`);
+      });
+    }
 
-        if (error) {
-          throw new Error(error.message);
+    // Dispatch a WhatsApp alert via Twilio if the user opted in and Twilio
+    // is configured. Deduplicates against a prior successful delivery for
+    // this payment so a restarted job never double-sends.
+    if (wallet?.user?.notifyPrefs?.whatsappEnabled && wallet.user.notifyPrefs.whatsappNumber) {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
+
+      if (accountSid && authToken && fromNumber) {
+        const rawNumber = wallet.user.notifyPrefs.whatsappNumber;
+        const toNumber = decryptPersonalField(rawNumber) || rawNumber;
+
+        const alreadyDelivered = await prisma.whatsAppDeliveryLog.findFirst({
+          where: { paymentId: data.paymentId, success: true },
+        });
+
+        if (!alreadyDelivered) {
+          try {
+            const result = await dispatchWhatsAppAlert(toNumber, data, { accountSid, authToken, fromNumber });
+            await prisma.whatsAppDeliveryLog.create({
+              data: {
+                paymentId: data.paymentId,
+                toNumber,
+                success: result.success,
+                messageSid: result.messageSid,
+                status: result.status,
+                error: result.error,
+                attempts: result.attempts,
+              },
+            });
+          } catch (err: any) {
+            console.warn(`[Worker] WhatsApp dispatch error: ${err.message}`);
+            await prisma.whatsAppDeliveryLog.create({
+              data: {
+                paymentId: data.paymentId,
+                toNumber,
+                success: false,
+                error: err.message,
+                attempts: 0,
+              },
+            });
+          }
         }
-        console.log(`[Worker] Sent email receipt for ${data.paymentId}`);
-        return resendData;
-      },
-    ).catch(async (err: any) => {
-      console.warn(`[Worker] Email dispatch error: ${err.message}`);
-      await recordDeadLetter('email', data.fromAddress, err);
-      return null;
-    });
+      }
+    }
+
+    // Send email alert via emailService (Issue #263)
+    const recipientEmail = wallet?.user?.email || (data.fromAddress.includes('@') ? data.fromAddress : null);
+    if (recipientEmail) {
+      await deliverWithIdempotency(
+        {
+          paymentId: data.paymentId,
+          channel: "email",
+          destination: recipientEmail,
+          userId,
+        },
+        async () => {
+          await workerFairnessManager.acquireProviderBudget('email');
+          return emailService.sendPaymentReceipt(
+            {
+              recipientEmail,
+              emailEnabled: wallet?.user?.notifyPrefs?.emailEnabled ?? true,
+            },
+            {
+              paymentId: data.paymentId,
+              txHash: data.txHash,
+              amount: data.amount,
+              asset: data.asset,
+              assetIssuer: data.assetIssuer,
+              fromAddress: data.fromAddress,
+              receivedAt: data.receivedAt,
+            }
+          );
+        }
+      ).catch(async (err: any) => {
+        console.warn(`[Worker] Email dispatch error: ${err.message}`);
+        await recordDeadLetter('email', recipientEmail, err);
+        if (err.isRetriable) {
+          throw err;
+        }
+        return null;
+      });
+    }
   } finally {
     workerFairnessManager.releaseWalletSlot(data.walletId);
   }
