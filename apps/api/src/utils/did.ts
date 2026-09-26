@@ -1,5 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
 import crypto from 'crypto';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 
 export interface ParsedDID {
   method: string;
@@ -109,7 +110,7 @@ export function verifyDIDSignature(did: string, challenge: string, signature: st
   const parsed = parseDID(did);
 
   // If Stellar public key (G...), verify Ed25519 signature
-  if (parsed.network === 'stellar' || (parsed.address && parsed.address.startsWith('G') && parsed.address.length === 56)) {
+  if (parsed.network === 'stellar' || isValidEd25519PublicKey(parsed.address)) {
     try {
       const keypair = StellarSdk.Keypair.fromPublicKey(parsed.address);
       const messageBuffer = Buffer.from(challenge, 'utf-8');

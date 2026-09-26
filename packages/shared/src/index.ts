@@ -1,8 +1,13 @@
+import { isValidEd25519PublicKey } from './strkey';
+
 // Generated from the API's OpenAPI schema — see scripts/generate-types.ts.
 // Re-exported under a `Api` namespace to avoid clashing with the
 // hand-written DTOs below (`components["schemas"]["RequestLinkInput"]`, etc).
 export type { components as ApiComponents, paths as ApiPaths } from './generated/api-types';
 export * from './config/index';
+// Single source of truth for Stellar StrKey / transaction-hash validation
+// (Ed25519 public keys, contract IDs, muxed addresses, transaction hashes).
+export * from './strkey';
 
 export interface UserDTO {
   id: string;
@@ -49,14 +54,15 @@ export interface NotificationPreferenceDTO {
 }
 
 /**
- * Validates whether a given string is a valid Stellar Ed25519 Public Key (starts with G, 56 chars).
+ * Validates whether a given string is a valid Stellar Ed25519 Public Key.
+ *
+ * Backwards-compatible name for {@link isValidEd25519PublicKey}; it now
+ * performs full StrKey validation (version byte + CRC16-XMODEM checksum)
+ * through the shared `strkey` module instead of the previous shape-only check
+ * (`length === 56 && startsWith('G')`) that accepted corrupted keys.
  */
 export function isValidStellarPublicKey(publicKey: string): boolean {
-  return (
-    typeof publicKey === 'string' &&
-    publicKey.length === 56 &&
-    publicKey.startsWith('G')
-  );
+  return isValidEd25519PublicKey(publicKey);
 }
 
 /**
