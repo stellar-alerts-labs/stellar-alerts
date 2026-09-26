@@ -136,6 +136,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               type="text"
               data-testid="search-input"
               id="payment-search-input"
+              aria-label="Search payments by sender address, tx hash, or asset"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by sender address (G...), tx hash, or asset..."
@@ -145,6 +146,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
+                aria-label="Clear search input"
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
                 title="Clear search text"
               >
@@ -160,6 +162,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               <select
                 data-testid="asset-filter-select"
                 id="asset-filter-select"
+                aria-label="Filter payments by asset code"
                 value={selectedAsset}
                 onChange={(e) => setSelectedAsset(e.target.value)}
                 className="w-full pl-3 pr-8 py-2 rounded-lg bg-slate-900 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/50 appearance-none cursor-pointer"

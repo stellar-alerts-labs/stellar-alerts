@@ -66,12 +66,24 @@ export default fp(async (server: FastifyInstance) => {
 
   // Register WebSocket upgrade endpoint
   server.get('/ws', { websocket: true } as any, (socket: any, request: any) => {
-    clients.add(socket);
-    server.log.info(`🔗 WebSocket client connected (total: ${clients.size})`);
-
-    const entry = registry.register(user.id, socket);
+    let user = (request as any).user;
+    if (!user) {
+      const authHeader = request.headers?.['authorization'];
+      const token = authHeader?.replace(/^Bearer\s+/i, '') || (request.query as any)?.token;
+      if (token) {
+        try {
+          user = verifyToken(token);
+        } catch {}
+      }
+    }
+    if (!user) {
+      socket.close(4401, 'Unauthorized');
+      return;
+    }
+    const userId = user.id;
+    const entry = registry.register(userId, socket);
     server.log.info(
-      `🔗 WebSocket client connected for user ${user.id.substring(0, 8)}... (total for user: ${registry.clientCountForUser(user.id)})`,
+      `🔗 WebSocket client connected for user ${userId.substring(0, 8)}... (total for user: ${registry.clientCountForUser(userId)})`,
     );
 
     registry.sendToEntry(entry, {
@@ -90,13 +102,13 @@ export default fp(async (server: FastifyInstance) => {
     });
 
     socket.on('close', () => {
-      registry.unregister(user.id, entry);
-      server.log.info(`🔌 WebSocket client disconnected for user ${user.id.substring(0, 8)}...`);
+      registry.unregister(userId, entry);
+      server.log.info(`🔌 WebSocket client disconnected for user ${userId.substring(0, 8)}...`);
     });
 
     socket.on('error', (error: Error) => {
       server.log.error({ err: error }, '❌ WebSocket error');
-      registry.unregister(user.id, entry);
+      registry.unregister(userId, entry);
     });
   });
 
