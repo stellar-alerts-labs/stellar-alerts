@@ -1,0 +1,67 @@
+{
+  "allowedLicenses": [
+    "0BSD",
+    "Apache-2.0",
+    "BlueOak-1.0.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC-BY-4.0",
+    "CC0-1.0",
+    "EPL-2.0",
+    "GPL-3.0",
+    "ISC",
+    "LGPL-3.0-or-later",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Python-2.0",
+    "Unlicense"
+  ],
+  "deniedLicenses": [
+    "AGPL-1.0-only",
+    "AGPL-1.0-or-later",
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
+    "BUSL-1.1",
+    "CC-BY-NC-4.0",
+    "CC-BY-NC-ND-4.0",
+    "CC-BY-NC-SA-4.0",
+    "Commons-Clause",
+    "Elastic-2.0",
+    "SSPL-1.0"
+  ],
+  "allowUnknownLicense": false,
+  "failOnVulnerabilitySeverities": ["CRITICAL", "HIGH"],
+  "exceptions": [
+    {
+      "package": "esprima",
+      "version": "1.2.5",
+      "license": "UNKNOWN",
+      "reason": "Published with the legacy npm `licenses: [{ \"type\": \"BSD\" }]` array, which is not a valid SPDX identifier, so the lockfile records no license. The upstream project ships a 2-clause BSD LICENSE (BSD-2-Clause)."
+    },
+    {
+      "package": "png-js",
+      "version": "2.0.0",
+      "license": "UNKNOWN",
+      "reason": "Published without a `license` field. Upstream repository (foliojs/png.js) declares MIT in its LICENSE file."
+    },
+    {
+      "package": "seq-queue",
+      "version": "0.0.5",
+      "license": "UNKNOWN",
+      "reason": "Published without a `license` field. Upstream repository (changchang/seq-queue) ships an MIT LICENSE file."
+    },
+    {
+      "package": "thirty-two",
+      "version": "1.0.2",
+      "license": "UNKNOWN",
+      "reason": "Published without a `license` field. Upstream repository (chrisumbel/thirty-two) ships an MIT LICENSE.txt."
+    },
+    {
+      "package": "unpkg",
+      "version": "0.2.0",
+      "license": "UNKNOWN",
+      "reason": "Published without a `license` field. Upstream repository (unpkg/unpkg) declares MIT. Development-only dependency."
+    }
+  ]
+}
