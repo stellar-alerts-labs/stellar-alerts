@@ -84,6 +84,12 @@ Fund a fresh keypair on Stellar Testnet via Friendbot and verify automated inges
 npx tsx --env-file=apps/api/.env apps/api/scripts/seed-and-trigger-payment.ts
 ```
 
+### 6. Validate Dependabot Configuration
+Verify the automated dependency update configuration:
+```bash
+npm run validate:dependabot
+```
+
 ---
 
 ## 🏆 Grant Qualification & Documentation
@@ -102,6 +108,18 @@ npx tsx --env-file=apps/api/.env apps/api/scripts/seed-and-trigger-payment.ts
 Join our official Telegram community to ask questions, chat with maintainers, discuss Drips Wave sprint tasks, and stay updated on new releases:
 
 👉 **[Join Stellar Alerts on Telegram](https://t.me/+uElHrnWMb180MWM0)**
+
+---
+
+## 🤖 Automated Dependency Management
+
+Dependabot is configured to automatically update dependencies weekly with grouped PRs to reduce notification noise:
+
+- **JavaScript/npm workspace dependencies**: All workspace packages (`apps/*`, `packages/*`) are monitored for updates
+- **Docker images**: Base images in `docker-compose.yml` (postgres, redis, toxiproxy) are monitored 
+- **GitHub Actions**: Workflow dependencies (actions/checkout, setup-node, etc.) are monitored
+
+All updates run weekly on Mondays and are grouped by ecosystem to minimize PR volume. The configuration can be validated with `npm run validate:dependabot`.
 
 ---
 

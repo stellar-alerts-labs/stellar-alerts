@@ -29,6 +29,7 @@
     "security:audit": "osv-scanner scan source -r . --config osv-scanner.toml",
     "verify:migrations": "npx tsx scripts/verify-migrations.ts",
     "verify:migrations:dry-run": "npx tsx scripts/verify-migrations.ts --dry-run",
+    "validate:dependabot": "node scripts/validate-dependabot.js",
     "prepare": "husky"
   },
   "packageManager": "npm@10.8.2",
