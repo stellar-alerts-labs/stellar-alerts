@@ -58,6 +58,16 @@ jobs:
       - name: Verify generated OpenAPI types are up to date
         run: npm run generate:types:check
 
+      - name: Run Ops Script Unit Tests
+        run: npm run test:scripts
+
+      # License/allow-list enforcement (issue #339) on every push/PR so a new
+      # copyleft or unlicensed dependency is caught long before a release tag.
+      # The OSV vulnerability half of the gate runs in the tag-triggered
+      # `.github/workflows/release.yml`, where the scan report is available.
+      - name: Enforce dependency license policy
+        run: npm run release:report:check
+
       - name: Build Shared Package (@stellar-alerts/shared)
         run: npx tsc -p packages/shared/tsconfig.json
 

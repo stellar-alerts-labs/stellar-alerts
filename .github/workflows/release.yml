@@ -1,0 +1,69 @@
+name: Release
+
+# Tag-driven release pipeline (issue #339). Pushing `v*` produces the release
+# dependency & license report plus a CycloneDX SBOM, enforces the license and
+# vulnerability policies, and attaches the artifacts to the GitHub release.
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# `contents: write` is required to create the release and upload the assets.
+permissions:
+  contents: write
+
+jobs:
+  release-report:
+    name: License Report, SBOM & Release Policy Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Scans every pinned package against OSV and writes the machine-readable
+      # report `scripts/release-report.ts --vulnerability-report` consumes.
+      # Exits non-zero on a CRITICAL/HIGH finding, so a vulnerable dependency
+      # blocks the release.
+      - name: Scan dependencies against the OSV advisory database
+        run: npx tsx scripts/security-audit.ts --report release-artifacts/osv-report.json
+
+      - name: Generate license report & SBOM, then enforce the release policy
+        run: |
+          npx tsx scripts/release-report.ts \
+            --release-version "${GITHUB_REF_NAME#v}" \
+            --vulnerability-report release-artifacts/osv-report.json \
+            --out-dir release-artifacts
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ github.ref_name }}
+          path: release-artifacts/
+          retention-days: 90
+
+      - name: Attach artifacts to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" \
+            release-artifacts/sbom.cdx.json \
+            release-artifacts/license-report.json \
+            release-artifacts/license-report.md \
+            release-artifacts/osv-report.json \
+            --clobber
