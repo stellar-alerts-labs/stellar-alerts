@@ -8,8 +8,9 @@ import {
   MultisigThresholdLevel,
 } from '../lib/stellar';
 import { registerSupervisorHeartbeat } from './supervisor';
+import { stellarNetwork } from '../config/network';
 
-const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET;
+const NETWORK_PASSPHRASE = stellarNetwork.networkPassphrase;
 
 // How often the watcher re-checks tracked treasuries' pending transactions.
 const POLL_INTERVAL_MS = 30000;

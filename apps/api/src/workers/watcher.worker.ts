@@ -33,6 +33,16 @@ import {
   buildCursorSuccessUpdate,
   detectLedgerGap,
 } from '../lib/cursor-recovery';
+import {
+  HorizonOperationRecord,
+  isHorizonPayment,
+  isHorizonCreateAccount,
+  getHorizonPagingToken,
+  getHorizonTxHash,
+} from '../types/horizon';
+import { asEnrichedSorobanEvents, type EnrichedSorobanEvent } from '../types/soroban-event';
+import { isPingMessage } from '../types/ipc';
+import { extractFilterRules } from '../types/notification-preference';
 
 const tracer = trace.getTracer('watcher-worker');
 
@@ -46,8 +56,8 @@ const log = createLogger({ module: 'WatcherWorker' });
  * frozen and killed (see workers/supervisor.ts heartbeat logic).
  */
 function registerSupervisorHeartbeat() {
-  process.on('message', (message: any) => {
-    if (message?.type === 'ping') {
+  process.on('message', (message: unknown) => {
+    if (isPingMessage(message)) {
       process.send?.({ type: 'pong' });
     }
   });
@@ -55,7 +65,7 @@ function registerSupervisorHeartbeat() {
 
 export async function processPaymentRecord(
   wallet: { id: string; publicKey: string; userId?: string },
-  record: any,
+  record: HorizonOperationRecord,
   options: { skipGapCheck?: boolean; previousPagingToken?: string | null } = {}
 ) {
   return tracer.startActiveSpan('watcher.processPaymentRecord', async (span) => {
@@ -65,17 +75,17 @@ export async function processPaymentRecord(
       let assetIssuer: string | null = null;
       let fromAddress: string = '';
       let memo: string | null = null;
-      const txHash: string = record.transaction_hash || record.hash || '';
+      const txHash: string = getHorizonTxHash(record);
       const receivedAt: Date = new Date(record.created_at || Date.now());
 
-      if (record.type === "payment") {
+      if (isHorizonPayment(record)) {
         const decodedAsset = decodeHorizonAsset(record);
         amount = record.amount;
         asset = decodedAsset.assetCode;
         assetIssuer = decodedAsset.assetIssuer;
         fromAddress = record.from || '';
         memo = record.memo || null;
-      } else if (record.type === 'create_account') {
+      } else if (isHorizonCreateAccount(record)) {
         amount = record.starting_balance;
         asset = "XLM";
         assetIssuer = null;
@@ -102,37 +112,63 @@ export async function processPaymentRecord(
       span.setAttribute('payment.walletId', wallet.id);
       span.setAttribute('payment.asset', asset);
 
-      const existing = await prisma.payment.findUnique({ where: { txHash } });
-      let payment: { id: string } | null = existing;
-      let isNewPayment = false;
+      const pagingToken = getHorizonPagingToken(record);
+      // Keep the durable dedupe decision and cursor movement atomic. If this
+      // transaction fails, the upstream cursor stays put and replay is safe.
+      // The existing txHash uniqueness constraint keeps mixed-version rollouts compatible.
+      const { payment, isNewPayment, gap } = await prisma.$transaction(async (tx) => {
+        const inserted = await tx.payment.createMany({
+          data: [{
+            walletId: wallet.id,
+            txHash,
+            fromAddress,
+            amount: Number(amount),
+            asset,
+            assetIssuer,
+            memo,
+            receivedAt,
+          }],
+          skipDuplicates: true,
+        });
+        const persistedPayment = await tx.payment.findUnique({ where: { txHash } });
 
-      if (!existing) {
-        try {
-          payment = await prisma.payment.create({
-            data: {
-              walletId: wallet.id,
-              txHash,
-              fromAddress,
-              amount: Number(amount),
-              asset,
-              assetIssuer,
-              memo,
-              receivedAt,
-            },
-          });
-          isNewPayment = true;
-        } catch (err: any) {
-          if (err.code === 'P2002') {
-            // A concurrent processor (SSE stream + poll loop, or two
-            // overlapping bounded-backfill passes) inserted this payment
-            // first — reorg-like duplicate delivery, not a real error.
-            // Treat it as already recorded: don't re-alert.
-            log.info({ txHash }, '🔁 Duplicate payment insert raced and lost, skipping (already recorded)');
-            payment = await prisma.payment.findUnique({ where: { txHash } });
+        let cursorGap = { hasGap: false, ledgerDelta: 0 };
+        if (pagingToken) {
+          if (options.skipGapCheck) {
+            await tx.ingestionCursor.upsert({
+              where: { walletId: wallet.id },
+              create: { walletId: wallet.id, pagingToken },
+              update: { pagingToken, ...buildCursorSuccessUpdate() },
+            });
           } else {
-            throw err;
+            const previousPagingToken =
+              options.previousPagingToken !== undefined
+                ? options.previousPagingToken
+                : (await tx.ingestionCursor.findUnique({ where: { walletId: wallet.id } }))?.pagingToken ?? null;
+            cursorGap = detectLedgerGap(previousPagingToken, pagingToken);
+
+            await tx.ingestionCursor.upsert({
+              where: { walletId: wallet.id },
+              create: { walletId: wallet.id, pagingToken },
+              update: {
+                pagingToken,
+                ...(cursorGap.hasGap
+                  ? buildCursorGapUpdate(cursorGap.ledgerDelta)
+                  : buildCursorSuccessUpdate()),
+              },
+            });
           }
         }
+
+        return {
+          payment: persistedPayment,
+          isNewPayment: inserted.count > 0,
+          gap: cursorGap,
+        };
+      });
+
+      if (!payment) {
+        throw new Error(`Payment ${txHash} was not available after its transactional insert`);
       }
 
       if (isNewPayment && payment) {
@@ -244,17 +280,11 @@ export async function processPaymentRecord(
         span.setAttribute('payment.enqueued', dispatched);
       }
 
-      const pagingToken = record.paging_token || record.pagingToken;
-      if (pagingToken) {
-        const gap = await saveCursor(wallet.id, pagingToken, {
-          skipGapCheck: options.skipGapCheck,
-          previousPagingToken: options.previousPagingToken,
-        });
-        if (gap.hasGap) {
-          span.setAttribute('cursor.gapDetected', true);
-          span.setAttribute('cursor.gapLedgerDelta', gap.ledgerDelta);
-          await recoverFromLedgerGap(wallet);
-        }
+      if (gap.hasGap) {
+        log.warn({ walletId: wallet.id, ledgerDelta: gap.ledgerDelta }, '⚠️ Ledger gap detected in ingestion cursor');
+        span.setAttribute('cursor.gapDetected', true);
+        span.setAttribute('cursor.gapLedgerDelta', gap.ledgerDelta);
+        await recoverFromLedgerGap(wallet);
       }
 
       span.setStatus({ code: SpanStatusCode.OK });
@@ -337,7 +367,7 @@ async function recoverFromLedgerGap(wallet: { id: string; publicKey: string; use
     '🩹 Running bounded backfill to recover from detected ledger gap',
   );
 
-  const recent = (await stellar.getRecentPayments(wallet.publicKey, BOUNDED_BACKFILL_LIMIT)) as any[];
+  const recent = await stellar.getRecentPayments(wallet.publicKey, BOUNDED_BACKFILL_LIMIT);
   const ascending = [...recent].reverse();
 
   for (const record of ascending) {
@@ -429,8 +459,9 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
 
         for (const record of records) {
           await processPaymentRecord(wallet, record, { previousPagingToken: cursor });
-          if (record.paging_token) {
-            cursor = record.paging_token;
+          const token = getHorizonPagingToken(record);
+          if (token) {
+            cursor = token;
           }
         }
 
@@ -457,8 +488,8 @@ export async function processWalletPayments(wallet: { id: string; publicKey: str
 export const handleStreamRecord = processPaymentRecord;
 
 export type StreamHandlerOptions = {
-  onmessage: (record: any) => Promise<void>;
-  onerror: (error: any) => void;
+  onmessage: (record: HorizonOperationRecord) => Promise<void>;
+  onerror: (error: Error | unknown) => void;
 };
 
 export type StreamConnector = (
@@ -539,17 +570,19 @@ export async function startHorizonSSEStream(
         resetHeartbeat();
 
         const handlers: StreamHandlerOptions = {
-          onmessage: async (record: any) => {
+          onmessage: async (record: HorizonOperationRecord) => {
             resetHeartbeat();
             attempts = 1;
             console.log(`[WatcherStream] ⚡ Live SSE stream message received: ${record.type}`);
             await processPaymentRecord(wallet, record, { previousPagingToken: lastPagingToken });
-            if (record.paging_token) {
-              lastPagingToken = record.paging_token;
+            const token = getHorizonPagingToken(record);
+            if (token) {
+              lastPagingToken = token;
             }
           },
-          onerror: (error: any) => {
-            console.error(`[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`, error);
+          onerror: (error: Error | unknown) => {
+            const errMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[WatcherStream] SSE stream error for ${wallet.publicKey.substring(0, 8)}...:`, errMsg);
             cleanupCurrent();
             if (isClosed) return;
             if (attempts < maxAttempts) {
@@ -562,8 +595,9 @@ export async function startHorizonSSEStream(
         };
 
         currentClose = connector(cursor, handlers);
-      } catch (err: any) {
-        console.error(`[WatcherStream] Failed to open SSE stream: ${err.message}`);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[WatcherStream] Failed to open SSE stream: ${errMsg}`);
       }
     };
 
@@ -571,8 +605,9 @@ export async function startHorizonSSEStream(
       await connect();
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
-    } catch (err: any) {
-      span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
       span.end();
     }
 
@@ -652,14 +687,16 @@ export async function pollOnce() {
         for (const contractId of contractIds) {
           try {
             await processSorobanContractEvents(contractId);
-          } catch (err: any) {
-            console.error(`[WatcherWorker] Error processing contract ${contractId}:`, err.message || err);
+          } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.error(`[WatcherWorker] Error processing contract ${contractId}:`, errMsg);
           }
         }
       }
       pollSpan.setStatus({ code: SpanStatusCode.OK });
-    } catch (err: any) {
-      console.error('[WatcherWorker] Error in pollOnce:', err.message || err);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[WatcherWorker] Error in pollOnce:', errMsg);
       pollSpan.setStatus({ code: SpanStatusCode.OK });
     } finally {
       pollSpan.end();
@@ -766,7 +803,7 @@ async function processSorobanContractEvents(contractId: string) {
         startLedger,
         latestLedger,
       )) {
-        for (const event of eventBatch) {
+        for (const event of asEnrichedSorobanEvents(eventBatch)) {
           const parsed = parseSacTransferEvent(event);
           if (!parsed) continue;
 
@@ -777,12 +814,17 @@ async function processSorobanContractEvents(contractId: string) {
               `[SorobanRouter] Event ${route.topic} from ${contractId.substring(0, 8)}... routed to ${route.userIds.length} user(s)`,
             );
 
+            // `event.ledgerSeq` is always set by fetchContractEventsInRange
+            // (it enriches every event with `ledgerSeq = evt.ledger || currentStart`),
+            // so we no longer need (parsed as any).ledgerSeq.
+            const ledgerSeq = event.ledgerSeq ?? 0;
+
             try {
               await prisma.sorobanEventSnapshot.upsert({
                 where: {
                   contractId_ledgerSeq_from_to_amount: {
                     contractId: parsed.contractId,
-                    ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
+                    ledgerSeq,
                     from: parsed.from,
                     to: parsed.to,
                     amount: parsed.amount,
@@ -793,15 +835,16 @@ async function processSorobanContractEvents(contractId: string) {
                   from: parsed.from,
                   to: parsed.to,
                   amount: parsed.amount,
-                  ledgerSeq: (parsed as any).ledgerSeq || event.ledgerSeq || 0,
+                  ledgerSeq,
                 },
                 update: {},
               });
-            } catch (err: any) {
-              if (err.code !== "P2025") {
+            } catch (err: unknown) {
+              const prismaErr = err as { code?: string; message?: string };
+              if (prismaErr.code !== "P2025") {
                 console.warn(
                   "[SorobanRouter] Error storing event snapshot:",
-                  err.message,
+                  prismaErr.message,
                 );
               }
             }
@@ -809,11 +852,12 @@ async function processSorobanContractEvents(contractId: string) {
         }
       }
       span.setStatus({ code: SpanStatusCode.OK });
-    } catch (error: any) {
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
       console.error(
         `[SorobanRouter] Error processing contract ${contractId}:`,
-        error.message,
+        errMsg,
       );
     } finally {
       span.end();
