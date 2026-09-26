@@ -39,6 +39,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,6 +50,18 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Validate environment examples
+        run: npm run check:env-examples
+
+      - name: Test contributor checks
+        run: npm run test:contributor-checks
+
+      - name: Scan added lines for secrets
+        run: npm run check:secrets -- --range "$BASE_SHA" "$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Generate Prisma Client
         run: npx prisma generate
