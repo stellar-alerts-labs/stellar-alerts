@@ -49,6 +49,18 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Fail fast on the dependency-level gates (issue #339) before the slower
+      # Prisma/typecheck/build steps: `test:scripts` covers the release tooling
+      # and `release:report:check` enforces the license allow/deny policy, so a
+      # new copyleft or unlicensed dependency is caught on the PR that adds it.
+      # The OSV vulnerability half of the gate runs in the tag-triggered
+      # `.github/workflows/release.yml`, where the scan report is available.
+      - name: Run Ops Script Unit Tests
+        run: npm run test:scripts
+
+      - name: Enforce dependency license policy
+        run: npm run release:report:check
+
       - name: Generate Prisma Client
         run: npx prisma generate
         working-directory: apps/api
@@ -57,16 +69,6 @@ jobs:
 
       - name: Verify generated OpenAPI types are up to date
         run: npm run generate:types:check
-
-      - name: Run Ops Script Unit Tests
-        run: npm run test:scripts
-
-      # License/allow-list enforcement (issue #339) on every push/PR so a new
-      # copyleft or unlicensed dependency is caught long before a release tag.
-      # The OSV vulnerability half of the gate runs in the tag-triggered
-      # `.github/workflows/release.yml`, where the scan report is available.
-      - name: Enforce dependency license policy
-        run: npm run release:report:check
 
       - name: Build Shared Package (@stellar-alerts/shared)
         run: npx tsc -p packages/shared/tsconfig.json
