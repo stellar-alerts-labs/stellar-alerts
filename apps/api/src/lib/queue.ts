@@ -1,6 +1,5 @@
 import { Queue, QueueEvents, Job, Worker } from 'bullmq';
 import CircuitBreaker from 'opossum';
-import { Resend } from 'resend';
 import { env } from '../config/env';
 import { fetchWithTimeout, withDeadline } from './external-request';
 import { workerFairnessManager } from './rate-budget';
@@ -18,6 +17,8 @@ import { validateUrlForSsrf } from '../utils/ssrf';
 import { decryptPersonalField } from '../utils/privacy';
 import { dispatchWhatsAppAlert } from '../utils/whatsapp';
 import { emailService } from '../services/email.service';
+import { dispatchDiscordAlert } from '../utils/discord';
+import { dispatchSlackAlert, isValidSlackWebhookUrl } from '../utils/slack';
 
 function decryptWebhookSecret(webhook: {
   keyVersion: number;
@@ -60,7 +61,6 @@ export let dlqQueue: Queue<AlertJobData> | null = null;
 export let alertQueueEvents: QueueEvents | null = null;
 export let alertWorker: Worker<AlertJobData> | null = null;
 
-const resend = new Resend(process.env.RESEND_API_KEY || "re_123");
 const circuitBreakers = new Map<string, CircuitBreaker<any>>();
 
 export function buildTelegramPaymentCard(data: AlertJobData): string {
@@ -78,6 +78,31 @@ export function buildTelegramPaymentCard(data: AlertJobData): string {
 
 function isPublicChannel(chatId: string): boolean {
   return chatId.startsWith('@') || chatId.startsWith('-100');
+}
+
+/**
+ * Records a channel delivery attempt and skips re-dispatching a channel that
+ * already has a logged attempt for this payment, so BullMQ's job-level retry
+ * (5 attempts, exponential backoff — see alertQueue config) doesn't double-send
+ * to Discord/Slack on retry once a prior attempt already succeeded.
+ */
+async function alreadyDelivered(paymentId: string, channel: string): Promise<boolean> {
+  const existing = await prisma.deliveryLog.findUnique({
+    where: { paymentId_channel: { paymentId, channel } },
+  });
+  return existing?.status === 'sent';
+}
+
+async function recordDelivery(paymentId: string, channel: string, ok: boolean, error?: string) {
+  await prisma.deliveryLog.upsert({
+    where: { paymentId_channel: { paymentId, channel } },
+    create: { paymentId, channel, status: ok ? 'sent' : 'failed', error: error ?? null, attempt: 1 },
+    update: {
+      status: ok ? 'sent' : 'failed',
+      error: error ?? null,
+      attempt: { increment: 1 },
+    },
+  });
 }
 
 async function assertBotIsChannelAdmin(botToken: string, chatId: string): Promise<void> {
@@ -649,6 +674,53 @@ export async function processAlertDispatch(data: AlertJobData) {
             });
           }
         }
+      }
+    }
+
+    // Dispatch Discord alert if configured
+    if (wallet?.user?.notifyPrefs?.discordEnabled && wallet.user.notifyPrefs.discordWebhookUrl) {
+      try {
+        if (!(await alreadyDelivered(data.paymentId, 'discord'))) {
+          const ok = await dispatchDiscordAlert(wallet.user.notifyPrefs.discordWebhookUrl, {
+            paymentId: data.paymentId,
+            txHash: data.txHash,
+            amount: data.amount,
+            asset: data.asset,
+            assetIssuer: data.assetIssuer,
+            fromAddress: data.fromAddress,
+            receivedAt: data.receivedAt,
+          });
+          await recordDelivery(data.paymentId, 'discord', ok, ok ? undefined : 'webhook returned non-ok status');
+          if (ok) {
+            console.log(`[Worker] Sent Discord alert for ${data.paymentId}`);
+          } else {
+            console.warn(`[Worker] Failed to send Discord alert for ${data.paymentId}`);
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Worker] Discord dispatch error for ${data.paymentId}: ${err.message}`);
+        await recordDelivery(data.paymentId, 'discord', false, err.message);
+      }
+    }
+
+    // Dispatch Slack alert if configured
+    if (wallet?.user?.notifyPrefs?.slackEnabled && wallet.user.notifyPrefs.slackWebhookUrl) {
+      try {
+        const webhookUrl = wallet.user.notifyPrefs.slackWebhookUrl;
+        if (!isValidSlackWebhookUrl(webhookUrl)) {
+          console.warn(`[Worker] Skipping Slack dispatch for ${data.paymentId}: invalid webhook URL`);
+        } else if (!(await alreadyDelivered(data.paymentId, 'slack'))) {
+          const ok = await dispatchSlackAlert(webhookUrl, data);
+          await recordDelivery(data.paymentId, 'slack', ok, ok ? undefined : 'webhook returned non-ok status');
+          if (ok) {
+            console.log(`[Worker] Sent Slack alert for ${data.paymentId}`);
+          } else {
+            console.warn(`[Worker] Failed to send Slack alert for ${data.paymentId}`);
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Worker] Slack dispatch error for ${data.paymentId}: ${err.message}`);
+        await recordDelivery(data.paymentId, 'slack', false, err.message);
       }
     }
 

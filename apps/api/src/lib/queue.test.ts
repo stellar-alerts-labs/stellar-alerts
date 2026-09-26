@@ -76,6 +76,10 @@ vi.mock('./prisma', () => {
         findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({ id: 'dl-1' }),
       },
+      deliveryLog: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue(null),
+      },
     },
   };
 });
@@ -102,6 +106,13 @@ vi.mock('../utils/whatsapp', () => {
   };
 });
 
+vi.mock('../utils/slack', () => {
+  return {
+    dispatchSlackAlert: vi.fn().mockResolvedValue(true),
+    isValidSlackWebhookUrl: (url: string) => url.startsWith('https://hooks.slack.com/'),
+  };
+});
+
 vi.mock('../utils/webhook-signer', () => {
   return {
     signWebhookPayload: vi.fn().mockResolvedValue({ headerValue: 'test', nonce: 'test' }),
@@ -123,6 +134,8 @@ vi.mock('resend', () => {
 import { alertQueue, dlqQueue, paymentAlertWorkerProcessor, failedJobHandler, createRedisConnectionConfig } from './queue';
 import { prisma } from './prisma';
 import { dispatchWhatsAppAlert } from '../utils/whatsapp';
+import { dispatchDiscordAlert } from '../utils/discord';
+import { dispatchSlackAlert } from '../utils/slack';
 
 describe('Queue DLQ routing', () => {
   beforeEach(() => {
@@ -383,5 +396,201 @@ describe('WhatsApp Dispatcher Worker', () => {
     expect(prisma.whatsAppDeliveryLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ success: false, attempts: 0 }),
     });
+  });
+});
+
+describe('Discord Dispatcher Worker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    (prisma.deliveryLog.findUnique as any).mockResolvedValue(null);
+  });
+
+  it('dispatches Discord alert when enabled with a webhook URL configured', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-200',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            discordEnabled: true,
+            discordWebhookUrl: 'https://discord.com/api/webhooks/123/abc',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-200',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-200',
+        walletId: 'wallet-200',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchDiscordAlert).toHaveBeenCalledWith(
+      'https://discord.com/api/webhooks/123/abc',
+      expect.objectContaining({ paymentId: 'pay-200' })
+    );
+    expect(prisma.deliveryLog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { paymentId_channel: { paymentId: 'pay-200', channel: 'discord' } },
+      })
+    );
+  });
+
+  it('does not dispatch Discord alert when disabled', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-201',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            discordEnabled: false,
+            discordWebhookUrl: 'https://discord.com/api/webhooks/123/abc',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-201',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-201',
+        walletId: 'wallet-201',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchDiscordAlert).not.toHaveBeenCalled();
+  });
+
+  it('skips re-dispatching Discord when a delivery is already logged as sent', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-202',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            discordEnabled: true,
+            discordWebhookUrl: 'https://discord.com/api/webhooks/123/abc',
+          },
+        },
+      },
+    });
+    (prisma.deliveryLog.findUnique as any).mockResolvedValue({ status: 'sent' });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-202',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-202',
+        walletId: 'wallet-202',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchDiscordAlert).not.toHaveBeenCalled();
+  });
+});
+
+describe('Slack Dispatcher Worker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    (prisma.deliveryLog.findUnique as any).mockResolvedValue(null);
+  });
+
+  it('dispatches Slack alert when enabled with a valid webhook URL configured', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-300',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            slackEnabled: true,
+            slackWebhookUrl: 'https://hooks.slack.com/services/T00/B00/xyz',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-300',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-300',
+        walletId: 'wallet-300',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchSlackAlert).toHaveBeenCalledWith(
+      'https://hooks.slack.com/services/T00/B00/xyz',
+      expect.objectContaining({ paymentId: 'pay-300' })
+    );
+  });
+
+  it('does not dispatch Slack alert when disabled', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-301',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            slackEnabled: false,
+            slackWebhookUrl: 'https://hooks.slack.com/services/T00/B00/xyz',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-301',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-301',
+        walletId: 'wallet-301',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchSlackAlert).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid (non-Slack) webhook URL without dispatching', async () => {
+    (prisma.payment.findUnique as any).mockResolvedValue({
+      id: 'pay-302',
+      wallet: {
+        user: {
+          notifyPrefs: {
+            slackEnabled: true,
+            slackWebhookUrl: 'https://evil.example.com/not-slack',
+          },
+        },
+      },
+    });
+
+    await paymentAlertWorkerProcessor({
+      data: {
+        paymentId: 'pay-302',
+        amount: '10',
+        asset: 'XLM',
+        fromAddress: 'GABC...',
+        txHash: 'hash-302',
+        walletId: 'wallet-302',
+        receivedAt: new Date().toISOString(),
+      },
+    });
+
+    expect(dispatchSlackAlert).not.toHaveBeenCalled();
   });
 });
