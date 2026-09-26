@@ -130,7 +130,7 @@ Job rows are kept after expiry as history. They are deleted with the user
 
   Clients can move to `/exports` at their own pace. Deprecating the
   synchronous endpoints is left as a separate follow-up.
-- **Migration.** `20261003000000_add_export_jobs` only creates the `ExportJob`
+- **Migration.** `20261016000000_add_export_jobs` only creates the `ExportJob`
   table, so it is safe to apply before deploying the new code.
 - **Deploy order.** Apply the migration, deploy the API, then start the export
   worker. Until the worker is running, queued jobs wait in Redis. If Redis is
