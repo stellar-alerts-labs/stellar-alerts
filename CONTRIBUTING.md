@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Stellar Alerts! We welcome contributions to help build a seamless, real-time alert and tracking system for freelancers and businesses on the Stellar network.
 
+Please read and follow our [Code of Conduct](../CODE_OF_CONDUCT.md) — by participating in this project you agree to abide by its terms.
+
 ---
 
 ## 🚀 Quick Start Guide
@@ -127,6 +129,14 @@ Or launch components individually from the project root:
 2. Create a Pull Request against `main`.
 3. Fill out the included [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md).
 4. Maintainers will review and merge your PR once GitHub Actions CI status is green 🟢.
+
+---
+
+## 📜 Code of Conduct
+
+This project and everyone participating in it is governed by the [Stellar Alerts Code of Conduct](../CODE_OF_CONDUCT.md). By contributing, you agree to uphold these standards.
+
+To report a violation, please use one of the channels listed in the [Reporting Guidelines](../CODE_OF_CONDUCT.md#reporting-guidelines) section of the Code of Conduct.
 
 ---
 
