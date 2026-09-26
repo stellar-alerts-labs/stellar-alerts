@@ -28,6 +28,10 @@ const TOXIPROXY_URL = process.env.TOXIPROXY_URL;
 // `network_mode: host` (see docker-compose.yml, the CI setup). Override for
 // a Docker-Desktop-style toxiproxy container that needs host.docker.internal.
 const TOXIPROXY_UPSTREAM_HOST = process.env.TOXIPROXY_UPSTREAM_HOST || '127.0.0.1';
+// A containerised toxiproxy dials the host through the Docker bridge gateway
+// (host.docker.internal), which never reaches a loopback-only listener — so
+// the fixture must bind all interfaces unless toxiproxy shares our loopback.
+const FIXTURE_BIND_HOST = ['127.0.0.1', 'localhost'].includes(TOXIPROXY_UPSTREAM_HOST) ? '127.0.0.1' : '0.0.0.0';
 const PROXY_LISTEN_PORT = Number(process.env.TOXIPROXY_LISTEN_PORT || 8666);
 
 function httpGet(url: string): Promise<{ statusCode: number; body: string }> {
@@ -73,7 +77,7 @@ describe.skipIf(!TOXIPROXY_URL)('Chaos engineering: Toxiproxy fault injection', 
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('ok');
     });
-    await new Promise<void>((resolve) => upstreamServer.listen(0, '127.0.0.1', () => resolve()));
+    await new Promise<void>((resolve) => upstreamServer.listen(0, FIXTURE_BIND_HOST, () => resolve()));
     upstreamPort = (upstreamServer.address() as AddressInfo).port;
 
     toxiproxy = new Toxiproxy(TOXIPROXY_URL!);

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { KeyRotationManager } from '../../utils/key-rotation-manager';
 import { cryptoVault } from '../../utils/crypto-vault';
+import { validateUrlForSsrf, ssrfSafeFetch } from '../../utils/ssrf';
 
 export interface WebhookTestResult {
   success: boolean;
