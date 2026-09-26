@@ -36,6 +36,8 @@ model Wallet {
   payments   Payment[]
   cursor     IngestionCursor?
   alertRules AlertRule[]
+
+  @@index([userId, createdAt])
 }
 
 model IngestionCursor {
@@ -477,6 +479,7 @@ model NotificationDeliveryAttempt {
   @@index([status])
   @@index([paymentId])
   @@index([createdAt])
+  @@index([deliveryKey, status])
 }
 
 // ── Dead-letter inspection & replay (#273) ───────────────────────────────────
