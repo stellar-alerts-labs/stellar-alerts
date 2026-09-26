@@ -102,38 +102,63 @@ export async function processPaymentRecord(
       span.setAttribute('payment.walletId', wallet.id);
       span.setAttribute('payment.asset', asset);
 
-      const existing = await prisma.payment.findUnique({ where: { txHash } });
-      let payment: { id: string } | null = existing;
-      let isNewPayment = false;
+      const pagingToken = getHorizonPagingToken(record);
+      // Keep the durable dedupe decision and cursor movement atomic. If this
+      // transaction fails, the upstream cursor stays put and replay is safe.
+      // The existing txHash uniqueness constraint keeps mixed-version rollouts compatible.
+      const { payment, isNewPayment, gap } = await prisma.$transaction(async (tx) => {
+        const inserted = await tx.payment.createMany({
+          data: [{
+            walletId: wallet.id,
+            txHash,
+            fromAddress,
+            amount: Number(amount),
+            asset,
+            assetIssuer,
+            memo,
+            receivedAt,
+          }],
+          skipDuplicates: true,
+        });
+        const persistedPayment = await tx.payment.findUnique({ where: { txHash } });
 
-      if (!existing) {
-        try {
-          payment = await prisma.payment.create({
-            data: {
-              walletId: wallet.id,
-              txHash,
-              fromAddress,
-              amount: Number(amount),
-              asset,
-              assetIssuer,
-              memo,
-              receivedAt,
-            },
-          });
-          isNewPayment = true;
-        } catch (err: unknown) {
-          const prismaErr = err as { code?: string };
-          if (prismaErr.code === 'P2002') {
-            // A concurrent processor (SSE stream + poll loop, or two
-            // overlapping bounded-backfill passes) inserted this payment
-            // first — reorg-like duplicate delivery, not a real error.
-            // Treat it as already recorded: don't re-alert.
-            log.info({ txHash }, '🔁 Duplicate payment insert raced and lost, skipping (already recorded)');
-            payment = await prisma.payment.findUnique({ where: { txHash } });
+        let cursorGap = { hasGap: false, ledgerDelta: 0 };
+        if (pagingToken) {
+          if (options.skipGapCheck) {
+            await tx.ingestionCursor.upsert({
+              where: { walletId: wallet.id },
+              create: { walletId: wallet.id, pagingToken },
+              update: { pagingToken, ...buildCursorSuccessUpdate() },
+            });
           } else {
-            throw err;
+            const previousPagingToken =
+              options.previousPagingToken !== undefined
+                ? options.previousPagingToken
+                : (await tx.ingestionCursor.findUnique({ where: { walletId: wallet.id } }))?.pagingToken ?? null;
+            cursorGap = detectLedgerGap(previousPagingToken, pagingToken);
+
+            await tx.ingestionCursor.upsert({
+              where: { walletId: wallet.id },
+              create: { walletId: wallet.id, pagingToken },
+              update: {
+                pagingToken,
+                ...(cursorGap.hasGap
+                  ? buildCursorGapUpdate(cursorGap.ledgerDelta)
+                  : buildCursorSuccessUpdate()),
+              },
+            });
           }
         }
+
+        return {
+          payment: persistedPayment,
+          isNewPayment: inserted.count > 0,
+          gap: cursorGap,
+        };
+      });
+
+      if (!payment) {
+        throw new Error(`Payment ${txHash} was not available after its transactional insert`);
       }
 
       if (isNewPayment && payment) {
@@ -188,17 +213,11 @@ export async function processPaymentRecord(
         }
       }
 
-      const pagingToken = getHorizonPagingToken(record);
-      if (pagingToken) {
-        const gap = await saveCursor(wallet.id, pagingToken, {
-          skipGapCheck: options.skipGapCheck,
-          previousPagingToken: options.previousPagingToken,
-        });
-        if (gap.hasGap) {
-          span.setAttribute('cursor.gapDetected', true);
-          span.setAttribute('cursor.gapLedgerDelta', gap.ledgerDelta);
-          await recoverFromLedgerGap(wallet);
-        }
+      if (gap.hasGap) {
+        log.warn({ walletId: wallet.id, ledgerDelta: gap.ledgerDelta }, '⚠️ Ledger gap detected in ingestion cursor');
+        span.setAttribute('cursor.gapDetected', true);
+        span.setAttribute('cursor.gapLedgerDelta', gap.ledgerDelta);
+        await recoverFromLedgerGap(wallet);
       }
 
       span.setStatus({ code: SpanStatusCode.OK });

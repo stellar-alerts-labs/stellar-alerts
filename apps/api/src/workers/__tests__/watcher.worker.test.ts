@@ -1,20 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const prismaMock = vi.hoisted(() => ({
+  payment: {
+    findUnique: vi.fn(),
+    createMany: vi.fn(),
+  },
+  ingestionCursor: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    upsert: vi.fn(),
+  },
+  notificationPreference: { findUnique: vi.fn().mockResolvedValue(null) },
+}));
+
 vi.mock('../../lib/prisma', () => ({
   prisma: {
-    payment: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    ingestionCursor: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      upsert: vi.fn(),
-    },
-    notificationPreference: {
-      findUnique: vi.fn().mockResolvedValue(null),
-    },
+    $transaction: vi.fn(async (callback: (tx: any) => Promise<unknown>) => callback(prismaMock)),
+    ...prismaMock,
   },
 }));
 
@@ -79,8 +82,8 @@ const outageResult = (lastError: string) => ({ records: [], allNodesFailed: true
 describe('Watcher ingestion cursor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.payment.findUnique).mockResolvedValue(null as any);
-    vi.mocked(prisma.payment.create).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.createMany).mockResolvedValue({ count: 1 } as any);
   });
 
   describe('ensureCursor', () => {
@@ -151,6 +154,24 @@ describe('Watcher ingestion cursor', () => {
       ]);
     });
 
+    it('persists the payment and cursor inside the same transaction', async () => {
+      vi.mocked(prisma.ingestionCursor.findUnique).mockResolvedValue({ pagingToken: toid(1000) } as any);
+      vi.mocked(stellar.getPaymentsSinceResult).mockResolvedValue(
+        okResult([paymentRecord(toid(1001), 'hash-atomic')]),
+      );
+
+      await processWalletPayments(wallet);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.payment.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ txHash: 'hash-atomic' })],
+        skipDuplicates: true,
+      });
+      expect(prisma.ingestionCursor.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: expect.objectContaining({ pagingToken: toid(1001) }) }),
+      );
+    });
+
     it('pages through a backlog until Horizon returns a partial page', async () => {
       vi.mocked(prisma.ingestionCursor.findUnique).mockResolvedValue({ pagingToken: toid(1000), consecutiveFailures: 0 } as any);
       const fullPage = Array.from({ length: 50 }, (_, i) =>
@@ -214,12 +235,9 @@ describe('Watcher ingestion cursor', () => {
       });
     });
 
-    it('reorg-like duplicate scenario: a raced insert of the same txHash is treated as already-recorded, not an error', async () => {
-      vi.mocked(prisma.payment.findUnique)
-        .mockResolvedValueOnce(null as any) // first check: not seen yet
-        .mockResolvedValueOnce({ id: 'payment-winner' } as any); // re-fetch after the race is lost
-      const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
-      vi.mocked(prisma.payment.create).mockRejectedValueOnce(p2002);
+    it('reorg-like duplicate scenario: a raced duplicate advances the cursor without re-alerting', async () => {
+      vi.mocked(prisma.payment.createMany).mockResolvedValueOnce({ count: 0 } as any);
+      vi.mocked(prisma.payment.findUnique).mockResolvedValueOnce({ id: 'payment-winner' } as any);
       vi.mocked(prisma.ingestionCursor.findUnique).mockResolvedValue(null as any);
 
       await expect(handleStreamRecord(wallet, paymentRecord(toid(2000), 'hash-race'))).resolves.not.toThrow();
@@ -236,26 +254,27 @@ describe('Watcher ingestion cursor', () => {
 describe('handleStreamRecord (live SSE message handler)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.payment.findUnique).mockResolvedValue(null as any);
-    vi.mocked(prisma.payment.create).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.createMany).mockResolvedValue({ count: 1 } as any);
   });
 
   it('persists a payment and advances the ingestion cursor', async () => {
     await handleStreamRecord(wallet, paymentRecord('5001', 'hash-hsr'));
 
-    expect(prisma.payment.create).toHaveBeenCalledTimes(1);
+    expect(prisma.payment.createMany).toHaveBeenCalledTimes(1);
     expect(prisma.ingestionCursor.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: expect.objectContaining({ pagingToken: '5001' }) })
     );
   });
 
   it('does not re-ingest a payment that was already seen', async () => {
+    vi.mocked(prisma.payment.createMany).mockResolvedValueOnce({ count: 0 } as any);
     vi.mocked(prisma.payment.findUnique).mockResolvedValue({ id: 'existing' } as any);
 
     await handleStreamRecord(wallet, paymentRecord('5002', 'hash-dup'));
 
     // Payment is not re-created, but the cursor still advances past it.
-    expect(prisma.payment.create).not.toHaveBeenCalled();
+    expect(prisma.payment.createMany).toHaveBeenCalledTimes(1);
     expect(prisma.ingestionCursor.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: expect.objectContaining({ pagingToken: '5002' }) })
     );
@@ -266,8 +285,8 @@ describe('Horizon SSE stream lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    vi.mocked(prisma.payment.findUnique).mockResolvedValue(null as any);
-    vi.mocked(prisma.payment.create).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.findUnique).mockResolvedValue({ id: 'payment-1' } as any);
+    vi.mocked(prisma.payment.createMany).mockResolvedValue({ count: 1 } as any);
     vi.mocked(prisma.ingestionCursor.findUnique).mockResolvedValue({ pagingToken: '4200' } as any);
   });
 
@@ -295,7 +314,7 @@ describe('Horizon SSE stream lifecycle', () => {
 
     await connections[0].handlers.onmessage(paymentRecord('4201', 'hash-sse'));
 
-    expect(prisma.payment.create).toHaveBeenCalledTimes(1);
+    expect(prisma.payment.createMany).toHaveBeenCalledTimes(1);
     expect(prisma.ingestionCursor.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: expect.objectContaining({ pagingToken: '4201' }) })
     );
