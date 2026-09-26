@@ -58,6 +58,12 @@ jobs:
       - name: Verify generated OpenAPI types are up to date
         run: npm run generate:types:check
 
+      - name: Enforce no-new-any policy
+        run: npm run quality:any
+
+      - name: Run Quality Policy Tests
+        run: npm run test:quality
+
       - name: Build Shared Package (@stellar-alerts/shared)
         run: npx tsc -p packages/shared/tsconfig.json
 

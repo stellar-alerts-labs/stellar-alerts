@@ -101,6 +101,21 @@ Or launch components individually from the project root:
 
 ---
 
+## Production TypeScript `any` Policy
+
+Production TypeScript under `apps/*/src` and `packages/*/src` must not introduce new explicit `any` types or casts. Tests, generated sources, and declaration files are excluded. Existing occurrences are recorded in an owned baseline so they can be removed incrementally without blocking unrelated work.
+
+Run the policy and its focused tests before opening a PR:
+
+```bash
+npm run quality:any
+npm run test:quality
+```
+
+When removing an existing occurrence, run `npm run quality:any:update` and commit the smaller baseline. The update command refuses to expand the baseline. If an exception is unavoidable, run `npm run quality:any` to obtain its fingerprint, then add it to the baseline manually with an accountable owner and a compatibility rationale; reviewers must approve that exception. CI rejects new occurrences, undocumented exceptions, changed fingerprints, and stale allowances.
+
+---
+
 ## 🛠️ Development Workflow & Guidelines
 
 1. **Branch Naming**:
