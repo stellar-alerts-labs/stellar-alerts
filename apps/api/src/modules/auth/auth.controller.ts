@@ -1,8 +1,17 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { requestLinkSchema, verifyLinkSchema, telegramInitDataSchema, didChallengeSchema, didVerifySchema } from './auth.schema';
+import {
+  requestLinkSchema,
+  verifyLinkSchema,
+  telegramInitDataSchema,
+  didChallengeSchema,
+  didVerifySchema,
+  refreshTokenSchema,
+  revokeSessionSchema,
+} from './auth.schema';
 import { authService } from './auth.service';
 import { mfaService } from './mfa.service';
 import { TelegramInitDataError } from '../../utils/telegram';
+import { TokenReuseError, SessionRevokedError } from '../../lib/session-manager';
 import { createPublicKey, verify as cryptoVerify } from 'crypto';
 
 const TRUSTED_KEY_IDS = ['key1', 'key2', 'key3'];
@@ -177,6 +186,76 @@ export class AuthController {
     }
   }
 
+  async refreshTokens(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = refreshTokenSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid request',
+        message: 'Missing or invalid refreshToken parameter',
+        details: parsed.error.format(),
+      });
+    }
+
+    try {
+      const result = await authService.rotateRefreshToken(parsed.data.refreshToken, {
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      });
+      return reply.send({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      if (error instanceof TokenReuseError) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          code: error.code,
+          message: error.message,
+        });
+      }
+      if (error instanceof SessionRevokedError) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          code: error.code,
+          message: error.message,
+        });
+      }
+      if (error.message === 'Invalid or expired refresh token') {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          code: 'INVALID_TOKEN',
+          message: error.message,
+        });
+      }
+      return reply.status(500).send({
+        error: 'Internal server error',
+        message: error.message,
+      });
+    }
+  }
+
+  async revokeSession(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    }
+
+    const parsed = revokeSessionSchema.safeParse(request.body);
+    const targetFamilyId = (parsed.success && parsed.data.familyId) || request.user.familyId;
+
+    try {
+      if (targetFamilyId && targetFamilyId !== 'legacy') {
+        await authService.revokeSessionFamily(targetFamilyId);
+      }
+      await authService.revokeSession(request.user);
+      return reply.send({
+        success: true,
+        message: 'Session family revoked successfully.',
+      });
+    } catch (error: any) {
+      return reply.status(500).send({ error: 'Internal server error', message: error.message });
+    }
+  }
+
   async logout(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
       return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
@@ -214,7 +293,7 @@ export class AuthController {
   }
 
   /**
-   * Enable MFA - Verify first TOTP token
+   * Enable MFA - Verify first TOTP token and generate recovery codes
    */
   async enableMFA(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
@@ -227,10 +306,11 @@ export class AuthController {
     }
 
     try {
-      await mfaService.enableMFA(request.user.id, token);
+      const result = await mfaService.enableMFA(request.user.id, token);
       return reply.send({
         success: true,
         message: 'MFA enabled successfully',
+        recoveryCodes: result.recoveryCodes,
       });
     } catch (error: any) {
       return reply.status(400).send({ error: 'Failed to enable MFA', message: error.message });
@@ -271,12 +351,89 @@ export class AuthController {
 
     try {
       const enabled = await mfaService.isMFAEnabled(request.user.id);
+      const codeStatus = enabled
+        ? await mfaService.getRecoveryCodeStatus(request.user.id)
+        : { total: 0, remaining: 0 };
+
       return reply.send({
         success: true,
         mfaEnabled: enabled,
+        recoveryCodesRemaining: codeStatus.remaining,
+        recoveryCodesTotal: codeStatus.total,
       });
     } catch (error: any) {
       return reply.status(500).send({ error: 'Failed to check MFA status', message: error.message });
+    }
+  }
+
+  /**
+   * Generate/Regenerate one-time recovery codes (#317)
+   */
+  async generateRecoveryCodes(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    try {
+      const codes = await mfaService.generateRecoveryCodes(request.user.id);
+      return reply.send({
+        success: true,
+        recoveryCodes: codes,
+        message: 'New recovery codes generated. Store them securely; they will not be shown again.',
+      });
+    } catch (error: any) {
+      return reply.status(400).send({ error: 'Failed to generate recovery codes', message: error.message });
+    }
+  }
+
+  /**
+   * Get remaining recovery codes count (#317)
+   */
+  async getRecoveryCodeStatus(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    try {
+      const status = await mfaService.getRecoveryCodeStatus(request.user.id);
+      return reply.send({
+        success: true,
+        ...status,
+      });
+    } catch (error: any) {
+      return reply.status(500).send({ error: 'Failed to get recovery code status', message: error.message });
+    }
+  }
+
+  /**
+   * Recover account with a one-time recovery code when device is lost (#317)
+   */
+  async recoverAccount(request: FastifyRequest, reply: FastifyReply) {
+    const { email, recoveryCode } = (request.body as any) || {};
+
+    if (!email || typeof email !== 'string') {
+      return reply.status(400).send({ error: 'Missing or invalid email' });
+    }
+    if (!recoveryCode || typeof recoveryCode !== 'string') {
+      return reply.status(400).send({ error: 'Missing or invalid recovery code' });
+    }
+
+    try {
+      const result = await mfaService.recoverAccountWithCode(
+        email,
+        recoveryCode,
+        request.ip,
+      );
+      return reply.send({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      const isRateLimit = error.message.includes('Too many recovery attempts');
+      return reply.status(isRateLimit ? 429 : 400).send({
+        error: isRateLimit ? 'Too Many Requests' : 'Recovery Failed',
+        message: error.message,
+      });
     }
   }
 }

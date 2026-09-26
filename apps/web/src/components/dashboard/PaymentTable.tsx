@@ -136,6 +136,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               type="text"
               data-testid="search-input"
               id="payment-search-input"
+              aria-label="Search payments by sender address, tx hash, or asset"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by sender address (G...), tx hash, or asset..."
@@ -145,6 +146,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
+                aria-label="Clear search input"
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
                 title="Clear search text"
               >
@@ -160,6 +162,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
               <select
                 data-testid="asset-filter-select"
                 id="asset-filter-select"
+                aria-label="Filter payments by asset code"
                 value={selectedAsset}
                 onChange={(e) => setSelectedAsset(e.target.value)}
                 className="w-full pl-3 pr-8 py-2 rounded-lg bg-slate-900 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/50 appearance-none cursor-pointer"
@@ -225,6 +228,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
                 <th className="py-3.5 px-4">Asset</th>
                 <th className="py-3.5 px-4">Sender Address</th>
                 <th className="py-3.5 px-4">Tx Hash</th>
+                <th className="py-3.5 px-4">Receipt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -261,6 +265,17 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({ payments = [], isLoa
                     >
                       <span>{payment.txHash ? `${payment.txHash.substring(0, 8)}...` : 'View Tx'}</span>
                       <span className="text-[10px]">↗</span>
+                    </a>
+                  </td>
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <a
+                      href={`http://localhost:3001/payments/${payment.txHash}/receipt`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      title="Download PDF Receipt"
+                    >
+                      <span>📄</span> Receipt
                     </a>
                   </td>
                 </tr>
