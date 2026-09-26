@@ -81,19 +81,17 @@ function parseRetryAfterMs(headers: Headers | undefined): number | undefined {
 }
 
 /**
- * Dispatches a WhatsApp payment alert via the Twilio Messages API, retrying
- * transient failures (429 / 5xx) with exponential backoff. Throws
- * {@link WhatsAppInvalidNumberError} for malformed destination numbers so
- * callers can distinguish "don't retry" from "retry with backoff".
+ * Sends a WhatsApp payment-receipt alert via the Twilio WhatsApp API, with
+ * exponential-backoff retries on rate limits (429) and server errors (5xx).
  */
 export async function dispatchWhatsAppAlert(
-  toNumber: string,
+  phoneNumber: string,
   data: WhatsAppAlertData,
   config: WhatsAppDispatchConfig,
 ): Promise<WhatsAppDispatchResult> {
-  const normalized = normalizeWhatsAppNumber(toNumber);
+  const normalized = normalizeWhatsAppNumber(phoneNumber);
   if (!isValidE164Number(normalized)) {
-    throw new WhatsAppInvalidNumberError(toNumber);
+    throw new WhatsAppInvalidNumberError(phoneNumber);
   }
 
   const maxAttempts = config.maxAttempts ?? 3;
@@ -101,40 +99,32 @@ export async function dispatchWhatsAppAlert(
   const sleep = config.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   const body = new URLSearchParams({
-    From: `whatsapp:${normalizeWhatsAppNumber(config.fromNumber)}`,
+    From: `whatsapp:${config.fromNumber}`,
     To: `whatsapp:${normalized}`,
     Body: buildWhatsAppMessage(data),
   });
-
   const authHeader = `Basic ${Buffer.from(`${config.accountSid}:${config.authToken}`).toString('base64')}`;
-  let lastError = '';
+
+  let lastError: string | undefined;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await fetch(
-        `${TWILIO_API_BASE}/Accounts/${config.accountSid}/Messages.json`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: authHeader,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: body.toString(),
-          signal: AbortSignal.timeout(10_000),
+      const response = await fetch(`${TWILIO_API_BASE}/Accounts/${config.accountSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-      );
+        body: body.toString(),
+      });
 
-      const payload = (await response.json().catch(() => ({}))) as {
-        sid?: string;
-        status?: string;
-        message?: string;
-      };
+      const json: any = await response.json();
 
       if (response.ok) {
-        return { success: true, messageSid: payload.sid, status: payload.status, attempts: attempt };
+        return { success: true, messageSid: json.sid, status: json.status, attempts: attempt };
       }
 
-      lastError = payload.message || `Twilio responded with status ${response.status}`;
+      lastError = json.message || `Twilio responded with status ${response.status}`;
 
       const retryable = response.status === 429 || response.status >= 500;
       if (!retryable || attempt === maxAttempts) {
