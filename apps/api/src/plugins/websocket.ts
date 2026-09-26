@@ -64,25 +64,26 @@ export default fp(async (server: FastifyInstance) => {
     registry.broadcastToUser(userId, message);
   });
 
-  // Register WebSocket upgrade endpoint. Browsers cannot set an
-  // Authorization header on a native WebSocket handshake, so the session
-  // JWT travels as a query parameter and is verified before the socket is
-  // admitted to the registry.
-  server.get('/ws', { websocket: true }, (socket: import('ws').WebSocket, request) => {
-    const token = (request.query as { token?: string } | undefined)?.token;
-
-    let user: UserPayload;
-    try {
-      if (!token) throw new Error('missing token');
-      user = verifyToken<UserPayload>(token);
-    } catch {
+  // Register WebSocket upgrade endpoint
+  server.get('/ws', { websocket: true } as any, (socket: any, request: any) => {
+    let user = (request as any).user;
+    if (!user) {
+      const authHeader = request.headers?.['authorization'];
+      const token = authHeader?.replace(/^Bearer\s+/i, '') || (request.query as any)?.token;
+      if (token) {
+        try {
+          user = verifyToken(token);
+        } catch {}
+      }
+    }
+    if (!user) {
       socket.close(4401, 'Unauthorized');
       return;
     }
-
-    const entry = registry.register(user.id, socket);
+    const userId = user.id;
+    const entry = registry.register(userId, socket);
     server.log.info(
-      `🔗 WebSocket client connected for user ${user.id.substring(0, 8)}... (total for user: ${registry.clientCountForUser(user.id)})`,
+      `🔗 WebSocket client connected for user ${userId.substring(0, 8)}... (total for user: ${registry.clientCountForUser(userId)})`,
     );
 
     registry.sendToEntry(entry, {
@@ -101,13 +102,13 @@ export default fp(async (server: FastifyInstance) => {
     });
 
     socket.on('close', () => {
-      registry.unregister(user.id, entry);
-      server.log.info(`🔌 WebSocket client disconnected for user ${user.id.substring(0, 8)}...`);
+      registry.unregister(userId, entry);
+      server.log.info(`🔌 WebSocket client disconnected for user ${userId.substring(0, 8)}...`);
     });
 
     socket.on('error', (error: Error) => {
       server.log.error({ err: error }, '❌ WebSocket error');
-      registry.unregister(user.id, entry);
+      registry.unregister(userId, entry);
     });
   });
 
