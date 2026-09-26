@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 import { prisma } from '../../lib/prisma';
-import { KeyRotationManager } from '../../utils/key-rotation-manager';
-import { cryptoVault } from '../../utils/crypto-vault';
+import { generateWebhookSignature } from '../../utils/webhook-signer';
+import { encryptToString, decryptFromString } from '../../utils/crypto-vault';
 
 export interface WebhookTestResult {
   success: boolean;
@@ -65,13 +65,9 @@ export class WebhooksService {
 
   async addWebhook(userId: string, url: string, payloadTemplate?: string) {
     console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
-
-    // SSRF-safe destination validation (#312)
-    await validateUrlForSsrf(url);
-
-    const secret = crypto.randomBytes(32).toString('hex');
-    const encryptedSecret = cryptoVault.encrypt(secret);
-    const [version, iv, authTag, ciphertext] = encryptedSecret.split(':');
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    // Encrypt the secret before persisting — only the vault-encrypted form is stored
+    const secret = encryptToString(rawSecret);
 
     const webhook = await prisma.webhook.create({
       data: {
@@ -185,19 +181,9 @@ export class WebhooksService {
       },
     });
 
-    if (!this.keyRotationManager.getKeyState(webhook.id)) {
-      this.keyRotationManager.setKeyState(webhook.id, { activeSecret: secret });
-    }
-    const signatures = this.keyRotationManager.sign(payload, webhook.id);
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Stellar-Signature': signatures.primary.headerValue,
-      'X-Stellar-Alerts-Nonce': signatures.primary.nonce,
-    };
-    if (signatures.secondary) {
-      headers['X-Stellar-Signature-Secondary'] = signatures.secondary.headerValue;
-    }
+    // Decrypt the stored vault secret before signing
+    const rawSecret = decryptFromString(webhook.secret);
+    const signature = generateWebhookSignature(payload, rawSecret);
 
     try {
       const response = await ssrfSafeFetch(webhook.url, {

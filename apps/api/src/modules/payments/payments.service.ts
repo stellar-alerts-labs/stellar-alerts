@@ -79,14 +79,9 @@ export class PaymentsService {
       _count: { id: true },
     });
 
-    const totalReceivedUsd = Number(result._sum.amount || 0);
-    const paymentCount = result._count.id || 0;
-
-    const summary: Record<string, unknown> = {
-      totalReceived: totalReceivedUsd,
-      totalVolumeXLM: totalReceivedUsd,
-      paymentCount,
-      totalPayments: paymentCount,
+    return {
+      totalReceived: result._sum.amount || 0,
+      paymentCount: result._count.id || 0,
     };
 
     if (fiatCurrency && isSupportedFiatCurrency(fiatCurrency)) {

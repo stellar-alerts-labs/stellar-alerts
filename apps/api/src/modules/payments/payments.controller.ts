@@ -38,10 +38,9 @@ const getCrossLedgerSchema = z.object({
   walletId: z.string().optional(),
 });
 
-const getLedgerPdfExportSchema = z.object({
-  walletId: z.string().optional(),
-  periodStart: z.coerce.date().optional(),
-  periodEnd: z.coerce.date().optional(),
+const estimateFeeBodySchema = z.object({
+  /** Base64-encoded XDR TransactionEnvelope of the Soroban transaction to simulate */
+  xdrEnvelope: z.string().min(1, 'xdrEnvelope is required'),
 });
 
 export class PaymentsController {
@@ -87,101 +86,35 @@ export class PaymentsController {
     return reply.send({ success: true, summary });
   }
 
-  async getPaymentsSummary(request: FastifyRequest, reply: FastifyReply) {
-    return this.getSummary(request, reply);
-  }
-
-  async getTaxExport(request: FastifyRequest, reply: FastifyReply) {
-    const parsed = getTaxExportSchema.safeParse(request.query);
+  /**
+   * POST /payments/estimate-fee
+   *
+   * Accepts a base64-encoded XDR TransactionEnvelope and returns a simulated
+   * fee breakdown including:
+   *  - inclusion fee (classic base fee in stroops)
+   *  - resource fee (execution + state rent in stroops)
+   *  - rent fee component in stroops
+   *  - total fee in stroops and XLM
+   *  - read/write ledger entry footprints
+   *  - CPU instructions and memory bytes estimates
+   */
+  async estimateFee(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = estimateFeeBodySchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
-    }
-    if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+      return reply.status(400).send({ error: 'Invalid request body', details: parsed.error.format() });
     }
 
-    const payments = await paymentsService.getPayments(request.user.id, parsed.data.walletId, 5000);
-    const csv = generateTaxExportCsv(
-      payments.map((payment) => ({
-        date: payment.receivedAt,
-        asset: payment.asset,
-        quantity: payment.amount.toString(),
-        usdValue: payment.amount.toString(),
-        type: 'receive',
-        txHash: payment.txHash,
-        fromAddress: payment.fromAddress,
-      })),
-      parsed.data.format,
-    );
+    const estimate = await paymentsService.estimateFee(parsed.data.xdrEnvelope);
 
-    return reply
-      .header('Content-Type', 'text/csv; charset=utf-8')
-      .header('Content-Disposition', `attachment; filename="tax-export-${parsed.data.format}.csv"`)
-      .send(csv);
-  }
-
-  async getLedgerPdfExport(request: FastifyRequest, reply: FastifyReply) {
-    const parsed = getLedgerPdfExportSchema.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
-    }
-    if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
+    if (!estimate.success) {
+      return reply.status(422).send({
+        success: false,
+        error: 'Simulation failed',
+        details: estimate.error,
+      });
     }
 
-    const periodEnd = parsed.data.periodEnd ?? new Date();
-    const periodStart =
-      parsed.data.periodStart ?? new Date(periodEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
-
-    const payments = await paymentsService.getPayments(request.user.id, parsed.data.walletId, 5000);
-    const inPeriod = payments.filter((payment) => {
-      const receivedAt = new Date(payment.receivedAt);
-      return receivedAt >= periodStart && receivedAt <= periodEnd;
-    });
-
-    const walletMeta = parsed.data.walletId
-      ? await prismaRead.wallet.findFirst({
-          where: { id: parsed.data.walletId, userId: request.user.id },
-          select: { publicKey: true, label: true },
-        })
-      : null;
-
-    const pdf = await generateLedgerStatementPdf({
-      userEmail: request.user.email,
-      walletLabel: walletMeta?.label ?? null,
-      publicKey: walletMeta?.publicKey ?? 'All linked wallets',
-      periodStart,
-      periodEnd,
-      payments: inPeriod.map((payment) => ({
-        txHash: payment.txHash,
-        fromAddress: payment.fromAddress,
-        amount: payment.amount.toString(),
-        asset: payment.asset,
-        receivedAt: payment.receivedAt,
-      })),
-    });
-
-    const filename = `ledger-statement-${periodStart.toISOString().slice(0, 10)}.pdf`;
-    return reply
-      .header('Content-Type', 'application/pdf')
-      .header('Content-Disposition', `attachment; filename="${filename}"`)
-      .send(pdf);
-  }
-
-  async getCrossLedgerAnalytics(request: FastifyRequest, reply: FastifyReply) {
-    const parsed = getCrossLedgerSchema.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid query', details: parsed.error.format() });
-    }
-    if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'User not authenticated' });
-    }
-
-    const analytics = await paymentsService.getCrossLedgerAnalytics(
-      request.user.id,
-      parsed.data.walletId,
-    );
-    return reply.send({ success: true, analytics });
+    return reply.send({ success: true, estimate });
   }
 
   async getReceipt(request: FastifyRequest, reply: FastifyReply) {

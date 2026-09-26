@@ -7,8 +7,11 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   app.get('/payments', paymentsController.getPayments.bind(paymentsController));
   app.get('/payments/summary', paymentsController.getPaymentsSummary.bind(paymentsController));
-  app.get('/payments/tax-export', paymentsController.getTaxExport.bind(paymentsController));
-  app.get('/payments/export/pdf', paymentsController.getLedgerPdfExport.bind(paymentsController));
-  app.get('/payments/analytics/cross-ledger', paymentsController.getCrossLedgerAnalytics.bind(paymentsController));
-  app.get('/payments/:txHash/receipt', paymentsController.getReceipt.bind(paymentsController));
+
+  /**
+   * POST /payments/estimate-fee
+   * Simulate a Soroban transaction and return fee breakdown + ledger footprints.
+   * Body: { xdrEnvelope: string }  (base64-encoded XDR TransactionEnvelope)
+   */
+  app.post('/payments/estimate-fee', paymentsController.estimateFee.bind(paymentsController));
 }

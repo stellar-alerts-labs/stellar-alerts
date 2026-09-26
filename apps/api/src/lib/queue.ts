@@ -45,8 +45,8 @@ export interface AlertJobData {
   assetIssuer?: string | null;
   fromAddress: string;
   receivedAt: string;
-  /** Correlation ID propagated from the originating HTTP request, if any. */
-  requestId?: string;
+  /** Optional alert filter config — if provided, alerts are suppressed when rules fail */
+  filterConfig?: AlertFilterConfig;
 }
 
 const redisHost = process.env.REDIS_HOST || "localhost";
