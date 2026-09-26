@@ -1,4 +1,4 @@
-import * as StellarSdk from 'stellar-sdk';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 import { env } from '../config/env';
 import { prisma, connectWithRetry } from '../lib/prisma';
 import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
@@ -383,7 +383,7 @@ export async function ensureCursor(wallet: {
 export async function processWalletPayments(wallet: { id: string; publicKey: string; userId?: string }) {
   return tracer.startActiveSpan('watcher.processWalletPayments', async (span) => {
     try {
-      if (!wallet.publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(wallet.publicKey)) {
+      if (!wallet.publicKey || !isValidEd25519PublicKey(wallet.publicKey)) {
         console.warn(`[WatcherWorker] Skipping invalid public key checksum: "${wallet.publicKey}"`);
         span.setStatus({ code: SpanStatusCode.OK });
         span.end();
@@ -485,7 +485,7 @@ export async function startHorizonSSEStream(
 
     const noopClose = () => {};
 
-    if (!wallet.publicKey || !wallet.publicKey.startsWith('G')) {
+    if (!wallet.publicKey || !isValidEd25519PublicKey(wallet.publicKey)) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: 'Invalid public key' });
       span.end();
       return noopClose;

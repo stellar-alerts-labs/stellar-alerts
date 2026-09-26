@@ -1,19 +1,21 @@
-/**
- * Lightweight, dependency-free StrKey format check for Stellar Ed25519
- * public keys, used for immediate client-side feedback. This mirrors the
- * shape Stellar public keys must have (56 chars, starts with 'G', base32
- * alphabet) but does NOT verify the embedded CRC16 checksum — the server
- * (apps/api wallets.schema.ts) performs the authoritative check via
- * StellarSdk.StrKey.isValidEd25519PublicKey before persisting anything.
- */
-const BASE32_ALPHABET = /^[A-Z2-7]+$/;
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 
+/**
+ * Validates a Stellar Ed25519 public key (`G...`) for immediate client-side
+ * feedback. Delegates to the shared StrKey utility so the browser performs the
+ * same version-byte + CRC16-XMODEM checksum validation as the API — the
+ * previous shape-only check (56 chars, starts with `G`, base32 alphabet)
+ * accepted malformed keys whose checksum did not match.
+ *
+ * @deprecated Prefer importing `isValidEd25519PublicKey` directly from
+ * `@stellar-alerts/shared`. This alias is kept so existing callers and tests
+ * continue to work.
+ */
 export function looksLikeStellarPublicKey(value: string): boolean {
   if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (trimmed.length !== 56) return false;
-  if (!trimmed.startsWith('G')) return false;
-  return BASE32_ALPHABET.test(trimmed);
+  // Preserve the previous user-facing behaviour of tolerating surrounding
+  // whitespace; the shared validator itself requires the exact StrKey.
+  return isValidEd25519PublicKey(value.trim());
 }
 
 export function truncateAddress(address: string, head = 6, tail = 6): string {

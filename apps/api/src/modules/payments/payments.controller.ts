@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { normalizeTransactionHash } from '@stellar-alerts/shared';
 import { generateTaxExportCsv } from '../../utils/tax-exporter';
 import { generateLedgerStatementPdf } from '../../utils/pdf-generator';
 import { generateTransactionReceiptPdf } from '../../utils/receipt-generator';
@@ -194,10 +195,16 @@ export class PaymentsController {
       return reply.status(400).send({ error: 'Missing transaction hash parameter' });
     }
 
+    // The route accepts either a 64-hex transaction hash (optionally
+    // 0x-prefixed, in any case) or a payment id. Normalize the hash form
+    // through the shared validator; ids are passed through untouched so the
+    // existing OR lookup keeps working.
+    const normalizedTxHash = normalizeTransactionHash(txHash);
+
     const payment = await prisma.payment.findFirst({
       where: {
         OR: [
-          { txHash: txHash },
+          { txHash: normalizedTxHash ?? txHash },
           { id: txHash },
         ],
       },
