@@ -51,8 +51,37 @@ const envSchema = z.object({
   // Wasm contract upload/analysis limits for the wasm-analyzer module.
   WASM_ANALYZER_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional().default(5 * 1024 * 1024),
   WASM_ANALYZER_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(5000),
+  // Asynchronous export jobs (#321)
+  EXPORT_WORKER_ENABLED: z.string().optional().default("true"),
+  // Directory for generated export files; empty = <os tmpdir>/stellar-alerts-exports.
+  EXPORT_STORAGE_DIR: z.string().optional().default(""),
+  // How long a finished export stays downloadable before cleanup deletes it.
+  EXPORT_TTL_SECONDS: z.coerce.number().int().positive().optional().default(86400),
+  // Lifetime of each signed download URL handed out by GET /exports/:id.
+  EXPORT_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().optional().default(300),
+  EXPORT_MAX_ROWS: z.coerce.number().int().positive().optional().default(100000),
+  EXPORT_BATCH_SIZE: z.coerce.number().int().positive().optional().default(500),
+  EXPORT_MAX_ACTIVE_JOBS_PER_USER: z.coerce.number().int().positive().optional().default(3),
+  EXPORT_WORKER_CONCURRENCY: z.coerce.number().int().positive().optional().default(2),
+  EXPORT_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().optional().default(600000),
+  // A job stuck in `running` longer than this (e.g. worker crash) is failed.
+  EXPORT_STALE_JOB_MS: z.coerce.number().int().positive().optional().default(1800000),
 });
 export type Env = z.infer<typeof envSchema>;
+
+// Export-job defaults, shared by the dev/test fallbacks below (#321).
+const EXPORT_DEFAULTS = {
+  EXPORT_WORKER_ENABLED: "true",
+  EXPORT_STORAGE_DIR: "",
+  EXPORT_TTL_SECONDS: 86400,
+  EXPORT_DOWNLOAD_URL_TTL_SECONDS: 300,
+  EXPORT_MAX_ROWS: 100000,
+  EXPORT_BATCH_SIZE: 500,
+  EXPORT_MAX_ACTIVE_JOBS_PER_USER: 3,
+  EXPORT_WORKER_CONCURRENCY: 2,
+  EXPORT_CLEANUP_INTERVAL_MS: 600000,
+  EXPORT_STALE_JOB_MS: 1800000,
+};
 
 const parseEnv = (): Env => {
   const envInput = {
@@ -140,6 +169,7 @@ const parseEnv = (): Env => {
       SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
       SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
       SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+      ...EXPORT_DEFAULTS,
     } as unknown as Env;
   }
 
@@ -166,6 +196,7 @@ const parseEnv = (): Env => {
     SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
     SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
     SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+    ...EXPORT_DEFAULTS,
   } as unknown as Env;
 };
 

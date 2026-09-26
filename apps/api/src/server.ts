@@ -19,6 +19,16 @@ const start = async () => {
       runWatcher().catch((err) => console.error('⚠️ Watcher worker error:', err));
     }
 
+    // Without a dedicated export worker, exports run in-process (see
+    // lib/export-queue.ts), so expiry/cleanup has to run here too.
+    if (env.EXPORT_WORKER_ENABLED !== 'true') {
+      const { exportsService } = await import('./modules/exports/exports.service');
+      const cleanupExports = () =>
+        exportsService.cleanupExpiredExports().catch((err) => console.error('⚠️ Export cleanup error:', err));
+      void cleanupExports();
+      setInterval(cleanupExports, env.EXPORT_CLEANUP_INTERVAL_MS).unref();
+    }
+
     const shutdown = async () => {
       console.log('🛑 Graceful shutdown initiated...');
       setTimeout(() => {

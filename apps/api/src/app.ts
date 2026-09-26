@@ -14,6 +14,7 @@ import { webhooksRoutes } from './modules/webhooks/webhooks.routes';
 import { sorobanStateRoutes } from './modules/soroban-state/soroban-state.routes';
 import { notificationsRoutes } from './modules/notifications/notifications.routes';
 import { deadLettersRoutes } from './modules/dead-letters/dead-letters.routes';
+import { exportsRoutes } from './modules/exports/exports.routes';
 import { openApiOptions } from './openapi.config';
 
 import { checkRedisReadiness, getRedisStatus } from './lib/redis';
@@ -100,6 +101,7 @@ export const buildApp = async () => {
   app.register(webhooksRoutes);
   app.register(notificationsRoutes);
   app.register(deadLettersRoutes);
+  app.register(exportsRoutes);
 
   return app;
 };
