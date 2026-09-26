@@ -3,6 +3,19 @@ import * as StellarSdk from 'stellar-sdk';
 import { resolveStellarNetworkProfile } from './network';
 
 describe('resolveStellarNetworkProfile', () => {
+  it('defaults to testnet and ignores legacy endpoint overrides without explicit custom selection', () => {
+    const profile = resolveStellarNetworkProfile({
+      HORIZON_URL: 'https://horizon.example.com',
+      SOROBAN_RPC_URL: 'https://rpc.example.com',
+      STELLAR_NETWORK_PASSPHRASE: 'Unexpected Network',
+    });
+
+    expect(profile.profile).toBe('testnet');
+    expect(profile.horizonEndpoints[0]).toBe('https://horizon-testnet.stellar.org');
+    expect(profile.sorobanRpcUrl).toBe('https://soroban-testnet.stellar.org');
+    expect(profile.networkPassphrase).toBe(StellarSdk.Networks.TESTNET);
+  });
+
   it('selects the complete mainnet profile', () => {
     const profile = resolveStellarNetworkProfile({ STELLAR_NETWORK_PROFILE: 'mainnet' });
 
