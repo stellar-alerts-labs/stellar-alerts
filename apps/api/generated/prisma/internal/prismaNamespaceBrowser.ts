@@ -56,18 +56,32 @@ export const ModelName = {
   IngestionCursor: 'IngestionCursor',
   Payment: 'Payment',
   NotificationPreference: 'NotificationPreference',
+  AlertRule: 'AlertRule',
+  AlertRuleDispatchLog: 'AlertRuleDispatchLog',
+  WhatsAppDeliveryLog: 'WhatsAppDeliveryLog',
   Webhook: 'Webhook',
   WebhookLog: 'WebhookLog',
   WebhookCircuitBreaker: 'WebhookCircuitBreaker',
   SorobanEventSnapshot: 'SorobanEventSnapshot',
+  SorobanStateAudit: 'SorobanStateAudit',
   SorobanContractSubscription: 'SorobanContractSubscription',
+  SacTokenMintBurnEvent: 'SacTokenMintBurnEvent',
+  SacTokenSupply: 'SacTokenSupply',
   MultisigTreasury: 'MultisigTreasury',
   MultisigSignerWatcher: 'MultisigSignerWatcher',
   PendingMultisigTransaction: 'PendingMultisigTransaction',
   AnchorTransactionWatch: 'AnchorTransactionWatch',
   DexSwapWatch: 'DexSwapWatch',
+  SorobanTopicIndex: 'SorobanTopicIndex',
+  SorobanTopicIndexCursor: 'SorobanTopicIndexCursor',
   DexSwapEvent: 'DexSwapEvent',
-  SecurityAuditLog: 'SecurityAuditLog'
+  SecurityAuditLog: 'SecurityAuditLog',
+  NotificationDelivery: 'NotificationDelivery',
+  NotificationDeliveryAttempt: 'NotificationDeliveryAttempt',
+  DeadLetter: 'DeadLetter',
+  DeadLetterAudit: 'DeadLetterAudit',
+  RefreshSession: 'RefreshSession',
+  RefreshTokenHistory: 'RefreshTokenHistory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -89,6 +103,8 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  mfaSecret: 'mfaSecret',
+  mfaEnabled: 'mfaEnabled',
   createdAt: 'createdAt'
 } as const
 
@@ -111,7 +127,13 @@ export const IngestionCursorScalarFieldEnum = {
   walletId: 'walletId',
   pagingToken: 'pagingToken',
   lastSyncedAt: 'lastSyncedAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  status: 'status',
+  consecutiveFailures: 'consecutiveFailures',
+  lastError: 'lastError',
+  lastSuccessAt: 'lastSuccessAt',
+  gapDetectedAt: 'gapDetectedAt',
+  lastGapLedgerDelta: 'lastGapLedgerDelta'
 } as const
 
 export type IngestionCursorScalarFieldEnum = (typeof IngestionCursorScalarFieldEnum)[keyof typeof IngestionCursorScalarFieldEnum]
@@ -148,11 +170,55 @@ export const NotificationPreferenceScalarFieldEnum = {
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
 
 
+export const AlertRuleScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  walletId: 'walletId',
+  name: 'name',
+  assets: 'assets',
+  minAmount: 'minAmount',
+  conditions: 'conditions',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AlertRuleScalarFieldEnum = (typeof AlertRuleScalarFieldEnum)[keyof typeof AlertRuleScalarFieldEnum]
+
+
+export const AlertRuleDispatchLogScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  matchedRuleIds: 'matchedRuleIds',
+  createdAt: 'createdAt'
+} as const
+
+export type AlertRuleDispatchLogScalarFieldEnum = (typeof AlertRuleDispatchLogScalarFieldEnum)[keyof typeof AlertRuleDispatchLogScalarFieldEnum]
+
+
+export const WhatsAppDeliveryLogScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  toNumber: 'toNumber',
+  success: 'success',
+  messageSid: 'messageSid',
+  status: 'status',
+  error: 'error',
+  attempts: 'attempts',
+  sentAt: 'sentAt'
+} as const
+
+export type WhatsAppDeliveryLogScalarFieldEnum = (typeof WhatsAppDeliveryLogScalarFieldEnum)[keyof typeof WhatsAppDeliveryLogScalarFieldEnum]
+
+
 export const WebhookScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   url: 'url',
-  secret: 'secret',
+  secretCiphertext: 'secretCiphertext',
+  secretIv: 'secretIv',
+  secretAuthTag: 'secretAuthTag',
+  keyVersion: 'keyVersion',
   payloadTemplate: 'payloadTemplate',
   isActive: 'isActive',
   createdAt: 'createdAt'
@@ -204,6 +270,20 @@ export const SorobanEventSnapshotScalarFieldEnum = {
 export type SorobanEventSnapshotScalarFieldEnum = (typeof SorobanEventSnapshotScalarFieldEnum)[keyof typeof SorobanEventSnapshotScalarFieldEnum]
 
 
+export const SorobanStateAuditScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  ledgerKey: 'ledgerKey',
+  ledgerSeq: 'ledgerSeq',
+  snapshot: 'snapshot',
+  patch: 'patch',
+  previousLedger: 'previousLedger',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanStateAuditScalarFieldEnum = (typeof SorobanStateAuditScalarFieldEnum)[keyof typeof SorobanStateAuditScalarFieldEnum]
+
+
 export const SorobanContractSubscriptionScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -215,6 +295,33 @@ export const SorobanContractSubscriptionScalarFieldEnum = {
 } as const
 
 export type SorobanContractSubscriptionScalarFieldEnum = (typeof SorobanContractSubscriptionScalarFieldEnum)[keyof typeof SorobanContractSubscriptionScalarFieldEnum]
+
+
+export const SacTokenMintBurnEventScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  eventType: 'eventType',
+  amount: 'amount',
+  from: 'from',
+  to: 'to',
+  ledgerSeq: 'ledgerSeq',
+  txHash: 'txHash',
+  createdAt: 'createdAt'
+} as const
+
+export type SacTokenMintBurnEventScalarFieldEnum = (typeof SacTokenMintBurnEventScalarFieldEnum)[keyof typeof SacTokenMintBurnEventScalarFieldEnum]
+
+
+export const SacTokenSupplyScalarFieldEnum = {
+  contractId: 'contractId',
+  circulatingSupply: 'circulatingSupply',
+  totalMinted: 'totalMinted',
+  totalBurned: 'totalBurned',
+  updatedAt: 'updatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type SacTokenSupplyScalarFieldEnum = (typeof SacTokenSupplyScalarFieldEnum)[keyof typeof SacTokenSupplyScalarFieldEnum]
 
 
 export const MultisigTreasuryScalarFieldEnum = {
@@ -284,6 +391,33 @@ export const DexSwapWatchScalarFieldEnum = {
 export type DexSwapWatchScalarFieldEnum = (typeof DexSwapWatchScalarFieldEnum)[keyof typeof DexSwapWatchScalarFieldEnum]
 
 
+export const SorobanTopicIndexScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  ledgerSeq: 'ledgerSeq',
+  txHash: 'txHash',
+  topicXdrJson: 'topicXdrJson',
+  topics: 'topics',
+  topicSymbols: 'topicSymbols',
+  topicSymbol: 'topicSymbol',
+  topicsHash: 'topicsHash',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanTopicIndexScalarFieldEnum = (typeof SorobanTopicIndexScalarFieldEnum)[keyof typeof SorobanTopicIndexScalarFieldEnum]
+
+
+export const SorobanTopicIndexCursorScalarFieldEnum = {
+  id: 'id',
+  contractId: 'contractId',
+  ledgerSeq: 'ledgerSeq',
+  updatedAt: 'updatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type SorobanTopicIndexCursorScalarFieldEnum = (typeof SorobanTopicIndexCursorScalarFieldEnum)[keyof typeof SorobanTopicIndexCursorScalarFieldEnum]
+
+
 export const DexSwapEventScalarFieldEnum = {
   id: 'id',
   poolContractId: 'poolContractId',
@@ -313,6 +447,106 @@ export const SecurityAuditLogScalarFieldEnum = {
 } as const
 
 export type SecurityAuditLogScalarFieldEnum = (typeof SecurityAuditLogScalarFieldEnum)[keyof typeof SecurityAuditLogScalarFieldEnum]
+
+
+export const NotificationDeliveryScalarFieldEnum = {
+  id: 'id',
+  deliveryKey: 'deliveryKey',
+  paymentId: 'paymentId',
+  channel: 'channel',
+  destination: 'destination',
+  userId: 'userId',
+  status: 'status',
+  currentAttempt: 'currentAttempt',
+  maxAttempts: 'maxAttempts',
+  lastError: 'lastError',
+  deliveredAt: 'deliveredAt',
+  terminalAt: 'terminalAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationDeliveryScalarFieldEnum = (typeof NotificationDeliveryScalarFieldEnum)[keyof typeof NotificationDeliveryScalarFieldEnum]
+
+
+export const NotificationDeliveryAttemptScalarFieldEnum = {
+  id: 'id',
+  deliveryKey: 'deliveryKey',
+  deliveryId: 'deliveryId',
+  paymentId: 'paymentId',
+  channel: 'channel',
+  destination: 'destination',
+  providerRequestId: 'providerRequestId',
+  status: 'status',
+  attempt: 'attempt',
+  error: 'error',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationDeliveryAttemptScalarFieldEnum = (typeof NotificationDeliveryAttemptScalarFieldEnum)[keyof typeof NotificationDeliveryAttemptScalarFieldEnum]
+
+
+export const DeadLetterScalarFieldEnum = {
+  id: 'id',
+  deliveryKey: 'deliveryKey',
+  paymentId: 'paymentId',
+  userId: 'userId',
+  channel: 'channel',
+  destination: 'destination',
+  payload: 'payload',
+  error: 'error',
+  status: 'status',
+  retryCount: 'retryCount',
+  failedAt: 'failedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DeadLetterScalarFieldEnum = (typeof DeadLetterScalarFieldEnum)[keyof typeof DeadLetterScalarFieldEnum]
+
+
+export const DeadLetterAuditScalarFieldEnum = {
+  id: 'id',
+  deadLetterId: 'deadLetterId',
+  actorUserId: 'actorUserId',
+  action: 'action',
+  note: 'note',
+  createdAt: 'createdAt'
+} as const
+
+export type DeadLetterAuditScalarFieldEnum = (typeof DeadLetterAuditScalarFieldEnum)[keyof typeof DeadLetterAuditScalarFieldEnum]
+
+
+export const RefreshSessionScalarFieldEnum = {
+  id: 'id',
+  familyId: 'familyId',
+  userId: 'userId',
+  currentJti: 'currentJti',
+  rotationCounter: 'rotationCounter',
+  isRevoked: 'isRevoked',
+  revocationReason: 'revocationReason',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RefreshSessionScalarFieldEnum = (typeof RefreshSessionScalarFieldEnum)[keyof typeof RefreshSessionScalarFieldEnum]
+
+
+export const RefreshTokenHistoryScalarFieldEnum = {
+  id: 'id',
+  familyId: 'familyId',
+  jti: 'jti',
+  userId: 'userId',
+  rotationCounter: 'rotationCounter',
+  isConsumed: 'isConsumed',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type RefreshTokenHistoryScalarFieldEnum = (typeof RefreshTokenHistoryScalarFieldEnum)[keyof typeof RefreshTokenHistoryScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { z } from 'zod';
@@ -14,7 +15,12 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
 import { webhooksRoutes } from './modules/webhooks/webhooks.routes';
+import { sorobanStateRoutes } from './modules/soroban-state/soroban-state.routes';
+import { notificationsRoutes } from './modules/notifications/notifications.routes';
+import { deadLettersRoutes } from './modules/dead-letters/dead-letters.routes';
 import { openApiOptions } from './openapi.config';
+
+import { checkRedisReadiness, getRedisStatus } from './lib/redis';
 
 export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
@@ -42,6 +48,15 @@ export const buildApp = async () => {
     global: true,
     max: env.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
+  });
+
+  await app.register(multipart, {
+    limits: {
+      // Per-file cap; the wasm-analyzer route additionally enforces
+      // env.WASM_ANALYZER_MAX_UPLOAD_BYTES per request via request.file().
+      fileSize: env.WASM_ANALYZER_MAX_UPLOAD_BYTES,
+      files: 1,
+    },
   });
 
   await app.register(swagger, openApiOptions);
@@ -105,6 +120,8 @@ export const buildApp = async () => {
   app.register(walletsRoutes);
   app.register(paymentsRoutes);
   app.register(webhooksRoutes);
+  app.register(notificationsRoutes);
+  app.register(deadLettersRoutes);
 
   return app;
 };

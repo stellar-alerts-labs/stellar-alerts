@@ -1,36 +1,80 @@
-import { prisma } from '../../lib/prisma';
+import { prisma, prismaRead } from '../../lib/prisma';
+import { isSupportedFiatCurrency, convertUsdToFiat, SupportedFiatCurrency } from '../../lib/exchange-rates';
 import { addDifferentialPrivacyNoise } from '../../utils/differential-privacy';
-import {
-  convertUsdToFiat,
-  isSupportedFiatCurrency,
-  type SupportedFiatCurrency,
-} from '../../lib/exchange-rates';
+
+export type PaymentSortField = 'receivedAt' | 'amount' | 'asset';
+export type SortOrder = 'asc' | 'desc';
+
+export interface GetPaymentsFilters {
+  asset?: string;
+  memo?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  sortBy?: PaymentSortField;
+  sortOrder?: SortOrder;
+}
 
 export class PaymentsService {
-  /**
-   * Lists payments for `userId`. When `walletId` is given, results are
-   * additionally scoped to a wallet owned by that user — a caller can no
-   * longer read another user's payments by guessing/reusing a walletId.
-   * When omitted (the dashboard's "All Wallets" view), every wallet the
-   * user owns is included.
-   */
-  async getPayments(userId: string, walletId?: string, limit: number = 20) {
+  async getPayments(
+    userId: string,
+    walletId?: string,
+    limit: number = 20,
+    filters: GetPaymentsFilters = {},
+  ) {
+    // Authorization is always enforced here, never left to the caller: a
+    // walletId filter is combined with wallet.userId so a request can never
+    // read another user's payments by guessing a walletId.
+    const where: any = walletId
+      ? { walletId, wallet: { userId } }
+      : { wallet: { userId } };
+
+    if (filters.asset) {
+      where.asset = filters.asset;
+    }
+
+    if (filters.memo) {
+      where.memo = { contains: filters.memo, mode: 'insensitive' };
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.receivedAt = {
+        ...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+        ...(filters.dateTo ? { lte: filters.dateTo } : {}),
+      };
+    }
+
+    const sortBy = filters.sortBy ?? 'receivedAt';
+    const sortOrder = filters.sortOrder ?? 'desc';
+
     console.log(
-      `[PaymentsService] Fetching up to ${limit} payments for user ${userId}${walletId ? ` (wallet ${walletId})` : ' (all wallets)'}`,
+      `[PaymentsService] Fetching up to ${limit} payments for user ${userId}${
+        walletId ? ` (wallet ${walletId})` : ' (all wallets)'
+      }, sorted by ${sortBy} ${sortOrder}`
     );
-    return prisma.payment.findMany({
-      where: walletId ? { walletId, wallet: { userId } } : { wallet: { userId } },
-      orderBy: { receivedAt: 'desc' },
+
+    // where.walletId / where.asset are indexed (Payment_walletId_idx,
+    // Payment_asset_idx, Payment_walletId_receivedAt_idx); orderBy fields
+    // are indexed except `amount`, which has no dedicated index today.
+    return prismaRead.payment.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
       take: limit,
     });
   }
 
   async getPaymentsSummary(userId: string, walletId?: string, fiatCurrency?: string) {
+    const where: any = walletId
+      ? { walletId, wallet: { userId } }
+      : { wallet: { userId } };
+
     console.log(
-      `[PaymentsService] Fetching summary for user ${userId}${walletId ? ` (wallet ${walletId})` : ' (all wallets)'}`,
+      `[PaymentsService] Fetching summary for user ${userId}${
+        walletId ? ` (wallet ${walletId})` : ' (all wallets)'
+      }`
     );
-    const result = await prisma.payment.aggregate({
-      where: walletId ? { walletId, wallet: { userId } } : { wallet: { userId } },
+
+    const result = await prismaRead.payment.aggregate({
+      where,
       _sum: { amount: true },
       _count: { id: true },
     });
@@ -40,7 +84,6 @@ export class PaymentsService {
       paymentCount: result._count.id || 0,
     };
 
-    // Fiat conversion when requested
     if (fiatCurrency && isSupportedFiatCurrency(fiatCurrency)) {
       const conversion = await convertUsdToFiat(
         totalReceivedUsd,

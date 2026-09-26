@@ -1,87 +1,75 @@
 import { PrismaClient } from '../../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { env } from '../config/env';
+import { resolvePoolConfig } from './db-pool';
 
-export let activeDatabaseUrl = process.env.DATABASE_URL || env.DATABASE_URL || 'postgresql://user:password@localhost:5432/stellar_alerts?schema=public';
-export let activeReadDatabaseUrl = process.env.READ_REPLICA_URL || process.env.DATABASE_URL || env.DATABASE_URL || 'postgresql://user:password@localhost:5432/stellar_alerts?schema=public';
+function createClient(databaseUrl: string, label: string) {
+  const config = resolvePoolConfig(databaseUrl);
+  console.log(
+    `[Prisma] ${label} pool: max=${config.max} connections, acquire timeout=${config.connectionTimeoutMillis}ms, idle timeout=${config.idleTimeoutMillis}ms`
+  );
 
-let adapter = new PrismaPg({
-  connectionString: activeDatabaseUrl,
-});
-
-export let prisma = new PrismaClient({ adapter });
-
-let readAdapter = new PrismaPg({
-  connectionString: activeReadDatabaseUrl,
-});
-
-export let replicaPrisma = new PrismaClient({ adapter: readAdapter });
-
-export type DatabaseTarget = 'PRIMARY' | 'REPLICA';
-export let activeReadTarget: DatabaseTarget = 'REPLICA';
-
-/**
- * Returns the active PrismaClient for read operations.
- * Dynamically routes to replicaPrisma or primary prisma based on lag status.
- */
-export function getReadClient(): PrismaClient {
-  return activeReadTarget === 'PRIMARY' ? prisma : replicaPrisma;
+  return new PrismaClient({ adapter: new PrismaPg(config) });
 }
 
+const primaryUrl = env.DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/stellar_alerts';
+const replicaUrl = env.READ_REPLICA_URL || process.env.READ_REPLICA_URL;
+
+let primaryClient = createClient(primaryUrl, 'primary');
+
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const value = (primaryClient as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return (value as (...args: unknown[]) => unknown).bind(primaryClient);
+    }
+    return value;
+  },
+});
+
 /**
- * Updates active read traffic target (PRIMARY or REPLICA).
+ * Client for read-only queries. Points at READ_REPLICA_URL when a read
+ * replica is configured and falls back to the primary otherwise, so callers can
+ * use it unconditionally.
  */
+export const prismaRead = replicaUrl ? createClient(replicaUrl, 'replica') : prisma;
+export const replicaPrisma = prismaRead;
+
+export type DatabaseTarget = 'PRIMARY' | 'REPLICA';
+
+export let activeReadTarget: DatabaseTarget = 'REPLICA';
+
 export function setReadTarget(target: DatabaseTarget): void {
   activeReadTarget = target;
   console.log(`[DB Pool Engine] 🔀 Read traffic target updated to: ${target}`);
 }
 
-export async function switchDatabaseUrl(newConnectionString: string): Promise<void> {
-  console.log(`[DR Engine] 🔄 Switching database connection pool to secondary region: ${newConnectionString}`);
-  activeDatabaseUrl = newConnectionString;
-  process.env.DATABASE_URL = newConnectionString;
-
-  try {
-    await prisma.$disconnect();
-  } catch (_) {}
-
-  adapter = new PrismaPg({
-    connectionString: newConnectionString,
-  });
-  prisma = new PrismaClient({ adapter });
+export function getReadTarget(): DatabaseTarget {
+  return activeReadTarget;
 }
 
-export async function switchReadDatabaseUrl(newConnectionString: string): Promise<void> {
-  console.log(`[DB Pool Engine] 🔄 Switching read replica connection pool: ${newConnectionString}`);
-  activeReadDatabaseUrl = newConnectionString;
-  process.env.READ_REPLICA_URL = newConnectionString;
-
-  try {
-    await replicaPrisma.$disconnect();
-  } catch (_) {}
-
-  readAdapter = new PrismaPg({
-    connectionString: newConnectionString,
-  });
-  replicaPrisma = new PrismaClient({ adapter: readAdapter });
+export function getReadClient() {
+  return activeReadTarget === 'PRIMARY' ? prisma : prismaRead;
 }
 
-export async function connectWithRetry(retries = 5, delay = 1000) {
-  let attempt = 0;
-  while (attempt < retries) {
-    try {
-      await prisma.$connect();
-      console.log('✅ Successfully connected to database');
-      return;
-    } catch (error: any) {
-      attempt++;
-      console.warn(`⚠️ Database connection failed (attempt ${attempt}/${retries}): ${error.message}`);
-      if (attempt >= retries) {
-        console.error('❌ Exceeded maximum retries for database connection. Exiting.');
-        process.exit(1);
-      }
-      await new Promise(res => setTimeout(res, delay));
-      delay *= 2; // Exponential backoff
-    }
+export async function switchDatabaseUrl(newUrl: string): Promise<void> {
+  console.log(`[Prisma] Switching database URL to: ${newUrl}`);
+  process.env.DATABASE_URL = newUrl;
+  setReadTarget('PRIMARY');
+
+  try {
+    await primaryClient.$disconnect();
+  } catch {
+    // Pool may not be connected during DR drills or unit tests.
   }
+
+  primaryClient = createClient(newUrl, 'primary-promoted');
+
+  if (process.env.VITEST !== 'true') {
+    await primaryClient.$connect();
+  }
+}
+
+export async function connectWithRetry() {
+  await prisma.$connect();
 }

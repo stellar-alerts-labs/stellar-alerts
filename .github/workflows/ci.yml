@@ -6,12 +6,28 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Build, Lint & Test
     runs-on: ubuntu-latest
 
     services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: stellar_alerts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
       redis:
         image: redis:7-alpine
         ports:
@@ -33,6 +49,12 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+
       - name: Verify generated OpenAPI types are up to date
         run: npm run generate:types:check
 
@@ -45,8 +67,19 @@ jobs:
       - name: Typecheck Frontend (apps/web)
         run: npx tsc -p apps/web/tsconfig.json --noEmit
 
+      - name: Push Prisma Schema (test database)
+        run: npm run db:push
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+
       - name: Run API Unit Tests
         run: npm run test:api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+          REDIS_URL: "redis://localhost:6379"
+          JWT_SECRET: "ci-unit-test-secret-key-min-32-chars!!"
+          MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          NODE_ENV: "test"
 
       - name: Run Web Lint
         run: npm run lint --workspace=web
@@ -57,7 +90,7 @@ jobs:
       - name: Build Web Application
         run: npm run build --workspace=web
         env:
-          NEXTAUTH_SECRET: "ci-build-dummy-secret-key-12345"
+          NEXTAUTH_SECRET: "ci-build-dummy-secret-key-123456"
           NEXT_PUBLIC_API_URL: "http://localhost:3001"
 
   chaos:
@@ -77,16 +110,25 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # docker-compose.yml runs toxiproxy with network_mode: host, which is
-      # Linux-only — exactly what ubuntu-latest runners are, so this needs
-      # no extra host-gateway wiring (the chaos suite's own fixture server
-      # binds to 127.0.0.1, directly reachable from the toxiproxy container).
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+
+      - name: Build Shared Package (@stellar-alerts/shared)
+        run: npx tsc -p packages/shared/tsconfig.json
+
+      # docker-compose.yml port-maps toxiproxy and points it at the host via
+      # host.docker.internal (an extra_hosts host-gateway entry), since the
+      # chaos suite's fixture server binds to localhost on the runner, not
+      # inside the toxiproxy container.
       - name: Start Toxiproxy
         run: docker compose up -d toxiproxy
 
       - name: Wait for Toxiproxy to be ready
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 1 30); do
             if curl -sf http://localhost:8474/version > /dev/null; then
               echo "Toxiproxy is up"
               exit 0
@@ -99,10 +141,11 @@ jobs:
 
       - name: Run Chaos Test Suite
         working-directory: apps/api
-        run: npx --no-install vitest run src/__tests__/chaos.test.ts
+        run: npx vitest run src/__tests__/chaos.test.ts
         env:
           TOXIPROXY_URL: http://localhost:8474
+          TOXIPROXY_UPSTREAM_HOST: host.docker.internal
 
       - name: Stop Toxiproxy
         if: always()
-        run: docker compose down toxiproxy
+        run: docker compose down toxiproxy || true

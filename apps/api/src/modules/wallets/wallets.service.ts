@@ -1,4 +1,4 @@
-import { prisma } from '../../lib/prisma';
+import { prisma, prismaRead } from '../../lib/prisma';
 import { verifyZkProof } from '../../utils/zkp-verifier';
 
 export class WalletsService {
@@ -26,21 +26,59 @@ export class WalletsService {
       targetUserId = anonUser.id;
     }
 
-    const wallet = await prisma.wallet.create({
-      data: {
-        userId: targetUserId,
-        publicKey,
-        label,
-      },
-    });
-    return wallet;
+    try {
+      const wallet = await prisma.wallet.create({
+        data: {
+          userId: targetUserId,
+          publicKey,
+          label,
+        },
+      });
+      return wallet;
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new Error('Wallet already exists');
+      }
+      throw error;
+    }
   }
 
   async getWallets(userId: string) {
-    return prisma.wallet.findMany({
+    return prismaRead.wallet.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  /**
+   * Operator-visible ingestion health for a wallet's Horizon/Soroban cursor
+   * (see lib/cursor-recovery.ts): current paging token, health status
+   * (active / gap_detected), consecutive provider failures, and the most
+   * recent error and gap, if any.
+   */
+  async getIngestionStatus(userId: string, walletId: string) {
+    const wallet = await prisma.wallet.findUnique({
+      where: { id: walletId },
+      include: { cursor: true },
+    });
+
+    if (!wallet || wallet.userId !== userId) {
+      throw new Error('Wallet not found');
+    }
+
+    const cursor = wallet.cursor;
+    return {
+      walletId: wallet.id,
+      publicKey: wallet.publicKey,
+      pagingToken: cursor?.pagingToken ?? null,
+      status: cursor?.status ?? 'active',
+      consecutiveFailures: cursor?.consecutiveFailures ?? 0,
+      lastError: cursor?.lastError ?? null,
+      lastSuccessAt: cursor?.lastSuccessAt ?? null,
+      lastSyncedAt: cursor?.lastSyncedAt ?? null,
+      gapDetectedAt: cursor?.gapDetectedAt ?? null,
+      lastGapLedgerDelta: cursor?.lastGapLedgerDelta ?? null,
+    };
   }
 
   async removeWallet(id: string) {

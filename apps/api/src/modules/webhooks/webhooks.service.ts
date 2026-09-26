@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+
 import { prisma } from '../../lib/prisma';
 import { generateWebhookSignature } from '../../utils/webhook-signer';
 import { encryptToString, decryptFromString } from '../../utils/crypto-vault';
@@ -23,10 +24,12 @@ export interface WebhookHealthScorecard {
 const WEBHOOK_TEST_TIMEOUT_MS = 10_000;
 
 export class WebhooksService {
+  private keyRotationManager = new KeyRotationManager();
+
   /**
    * Computes the 7-day delivery success rate and latency health scorecard for a webhook.
    */
-  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date; sentAt?: Date }>): WebhookHealthScorecard {
+  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date | null; sentAt?: Date | null }>): WebhookHealthScorecard {
     if (!logs || logs.length === 0) {
       return {
         healthPercentage: 100.0,
@@ -70,7 +73,10 @@ export class WebhooksService {
       data: {
         userId,
         url,
-        secret,
+        secretCiphertext: ciphertext,
+        secretIv: iv,
+        secretAuthTag: authTag,
+        keyVersion: parseInt(version, 10),
         payloadTemplate,
       },
       select: {
@@ -82,8 +88,11 @@ export class WebhooksService {
       },
     });
 
+    this.keyRotationManager.setKeyState(webhook.id, { activeSecret: secret });
+
     return {
       ...webhook,
+      secret: encryptedSecret,
       healthPercentage: 100.0,
       averageLatencyMs: 0,
       status: 'HEALTHY' as WebhookHealthStatus,
@@ -155,6 +164,14 @@ export class WebhooksService {
       throw new Error('Webhook not found');
     }
 
+    const encrypted = [
+      String(webhook.keyVersion),
+      webhook.secretIv,
+      webhook.secretAuthTag,
+      webhook.secretCiphertext,
+    ].join(':');
+    const secret = cryptoVault.decrypt(encrypted);
+
     const payload = JSON.stringify({
       event: 'webhook.ping',
       timestamp: new Date().toISOString(),
@@ -169,13 +186,9 @@ export class WebhooksService {
     const signature = generateWebhookSignature(payload, rawSecret);
 
     try {
-      const response = await fetch(webhook.url, {
+      const response = await ssrfSafeFetch(webhook.url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Stellar-Signature': signature.headerValue,
-          'X-Stellar-Alerts-Nonce': signature.nonce,
-        },
+        headers,
         body: payload,
         signal: AbortSignal.timeout(WEBHOOK_TEST_TIMEOUT_MS),
       });
@@ -187,16 +200,14 @@ export class WebhooksService {
           ? 'Ping payload delivered successfully.'
           : `Endpoint responded with status ${response.status}.`,
       };
-    } catch (error: any) {
-      console.error(`[WebhooksService] Failed to deliver test ping to ${webhook.url}:`, error.message);
+    } catch (error) {
       return {
         success: false,
         status: null,
-        message: `Failed to reach endpoint: ${error.message}`,
+        message: `Failed to reach endpoint: ${(error as Error).message}`,
       };
     }
   }
 }
 
 export const webhooksService = new WebhooksService();
-
