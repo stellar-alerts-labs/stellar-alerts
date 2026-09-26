@@ -56,6 +56,7 @@ export const ModelName = {
   IngestionCursor: 'IngestionCursor',
   Payment: 'Payment',
   NotificationPreference: 'NotificationPreference',
+  DeliveryLog: 'DeliveryLog',
   AlertRule: 'AlertRule',
   AlertRuleDispatchLog: 'AlertRuleDispatchLog',
   WhatsAppDeliveryLog: 'WhatsAppDeliveryLog',
@@ -76,12 +77,10 @@ export const ModelName = {
   SorobanTopicIndexCursor: 'SorobanTopicIndexCursor',
   DexSwapEvent: 'DexSwapEvent',
   SecurityAuditLog: 'SecurityAuditLog',
-  NotificationDelivery: 'NotificationDelivery',
   NotificationDeliveryAttempt: 'NotificationDeliveryAttempt',
   DeadLetter: 'DeadLetter',
   DeadLetterAudit: 'DeadLetterAudit',
-  RefreshSession: 'RefreshSession',
-  RefreshTokenHistory: 'RefreshTokenHistory'
+  MfaRecoveryCode: 'MfaRecoveryCode'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -163,11 +162,28 @@ export const NotificationPreferenceScalarFieldEnum = {
   emailEnabled: 'emailEnabled',
   whatsappNumber: 'whatsappNumber',
   whatsappEnabled: 'whatsappEnabled',
+  discordWebhookUrl: 'discordWebhookUrl',
+  discordEnabled: 'discordEnabled',
+  slackWebhookUrl: 'slackWebhookUrl',
+  slackEnabled: 'slackEnabled',
   language: 'language',
   filterRules: 'filterRules'
 } as const
 
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
+
+
+export const DeliveryLogScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  channel: 'channel',
+  status: 'status',
+  error: 'error',
+  attempt: 'attempt',
+  createdAt: 'createdAt'
+} as const
+
+export type DeliveryLogScalarFieldEnum = (typeof DeliveryLogScalarFieldEnum)[keyof typeof DeliveryLogScalarFieldEnum]
 
 
 export const AlertRuleScalarFieldEnum = {
@@ -449,30 +465,9 @@ export const SecurityAuditLogScalarFieldEnum = {
 export type SecurityAuditLogScalarFieldEnum = (typeof SecurityAuditLogScalarFieldEnum)[keyof typeof SecurityAuditLogScalarFieldEnum]
 
 
-export const NotificationDeliveryScalarFieldEnum = {
-  id: 'id',
-  deliveryKey: 'deliveryKey',
-  paymentId: 'paymentId',
-  channel: 'channel',
-  destination: 'destination',
-  userId: 'userId',
-  status: 'status',
-  currentAttempt: 'currentAttempt',
-  maxAttempts: 'maxAttempts',
-  lastError: 'lastError',
-  deliveredAt: 'deliveredAt',
-  terminalAt: 'terminalAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type NotificationDeliveryScalarFieldEnum = (typeof NotificationDeliveryScalarFieldEnum)[keyof typeof NotificationDeliveryScalarFieldEnum]
-
-
 export const NotificationDeliveryAttemptScalarFieldEnum = {
   id: 'id',
   deliveryKey: 'deliveryKey',
-  deliveryId: 'deliveryId',
   paymentId: 'paymentId',
   channel: 'channel',
   destination: 'destination',
@@ -519,34 +514,16 @@ export const DeadLetterAuditScalarFieldEnum = {
 export type DeadLetterAuditScalarFieldEnum = (typeof DeadLetterAuditScalarFieldEnum)[keyof typeof DeadLetterAuditScalarFieldEnum]
 
 
-export const RefreshSessionScalarFieldEnum = {
+export const MfaRecoveryCodeScalarFieldEnum = {
   id: 'id',
-  familyId: 'familyId',
   userId: 'userId',
-  currentJti: 'currentJti',
-  rotationCounter: 'rotationCounter',
-  isRevoked: 'isRevoked',
-  revocationReason: 'revocationReason',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type RefreshSessionScalarFieldEnum = (typeof RefreshSessionScalarFieldEnum)[keyof typeof RefreshSessionScalarFieldEnum]
-
-
-export const RefreshTokenHistoryScalarFieldEnum = {
-  id: 'id',
-  familyId: 'familyId',
-  jti: 'jti',
-  userId: 'userId',
-  rotationCounter: 'rotationCounter',
-  isConsumed: 'isConsumed',
-  consumedAt: 'consumedAt',
+  codeHash: 'codeHash',
+  used: 'used',
+  usedAt: 'usedAt',
   createdAt: 'createdAt'
 } as const
 
-export type RefreshTokenHistoryScalarFieldEnum = (typeof RefreshTokenHistoryScalarFieldEnum)[keyof typeof RefreshTokenHistoryScalarFieldEnum]
+export type MfaRecoveryCodeScalarFieldEnum = (typeof MfaRecoveryCodeScalarFieldEnum)[keyof typeof MfaRecoveryCodeScalarFieldEnum]
 
 
 export const SortOrder = {

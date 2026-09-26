@@ -402,6 +402,7 @@ export const ModelName = {
   IngestionCursor: 'IngestionCursor',
   Payment: 'Payment',
   NotificationPreference: 'NotificationPreference',
+  DeliveryLog: 'DeliveryLog',
   AlertRule: 'AlertRule',
   AlertRuleDispatchLog: 'AlertRuleDispatchLog',
   WhatsAppDeliveryLog: 'WhatsAppDeliveryLog',
@@ -422,12 +423,10 @@ export const ModelName = {
   SorobanTopicIndexCursor: 'SorobanTopicIndexCursor',
   DexSwapEvent: 'DexSwapEvent',
   SecurityAuditLog: 'SecurityAuditLog',
-  NotificationDelivery: 'NotificationDelivery',
   NotificationDeliveryAttempt: 'NotificationDeliveryAttempt',
   DeadLetter: 'DeadLetter',
   DeadLetterAudit: 'DeadLetterAudit',
-  RefreshSession: 'RefreshSession',
-  RefreshTokenHistory: 'RefreshTokenHistory'
+  MfaRecoveryCode: 'MfaRecoveryCode'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -443,7 +442,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "wallet" | "ingestionCursor" | "payment" | "notificationPreference" | "alertRule" | "alertRuleDispatchLog" | "whatsAppDeliveryLog" | "webhook" | "webhookLog" | "webhookCircuitBreaker" | "sorobanEventSnapshot" | "sorobanStateAudit" | "sorobanContractSubscription" | "sacTokenMintBurnEvent" | "sacTokenSupply" | "multisigTreasury" | "multisigSignerWatcher" | "pendingMultisigTransaction" | "anchorTransactionWatch" | "dexSwapWatch" | "sorobanTopicIndex" | "sorobanTopicIndexCursor" | "dexSwapEvent" | "securityAuditLog" | "notificationDeliveryAttempt" | "deadLetter" | "deadLetterAudit" | "mfaRecoveryCode"
+    modelProps: "user" | "wallet" | "ingestionCursor" | "payment" | "notificationPreference" | "deliveryLog" | "alertRule" | "alertRuleDispatchLog" | "whatsAppDeliveryLog" | "webhook" | "webhookLog" | "webhookCircuitBreaker" | "sorobanEventSnapshot" | "sorobanStateAudit" | "sorobanContractSubscription" | "sacTokenMintBurnEvent" | "sacTokenSupply" | "multisigTreasury" | "multisigSignerWatcher" | "pendingMultisigTransaction" | "anchorTransactionWatch" | "dexSwapWatch" | "sorobanTopicIndex" | "sorobanTopicIndexCursor" | "dexSwapEvent" | "securityAuditLog" | "notificationDeliveryAttempt" | "deadLetter" | "deadLetterAudit" | "mfaRecoveryCode"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -814,6 +813,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.NotificationPreferenceCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.NotificationPreferenceCountAggregateOutputType> | number
+        }
+      }
+    }
+    DeliveryLog: {
+      payload: Prisma.$DeliveryLogPayload<ExtArgs>
+      fields: Prisma.DeliveryLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DeliveryLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DeliveryLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        findFirst: {
+          args: Prisma.DeliveryLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DeliveryLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        findMany: {
+          args: Prisma.DeliveryLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>[]
+        }
+        create: {
+          args: Prisma.DeliveryLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        createMany: {
+          args: Prisma.DeliveryLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DeliveryLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>[]
+        }
+        delete: {
+          args: Prisma.DeliveryLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        update: {
+          args: Prisma.DeliveryLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.DeliveryLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DeliveryLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DeliveryLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.DeliveryLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeliveryLogPayload>
+        }
+        aggregate: {
+          args: Prisma.DeliveryLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDeliveryLog>
+        }
+        groupBy: {
+          args: Prisma.DeliveryLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeliveryLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DeliveryLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeliveryLogCountAggregateOutputType> | number
         }
       }
     }
@@ -2297,80 +2370,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
-    NotificationDelivery: {
-      payload: Prisma.$NotificationDeliveryPayload<ExtArgs>
-      fields: Prisma.NotificationDeliveryFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.NotificationDeliveryFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.NotificationDeliveryFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        findFirst: {
-          args: Prisma.NotificationDeliveryFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.NotificationDeliveryFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        findMany: {
-          args: Prisma.NotificationDeliveryFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>[]
-        }
-        create: {
-          args: Prisma.NotificationDeliveryCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        createMany: {
-          args: Prisma.NotificationDeliveryCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.NotificationDeliveryCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>[]
-        }
-        delete: {
-          args: Prisma.NotificationDeliveryDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        update: {
-          args: Prisma.NotificationDeliveryUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        deleteMany: {
-          args: Prisma.NotificationDeliveryDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.NotificationDeliveryUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.NotificationDeliveryUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>[]
-        }
-        upsert: {
-          args: Prisma.NotificationDeliveryUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$NotificationDeliveryPayload>
-        }
-        aggregate: {
-          args: Prisma.NotificationDeliveryAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateNotificationDelivery>
-        }
-        groupBy: {
-          args: Prisma.NotificationDeliveryGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.NotificationDeliveryGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.NotificationDeliveryCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.NotificationDeliveryCountAggregateOutputType> | number
-        }
-      }
-    }
     NotificationDeliveryAttempt: {
       payload: Prisma.$NotificationDeliveryAttemptPayload<ExtArgs>
       fields: Prisma.NotificationDeliveryAttemptFieldRefs
@@ -2593,151 +2592,77 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
-    RefreshSession: {
-      payload: Prisma.$RefreshSessionPayload<ExtArgs>
-      fields: Prisma.RefreshSessionFieldRefs
+    MfaRecoveryCode: {
+      payload: Prisma.$MfaRecoveryCodePayload<ExtArgs>
+      fields: Prisma.MfaRecoveryCodeFieldRefs
       operations: {
         findUnique: {
-          args: Prisma.RefreshSessionFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload> | null
+          args: Prisma.MfaRecoveryCodeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload> | null
         }
         findUniqueOrThrow: {
-          args: Prisma.RefreshSessionFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         findFirst: {
-          args: Prisma.RefreshSessionFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload> | null
+          args: Prisma.MfaRecoveryCodeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload> | null
         }
         findFirstOrThrow: {
-          args: Prisma.RefreshSessionFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         findMany: {
-          args: Prisma.RefreshSessionFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>[]
+          args: Prisma.MfaRecoveryCodeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>[]
         }
         create: {
-          args: Prisma.RefreshSessionCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         createMany: {
-          args: Prisma.RefreshSessionCreateManyArgs<ExtArgs>
+          args: Prisma.MfaRecoveryCodeCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
         createManyAndReturn: {
-          args: Prisma.RefreshSessionCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>[]
+          args: Prisma.MfaRecoveryCodeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>[]
         }
         delete: {
-          args: Prisma.RefreshSessionDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         update: {
-          args: Prisma.RefreshSessionUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         deleteMany: {
-          args: Prisma.RefreshSessionDeleteManyArgs<ExtArgs>
+          args: Prisma.MfaRecoveryCodeDeleteManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateMany: {
-          args: Prisma.RefreshSessionUpdateManyArgs<ExtArgs>
+          args: Prisma.MfaRecoveryCodeUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateManyAndReturn: {
-          args: Prisma.RefreshSessionUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>[]
+          args: Prisma.MfaRecoveryCodeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>[]
         }
         upsert: {
-          args: Prisma.RefreshSessionUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshSessionPayload>
+          args: Prisma.MfaRecoveryCodeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MfaRecoveryCodePayload>
         }
         aggregate: {
-          args: Prisma.RefreshSessionAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateRefreshSession>
+          args: Prisma.MfaRecoveryCodeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMfaRecoveryCode>
         }
         groupBy: {
-          args: Prisma.RefreshSessionGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.RefreshSessionGroupByOutputType>[]
+          args: Prisma.MfaRecoveryCodeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MfaRecoveryCodeGroupByOutputType>[]
         }
         count: {
-          args: Prisma.RefreshSessionCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.RefreshSessionCountAggregateOutputType> | number
-        }
-      }
-    }
-    RefreshTokenHistory: {
-      payload: Prisma.$RefreshTokenHistoryPayload<ExtArgs>
-      fields: Prisma.RefreshTokenHistoryFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.RefreshTokenHistoryFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.RefreshTokenHistoryFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        findFirst: {
-          args: Prisma.RefreshTokenHistoryFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.RefreshTokenHistoryFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        findMany: {
-          args: Prisma.RefreshTokenHistoryFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>[]
-        }
-        create: {
-          args: Prisma.RefreshTokenHistoryCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        createMany: {
-          args: Prisma.RefreshTokenHistoryCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.RefreshTokenHistoryCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>[]
-        }
-        delete: {
-          args: Prisma.RefreshTokenHistoryDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        update: {
-          args: Prisma.RefreshTokenHistoryUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        deleteMany: {
-          args: Prisma.RefreshTokenHistoryDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.RefreshTokenHistoryUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.RefreshTokenHistoryUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>[]
-        }
-        upsert: {
-          args: Prisma.RefreshTokenHistoryUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$RefreshTokenHistoryPayload>
-        }
-        aggregate: {
-          args: Prisma.RefreshTokenHistoryAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateRefreshTokenHistory>
-        }
-        groupBy: {
-          args: Prisma.RefreshTokenHistoryGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.RefreshTokenHistoryGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.RefreshTokenHistoryCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.RefreshTokenHistoryCountAggregateOutputType> | number
+          args: Prisma.MfaRecoveryCodeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MfaRecoveryCodeCountAggregateOutputType> | number
         }
       }
     }
@@ -2843,11 +2768,28 @@ export const NotificationPreferenceScalarFieldEnum = {
   emailEnabled: 'emailEnabled',
   whatsappNumber: 'whatsappNumber',
   whatsappEnabled: 'whatsappEnabled',
+  discordWebhookUrl: 'discordWebhookUrl',
+  discordEnabled: 'discordEnabled',
+  slackWebhookUrl: 'slackWebhookUrl',
+  slackEnabled: 'slackEnabled',
   language: 'language',
   filterRules: 'filterRules'
 } as const
 
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
+
+
+export const DeliveryLogScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  channel: 'channel',
+  status: 'status',
+  error: 'error',
+  attempt: 'attempt',
+  createdAt: 'createdAt'
+} as const
+
+export type DeliveryLogScalarFieldEnum = (typeof DeliveryLogScalarFieldEnum)[keyof typeof DeliveryLogScalarFieldEnum]
 
 
 export const AlertRuleScalarFieldEnum = {
@@ -3129,30 +3071,9 @@ export const SecurityAuditLogScalarFieldEnum = {
 export type SecurityAuditLogScalarFieldEnum = (typeof SecurityAuditLogScalarFieldEnum)[keyof typeof SecurityAuditLogScalarFieldEnum]
 
 
-export const NotificationDeliveryScalarFieldEnum = {
-  id: 'id',
-  deliveryKey: 'deliveryKey',
-  paymentId: 'paymentId',
-  channel: 'channel',
-  destination: 'destination',
-  userId: 'userId',
-  status: 'status',
-  currentAttempt: 'currentAttempt',
-  maxAttempts: 'maxAttempts',
-  lastError: 'lastError',
-  deliveredAt: 'deliveredAt',
-  terminalAt: 'terminalAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type NotificationDeliveryScalarFieldEnum = (typeof NotificationDeliveryScalarFieldEnum)[keyof typeof NotificationDeliveryScalarFieldEnum]
-
-
 export const NotificationDeliveryAttemptScalarFieldEnum = {
   id: 'id',
   deliveryKey: 'deliveryKey',
-  deliveryId: 'deliveryId',
   paymentId: 'paymentId',
   channel: 'channel',
   destination: 'destination',
@@ -3199,34 +3120,16 @@ export const DeadLetterAuditScalarFieldEnum = {
 export type DeadLetterAuditScalarFieldEnum = (typeof DeadLetterAuditScalarFieldEnum)[keyof typeof DeadLetterAuditScalarFieldEnum]
 
 
-export const RefreshSessionScalarFieldEnum = {
+export const MfaRecoveryCodeScalarFieldEnum = {
   id: 'id',
-  familyId: 'familyId',
   userId: 'userId',
-  currentJti: 'currentJti',
-  rotationCounter: 'rotationCounter',
-  isRevoked: 'isRevoked',
-  revocationReason: 'revocationReason',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type RefreshSessionScalarFieldEnum = (typeof RefreshSessionScalarFieldEnum)[keyof typeof RefreshSessionScalarFieldEnum]
-
-
-export const RefreshTokenHistoryScalarFieldEnum = {
-  id: 'id',
-  familyId: 'familyId',
-  jti: 'jti',
-  userId: 'userId',
-  rotationCounter: 'rotationCounter',
-  isConsumed: 'isConsumed',
-  consumedAt: 'consumedAt',
+  codeHash: 'codeHash',
+  used: 'used',
+  usedAt: 'usedAt',
   createdAt: 'createdAt'
 } as const
 
-export type RefreshTokenHistoryScalarFieldEnum = (typeof RefreshTokenHistoryScalarFieldEnum)[keyof typeof RefreshTokenHistoryScalarFieldEnum]
+export type MfaRecoveryCodeScalarFieldEnum = (typeof MfaRecoveryCodeScalarFieldEnum)[keyof typeof MfaRecoveryCodeScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -3529,6 +3432,7 @@ export type GlobalOmitConfig = {
   ingestionCursor?: Prisma.IngestionCursorOmit
   payment?: Prisma.PaymentOmit
   notificationPreference?: Prisma.NotificationPreferenceOmit
+  deliveryLog?: Prisma.DeliveryLogOmit
   alertRule?: Prisma.AlertRuleOmit
   alertRuleDispatchLog?: Prisma.AlertRuleDispatchLogOmit
   whatsAppDeliveryLog?: Prisma.WhatsAppDeliveryLogOmit
@@ -3549,12 +3453,10 @@ export type GlobalOmitConfig = {
   sorobanTopicIndexCursor?: Prisma.SorobanTopicIndexCursorOmit
   dexSwapEvent?: Prisma.DexSwapEventOmit
   securityAuditLog?: Prisma.SecurityAuditLogOmit
-  notificationDelivery?: Prisma.NotificationDeliveryOmit
   notificationDeliveryAttempt?: Prisma.NotificationDeliveryAttemptOmit
   deadLetter?: Prisma.DeadLetterOmit
   deadLetterAudit?: Prisma.DeadLetterAuditOmit
-  refreshSession?: Prisma.RefreshSessionOmit
-  refreshTokenHistory?: Prisma.RefreshTokenHistoryOmit
+  mfaRecoveryCode?: Prisma.MfaRecoveryCodeOmit
 }
 
 /* Types for Logging */

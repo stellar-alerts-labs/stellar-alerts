@@ -78,16 +78,33 @@ model Payment {
 }
 
 model NotificationPreference {
-  id              String  @id @default(cuid())
-  userId          String  @unique
-  user            User    @relation(fields: [userId], references: [id])
-  telegramChatId  String?
-  telegramEnabled Boolean @default(false)
-  emailEnabled    Boolean @default(true)
-  whatsappNumber  String?
-  whatsappEnabled Boolean @default(false)
-  language        String  @default("EN")
-  filterRules     Json?   // Stores filter rule group as JSON
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id])
+  telegramChatId    String?
+  telegramEnabled   Boolean @default(false)
+  emailEnabled      Boolean @default(true)
+  whatsappNumber    String?
+  whatsappEnabled   Boolean @default(false)
+  discordWebhookUrl String?
+  discordEnabled    Boolean @default(false)
+  slackWebhookUrl   String?
+  slackEnabled      Boolean @default(false)
+  language          String  @default("EN")
+  filterRules       Json?   // Stores filter rule group as JSON
+}
+
+model DeliveryLog {
+  id        String   @id @default(cuid())
+  paymentId String
+  channel   String
+  status    String
+  error     String?
+  attempt   Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([paymentId, channel])
+  @@index([paymentId])
 }
 
 // A persisted, user-authored rule that gates payment alert dispatch. Distinct
