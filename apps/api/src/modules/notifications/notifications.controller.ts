@@ -6,6 +6,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { notificationsService } from './notifications.service';
+import { buildAlertConfigurationList, buildAlertQuickActions, buildConfigurationConfirmation, parseWhatsAppInteractiveReply, sendWhatsAppInteractiveMessage } from '../../utils/whatsapp-interactive';
 
 export class NotificationsController {
   /**
@@ -116,6 +117,40 @@ export class NotificationsController {
         message: error.message,
       });
     }
+  }
+
+  async whatsappWebhookVerification(request: FastifyRequest, reply: FastifyReply) {
+    const query = request.query as { 'hub.mode'?: string; 'hub.verify_token'?: string; 'hub.challenge'?: string };
+    if (query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
+      return reply.type('text/plain').send(query['hub.challenge']);
+    }
+    return reply.status(403).send({ error: 'Webhook verification failed' });
+  }
+
+  async whatsappWebhook(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = parseWhatsAppInteractiveReply(request.body);
+    if (!parsed?.replyId) return reply.send({ received: true });
+    if (!process.env.WHATSAPP_CLOUD_API_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+      return reply.status(503).send({ error: 'WhatsApp Cloud API is not configured' });
+    }
+
+    try {
+      const result = await notificationsService.applyWhatsAppAction(parsed.from, parsed.replyId);
+      const to = parsed.from.startsWith('+') ? parsed.from : `+${parsed.from}`;
+      const message = result.kind === 'configure'
+        ? buildAlertConfigurationList(to)
+        : result.kind === 'updated'
+          ? buildConfigurationConfirmation(to, result.amount!)
+          : buildAlertQuickActions(to, result.kind === 'enabled');
+      await sendWhatsAppInteractiveMessage(to, message, {
+        accessToken: process.env.WHATSAPP_CLOUD_API_TOKEN,
+        phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+        apiVersion: process.env.WHATSAPP_CLOUD_API_VERSION,
+      });
+    } catch (error: any) {
+      request.log.warn({ err: error }, 'WhatsApp interactive message could not be applied');
+    }
+    return reply.send({ received: true });
   }
 }
 
