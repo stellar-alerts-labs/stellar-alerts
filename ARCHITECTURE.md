@@ -86,10 +86,18 @@ stellar-alerts/
 │   └── shared/                   # Monorepo shared package (@stellar-alerts/shared)
 │       └── src/index.ts          # Shared DTO interfaces & StrKey validator
 ├── docs/
+│   ├── adr/                      # Architecture Decision Records (see docs/adr/README.md)
 │   └── drips-wave-issues.json    # 42 Drips Wave issues backlog export
 ├── docker-compose.yml            # Local PostgreSQL 16 & Redis 7 stack
 └── turbo.json                    # Turborepo task pipeline configuration
 ```
+
+The design decisions behind ingestion, queueing, and notification delivery are
+recorded in [`docs/adr/`](docs/adr/README.md):
+
+- [ADR 0001 — Horizon paging-token cursors with bounded backfill](docs/adr/0001-horizon-cursor-ingestion.md)
+- [ADR 0002 — BullMQ on Redis for the payment-alert queue and DLQ](docs/adr/0002-bullmq-payment-alert-queue.md)
+- [ADR 0003 — Content-addressed delivery keys and idempotency](docs/adr/0003-notification-delivery-idempotency.md)
 
 ---
 

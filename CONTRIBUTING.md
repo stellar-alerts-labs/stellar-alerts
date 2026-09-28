@@ -114,7 +114,23 @@ Or launch components individually from the project root:
    - `fix(worker): handle network timeout on horizon query`
    - `docs: update setup guide in CONTRIBUTING.md`
 
-3. **Testing with Stellar Testnet**:
+3. **Architecture Decisions (ADRs)**:
+   Before changing ingestion, queueing, or notification delivery, read the
+   relevant ADR. These record the decision as implemented, the tradeoffs
+   accepted, and known gaps between design and code — each claim is cited to a
+   `file:line` you can verify.
+
+   | Area | ADR |
+   |---|---|
+   | Ingestion | [0001 — Horizon paging-token cursors with bounded backfill](docs/adr/0001-horizon-cursor-ingestion.md) |
+   | Queueing | [0002 — BullMQ on Redis for the payment-alert queue and DLQ](docs/adr/0002-bullmq-payment-alert-queue.md) |
+   | Notification delivery | [0003 — Content-addressed delivery keys and idempotency](docs/adr/0003-notification-delivery-idempotency.md) |
+
+   Index and format: [`docs/adr/README.md`](docs/adr/README.md). If your change
+   supersedes a decision, add a new ADR and mark the old one Superseded rather
+   than editing its rationale.
+
+4. **Testing with Stellar Testnet**:
    - Always test blockchain operations against **Stellar Testnet**.
    - Fund test public keys using [Stellar Friendbot](https://friendbot.stellar.org).
    - Never use real Stellar mainnet secret keys or funds during development!
