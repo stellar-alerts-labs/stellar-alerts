@@ -100,7 +100,24 @@ Large Portfolio: 10x RPC calls → 1x (10x reduction)
 CACHE HIT: 0 API calls, 0ms latency
 ```
 
-## Usage
+## SWR Query Layer
+
+Dashboard-facing reads now use the typed hooks in `src/lib/hooks/useDashboardQueries.ts`.
+The hooks share authenticated cache keys, focus/reconnect revalidation, and API errors;
+wallet removal and alert preference updates are optimistic with rollback on failure.
+Payment history is read-only and live payment events update its SWR cache. Delivery
+failure queries use the paginated dead-letter endpoints and revalidate after replay or
+suppression. Existing `BatchReader` APIs remain available for callers that need the
+legacy in-memory TTL cache.
+
+```typescript
+const { data: wallets = [], removeWallet } = useWallets();
+const { data: payments = [], addPayment } = usePayments({ walletId });
+const { data: preferences, updateAlertPreferences } = useAlertPreferences();
+const { data: deliveries, runDeliveryAction } = useDeliveries({ page: 1, pageSize: 20 });
+```
+
+## Legacy Batch Reader Usage
 
 ### In Dashboard Component
 

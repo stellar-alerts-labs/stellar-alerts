@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
@@ -16,7 +17,8 @@ import { notificationsRoutes } from './modules/notifications/notifications.route
 import { deadLettersRoutes } from './modules/dead-letters/dead-letters.routes';
 import { openApiOptions } from './openapi.config';
 
-import { checkRedisReadiness, getRedisStatus } from './lib/redis';
+import { getDependencyHealth } from './lib/dependency-health';
+import { getRedisStatus } from './lib/redis';
 
 export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
@@ -81,18 +83,32 @@ export const buildApp = async () => {
   await app.register(prismaPlugin);
   await app.register(metricsPlugin);
 
-  app.get('/health', async () => {
+  const livenessCheck = async () => {
     return { status: 'ok' };
-  });
+  };
+  app.get('/health', livenessCheck);
+  app.get('/health/live', livenessCheck);
 
-  app.get('/health/ready', async (request, reply) => {
-    const redisHealth = await checkRedisReadiness();
-    const isReady = redisHealth.isReady;
-    return reply.status(isReady ? 200 : 503).send({
-      status: isReady ? 'ready' : 'degraded',
-      redis: redisHealth,
+  const readinessCheck = async (_request: FastifyRequest, reply: FastifyReply) => {
+    const health = await getDependencyHealth();
+    const redis = health.dependencies.redis;
+    return reply.status(health.status === 'ready' ? 200 : 503).send({
+      ...health,
+      redis: {
+        isReady: redis.status === 'healthy',
+        status: redis.status === 'healthy' ? 'ready' : getRedisStatus(),
+        latencyMs: redis.latencyMs,
+        error: redis.error,
+        isDegradedMode: redis.status !== 'healthy',
+      },
     });
-  });
+  };
+  const dependencyHealthCheck = async (_request: FastifyRequest, reply: FastifyReply) => {
+    const health = await getDependencyHealth();
+    return reply.status(health.status === 'ready' ? 200 : 503).send(health);
+  };
+  app.get('/health/ready', readinessCheck);
+  app.get('/health/dependencies', dependencyHealthCheck);
 
   app.register(authRoutes);
   app.register(walletsRoutes);

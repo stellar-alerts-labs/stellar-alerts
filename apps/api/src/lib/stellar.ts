@@ -7,7 +7,7 @@ if ((StellarSdk.Horizon as any)?.AxiosClient?.defaults) {
   (StellarSdk.Horizon as any).AxiosClient.defaults.timeout = env.HORIZON_REQUEST_TIMEOUT_MS;
 }
 
-const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+const server = new StellarSdk.Horizon.Server(env.HORIZON_URL);
 
 export const STROOPS_PER_UNIT = 10_000_000;
 

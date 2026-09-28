@@ -97,7 +97,10 @@ stellar-alerts/
 
 | Endpoint | Method | Auth Required | Description |
 |---|---|---|---|
-| `/health` | GET | No | Server health check |
+| `/health` | GET | No | Backward-compatible process liveness check |
+| `/health/live` | GET | No | Process liveness; does not contact dependencies |
+| `/health/ready` | GET | No | Readiness; returns 503 if a required dependency is degraded |
+| `/health/dependencies` | GET | No | Per-dependency status and bounded check latency |
 | `/auth/request-link` | POST | No | Request a passwordless magic login link |
 | `/auth/verify` | GET | No | Verify magic link token & issue session JWT |
 | `/auth/me` | GET | Yes | Fetch authenticated user profile with wallets |

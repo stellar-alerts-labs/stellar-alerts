@@ -40,9 +40,14 @@ vi.mock('../../lib/queue', () => ({
   enqueuePaymentAlert: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('../../lib/dependency-health', () => ({
+  getDependencyHealth: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 
 import { buildApp } from '../../app';
+import { getDependencyHealth } from '../dependency-health';
 import type { FastifyInstance } from 'fastify';
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -99,5 +104,33 @@ describe('x-request-id correlation ID (Issue #44)', () => {
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
+  });
+
+  it('keeps liveness independent from dependency checks', async () => {
+    const response = await app.inject({ method: 'GET', url: '/health/live' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'ok' });
+    expect(getDependencyHealth).not.toHaveBeenCalled();
+  });
+
+  it('reports degraded dependencies and returns 503 from readiness', async () => {
+    vi.mocked(getDependencyHealth).mockResolvedValueOnce({
+      status: 'degraded',
+      checkedAt: '2026-09-27T12:00:00.000Z',
+      dependencies: {
+        database: { status: 'healthy', latencyMs: 2 },
+        redis: { status: 'unhealthy', latencyMs: 1500, error: 'Redis timed out after 1500ms' },
+        horizon: { status: 'healthy', latencyMs: 10 },
+        soroban: { status: 'healthy', latencyMs: 12 },
+      },
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/health/ready' });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json().dependencies.redis.error).toContain('timed out');
+    expect(response.json().dependencies.database.status).toBe('healthy');
+    expect(response.json().redis).toMatchObject({ isReady: false, isDegradedMode: true });
   });
 });

@@ -10,8 +10,7 @@ import { sorobanStateService } from "../modules/soroban-state/soroban-state.serv
 import { env } from "../config/env";
 import { withDeadline } from "./external-request";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+const SOROBAN_RPC_URL = env.SOROBAN_RPC_URL;
 const LEDGER_BATCH_SIZE = 100;
 const MAX_ACTIVE_CONTRACTS = 100;
 

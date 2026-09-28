@@ -19,6 +19,7 @@
     "next-auth": "^4.24.14",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "swr": "^2.5.1",
     "three": "^0.171.0",
     "y-protocols": "^1.0.7",
     "y-websocket": "^2.1.0",

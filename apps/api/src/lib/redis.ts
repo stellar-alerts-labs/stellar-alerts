@@ -212,10 +212,11 @@ export function isRedisDegraded(): boolean {
  */
 export async function checkRedisReadiness(timeoutMs = 1500): Promise<RedisHealthStatus> {
   const start = Date.now();
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   try {
     const pingPromise = redis.ping();
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Redis ping timeout')), timeoutMs),
+      timeoutHandle = setTimeout(() => reject(new Error('Redis ping timeout')), timeoutMs),
     );
 
     const result = await Promise.race([pingPromise, timeoutPromise]);
@@ -248,6 +249,8 @@ export async function checkRedisReadiness(timeoutMs = 1500): Promise<RedisHealth
       error: err?.message || 'Redis unreachable',
       isDegradedMode: true,
     };
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 }
 

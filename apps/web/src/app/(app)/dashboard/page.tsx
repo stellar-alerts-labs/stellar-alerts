@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import NetworkVisualizer3D from '@/components/dashboard/NetworkVisualizer3D';
 import AuditWorkspace from '@/components/dashboard/AuditWorkspace';
 import { useSession } from 'next-auth/react';
-import { WalletDTO, PaymentDTO, DeliveryEventDTO } from '@stellar-alerts/shared';
+import type { DeliveryEventDTO } from '@stellar-alerts/shared';
 import { WatcherForm } from '@/components/WatcherForm';
 import {
   DashboardGrid,
@@ -17,49 +17,55 @@ import {
   EmailTemplatePreview,
   type EmailTemplateConfig,
 } from '@/components/dashboard';
-import { useBatchReader } from '@/lib/hooks/useBatchReader';
+import {
+  useAlertPreferences,
+  usePaymentSummary,
+  usePayments,
+  useWallets,
+} from '@/lib/hooks/useDashboardQueries';
 import { getSocket } from '@/lib/socket';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const batchReader = useBatchReader();
-
-  const [wallets, setWallets] = useState<WalletDTO[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
-  const [payments, setPayments] = useState<PaymentDTO[]>([]);
-  const [isLoadingPayments, setIsLoadingPayments] = useState<boolean>(false);
-  const [totalVolumeXLM, setTotalVolumeXLM] = useState<number>(0);
-  const [totalPaymentsCount, setTotalPaymentsCount] = useState<number>(0);
   const [crossLedgerAnalytics] = useState<any>(null);
   const [isStreamConnected, setIsStreamConnected] = useState<boolean>(false);
   const [latestDelivery, setLatestDelivery] = useState<DeliveryEventDTO | null>(null);
-
-  const fetchDashboardData = useCallback(async () => {
-    if (!session) return;
-    setIsLoadingPayments(true);
-    try {
-      const data = await batchReader.fetchUserPortfolioBatched(selectedWalletId || undefined);
-      setWallets(data.wallets);
-      setPayments(data.payments);
-      setTotalVolumeXLM(Number(data.summary.totalVolumeXLM || 0));
-      setTotalPaymentsCount(Number(data.summary.totalPayments || 0));
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-    } finally {
-      setIsLoadingPayments(false);
-    }
-  }, [session, selectedWalletId, batchReader]);
+  const {
+    data: wallets = [],
+    error: walletError,
+    mutate: mutateWallets,
+    removeWallet,
+  } = useWallets();
+  const {
+    data: payments = [],
+    error: paymentError,
+    isLoading: isLoadingPayments,
+    mutate: mutatePayments,
+    addPayment,
+  } = usePayments(selectedWalletId ? { walletId: selectedWalletId } : undefined);
+  const {
+    data: summary,
+    error: summaryError,
+    mutate: mutateSummary,
+  } = usePaymentSummary();
+  const { updateAlertPreferences } = useAlertPreferences();
+  const totalVolumeXLM = summary?.totalVolumeXLM ?? 0;
+  const totalPaymentsCount = summary?.totalPayments ?? 0;
+  const dashboardError = walletError ?? paymentError ?? summaryError;
+  const paymentsRef = useRef(payments);
+  const addPaymentRef = useRef(addPayment);
 
   useEffect(() => {
-    if (session) void fetchDashboardData();
-  }, [session, selectedWalletId, fetchDashboardData]);
+    paymentsRef.current = payments;
+    addPaymentRef.current = addPayment;
+  }, [payments, addPayment]);
 
-  const refreshAfterMutation = useCallback(() => {
-    batchReader.invalidateAll();
-    void fetchDashboardData();
-  }, [batchReader, fetchDashboardData]);
+  const refreshAfterMutation = () => {
+    void mutateWallets();
+    void mutatePayments();
+    void mutateSummary();
+  };
 
   // Kept in a ref (not a dependency) so the payment handler below always
   // reads the current filter without tearing down/reconnecting the socket
@@ -86,12 +92,13 @@ export default function DashboardPage() {
     const unsubscribePayment = socket.onPayment((payment) => {
       const currentWalletId = selectedWalletIdRef.current;
       if (currentWalletId && payment.walletId !== currentWalletId) return;
-      setPayments((prev) => {
-        if (prev.some((p) => p.id === payment.id)) return prev;
-        return [payment, ...prev];
-      });
-      setTotalPaymentsCount((prev) => prev + 1);
-      setTotalVolumeXLM((prev) => prev + Number(payment.amount || 0));
+      if (paymentsRef.current.some((existing) => existing.id === payment.id)) return;
+      paymentsRef.current = [payment, ...paymentsRef.current];
+      void addPaymentRef.current(payment);
+      void mutateSummary((current) => current && ({
+        totalPayments: current.totalPayments + 1,
+        totalVolumeXLM: current.totalVolumeXLM + Number(payment.amount || 0),
+      }), { revalidate: false });
     });
 
     const unsubscribeDelivery = socket.onDelivery((delivery) => {
@@ -116,16 +123,10 @@ export default function DashboardPage() {
 
   const handleRemoveWallet = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/wallets/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : '',
-        },
-      });
-      if (res.ok) {
-        if (selectedWalletId === id) setSelectedWalletId(null);
-        refreshAfterMutation();
-      }
+      await removeWallet(id);
+      if (selectedWalletId === id) setSelectedWalletId(null);
+      void mutatePayments();
+      void mutateSummary();
     } catch (err) {
       console.error('Failed to remove wallet:', err);
     }
@@ -133,14 +134,7 @@ export default function DashboardPage() {
 
   const handleSaveEmailTemplate = async (template: EmailTemplateConfig) => {
     try {
-      await fetch(`${API_BASE_URL}/notifications/preferences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : '',
-        },
-        body: JSON.stringify({ emailTemplate: template }),
-      });
+      await updateAlertPreferences({ emailTemplate: template });
     } catch (err) {
       console.error('Failed to save email template preferences:', err);
     }
@@ -148,6 +142,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {dashboardError && (
+        <p className="text-sm text-red-400" role="alert">{dashboardError.message}</p>
+      )}
       {/* Live webhook delivery toast (populated over the authenticated WebSocket) */}
       {latestDelivery && (
         <div
