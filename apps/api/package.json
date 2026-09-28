@@ -78,7 +78,7 @@
     "handlebars": "^4.7.9",
     "ioredis": "^6.0.0",
     "ink": "^5.0.0",
-    "ink-table": "^4.0.0",
+    "ink-table": "^3.1.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
     "opossum": "^10.0.0",

@@ -61,7 +61,10 @@ export let dlqQueue: Queue<AlertJobData> | null = null;
 export let alertQueueEvents: QueueEvents | null = null;
 export let alertWorker: Worker<AlertJobData> | null = null;
 
-const circuitBreakers = new Map<string, CircuitBreaker<any>>();
+const circuitBreakers = new Map<string, WebhookCircuitBreaker>();
+
+// Action signature: (url, payload, headers) -> Response
+type WebhookCircuitBreaker = CircuitBreaker<[string, string, Record<string, string>], Response>;
 
 interface CircuitBreakerState {
   state: "closed" | "open" | "half-open";
@@ -163,7 +166,7 @@ async function assertBotIsChannelAdmin(botToken: string, chatId: string): Promis
 
 async function getOrCreateCircuitBreaker(
   webhookId: string,
-): Promise<CircuitBreaker<any>> {
+): Promise<WebhookCircuitBreaker> {
   if (circuitBreakers.has(webhookId)) {
     return circuitBreakers.get(webhookId)!;
   }
@@ -213,7 +216,9 @@ async function getOrCreateCircuitBreaker(
     if (redisState.state === "open") {
       breaker.open();
     } else if (redisState.state === "half-open") {
-      breaker.halfOpen();
+      // opossum enters half-open internally after the reset timeout; it has
+      // no public halfOpen() method, so restore it as closed to allow probing.
+      breaker.close();
     } else {
       breaker.close();
     }
@@ -425,7 +430,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     let failureCount = 1;
 
     if (breaker && typeof breaker.stats === "object") {
-      const stats = breaker.stats();
+      const stats = breaker.stats;
       failureCount = stats?.failures || 1;
     }
 

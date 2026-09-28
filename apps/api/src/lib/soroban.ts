@@ -1311,41 +1311,37 @@ export function parseSorobanDiagnosticError(
 export function decodeSorobanErrorFromXdr(xdrBase64: string): SorobanErrorInfo | null {
   try {
     const xdr = StellarSdk.xdr.ScError.fromXDR(Buffer.from(xdrBase64, 'base64'));
-    
-    switch (xdr.switch()) {
-      case StellarSdk.xdr.ScErrorType.sceContract(): {
-        const contractError = xdr.contract();
+
+    // ScError's contract arm carries a raw numeric code; every other arm
+    // (WASM VM, context, storage, ...) carries an ScErrorCode.
+    switch (xdr.switch().name) {
+      case 'sceContract': {
+        const contractCode = xdr.contractCode();
         return {
           type: 'custom_error',
-          code: contractError.value(),
-          message: `Custom contract error ${contractError.value()}`,
-          details: `ScError(Contract, ${contractError.value()})`,
+          code: contractCode,
+          message: `Custom contract error ${contractCode}`,
+          details: `ScError(Contract, ${contractCode})`,
         };
       }
-      case StellarSdk.xdr.ScErrorType.scePanic(): {
-        const panic = xdr.panic();
+      case 'sceWasmVm': {
+        const code = xdr.code().value;
         return {
           type: 'panic',
-          code: panic.value(),
-          message: parsePanicCode(panic.value()),
-          details: `ScError(Panic, ${panic.value()})`,
+          code,
+          message: parsePanicCode(code),
+          details: `ScError(WasmVm, ${code})`,
         };
       }
-      case StellarSdk.xdr.ScErrorType.sceHostError(): {
-        const hostError = xdr.hostError();
+      default: {
+        const code = xdr.code().value;
         return {
           type: 'host_error',
-          code: hostError.value(),
-          message: parseHostErrorCode(hostError.value()),
-          details: `ScError(HostError, ${hostError.value()})`,
+          code,
+          message: parseHostErrorCode(code),
+          details: `ScError(${xdr.switch().name}, ${code})`,
         };
       }
-      default:
-        return {
-          type: 'invocation_error',
-          message: 'Unknown Soroban error type',
-          details: xdr.toXDR('base64'),
-        };
     }
   } catch {
     return null;

@@ -1,6 +1,4 @@
-import { gql } from 'graphql';
-
-export const typeDefs = gql`
+export const typeDefs = `
   type Payment {
     id: String!
     walletId: String!

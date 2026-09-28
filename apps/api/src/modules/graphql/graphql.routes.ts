@@ -1,12 +1,11 @@
 import { ApolloServer } from '@apollo/server';
 import { fastifyApolloDrainPlugin, fastifyApolloHandler } from '@as-integrations/fastify';
-import fastify, { FastifyInstance } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { typeDefs } from './graphql.schema';
 import { createResolvers } from './graphql.resolvers';
-import { getRedisClient } from '../../lib/redis';
+import { redis } from '../../lib/redis';
 
 export const graphqlRoutes = async (app: FastifyInstance) => {
-  const redis = getRedisClient();
   const resolvers = createResolvers(redis);
 
   const server = new ApolloServer({
@@ -23,8 +22,10 @@ export const graphqlRoutes = async (app: FastifyInstance) => {
     url: '/graphql',
     method: ['GET', 'POST'],
     handler,
+    // @as-integrations/fastify v2 ships no WebSocket-aware handler; keep the
+    // existing ws wiring until subscriptions move to a graphql-ws transport.
     wsHandler: fastifyApolloHandler(server, {
       context: async () => ({ redis }),
-    }),
+    }) as any,
   });
 };

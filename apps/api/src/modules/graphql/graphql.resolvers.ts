@@ -23,8 +23,10 @@ export const createResolvers = (redis: Redis) => ({
         const channel = 'payments';
 
         const asyncIterator = {
+          // ioredis 6 typings dropped Symbol.asyncIterator, but the runtime
+          // subscriber still iterates message-by-message.
           [Symbol.asyncIterator]: async function* () {
-            const subscriber = pubsub.duplicate();
+            const subscriber = pubsub.duplicate() as unknown as Redis & AsyncIterable<string>;
             await subscriber.subscribe(channel);
 
             try {
@@ -55,7 +57,7 @@ export const createResolvers = (redis: Redis) => ({
 
         const asyncIterator = {
           [Symbol.asyncIterator]: async function* () {
-            const subscriber = pubsub.duplicate();
+            const subscriber = pubsub.duplicate() as unknown as Redis & AsyncIterable<string>;
             await subscriber.subscribe(channel);
 
             try {
@@ -85,7 +87,7 @@ export const createResolvers = (redis: Redis) => ({
 
         const asyncIterator = {
           [Symbol.asyncIterator]: async function* () {
-            const subscriber = pubsub.duplicate();
+            const subscriber = pubsub.duplicate() as unknown as Redis & AsyncIterable<string>;
             await subscriber.subscribe(channel);
 
             try {

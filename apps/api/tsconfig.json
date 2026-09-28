@@ -9,5 +9,11 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*", "generated/**/*", "prisma.config.ts"],
-  "exclude": ["src/**/__tests__/**/*", "src/**/*.test.ts"]
+  "exclude": [
+    "src/**/__tests__/**/*",
+    "src/**/*.test.ts",
+    // CLI entrypoints run via tsx (dev tooling). They depend on ink v5, an
+    // ESM-only package whose types the CJS tsc project cannot resolve.
+    "src/cli/**/*"
+  ]
 }

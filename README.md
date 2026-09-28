@@ -146,6 +146,7 @@ launchctl load ~/Library/LaunchAgents/com.stellaralerts.daemon.plist
 - **Contribution Guidelines**: See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - **Development Roadmap**: See **[ROADMAP.md](ROADMAP.md)**.
 - **Soroban Smart Contract**: See **[contracts/alert_registry/README.md](contracts/alert_registry/README.md)**.
+- **Slack Slash Commands (`/stellar`)**: See **[docs/SLACK_SLASH_COMMANDS.md](docs/SLACK_SLASH_COMMANDS.md)**.
 
 ---
 

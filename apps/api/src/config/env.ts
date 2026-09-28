@@ -5,6 +5,10 @@ const envSchema = z.object({
   READ_REPLICA_URL: z.string().url().optional(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   JWT_SECRET: z.string().min(1),
+  // Signs Slack slash-command requests (see modules/slack). Optional so the
+  // API stays bootable without the Slack app configured; the /slack/commands
+  // route fails closed (503) when it is missing.
+  SLACK_SIGNING_SECRET: z.string().min(1).optional(),
   REDIS_URL: z.string().url(),
   REDIS_SENTINELS: z.string().optional(),
   REDIS_SENTINEL_MASTER_NAME: z.string().optional().default("mymaster"),
@@ -60,6 +64,7 @@ const parseEnv = (): Env => {
     DATABASE_URL: process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "postgresql://postgres:postgres@localhost:5432/stellar_alerts" : undefined),
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "dummy-telegram-bot-token" : undefined),
     JWT_SECRET: process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "dummy-jwt-secret-key-12345" : undefined),
+    SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "test-slack-signing-secret" : undefined),
     REDIS_URL: process.env.REDIS_URL || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "redis://localhost:6379" : undefined),
     MASTER_ENCRYPTION_KEY: process.env.MASTER_ENCRYPTION_KEY || (process.env.NODE_ENV === 'test' || process.env.VITEST ? "0123456789abcdef0123456789abcdef" : undefined),
     REDIS_SENTINELS: process.env.REDIS_SENTINELS,

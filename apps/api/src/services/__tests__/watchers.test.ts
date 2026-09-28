@@ -32,8 +32,14 @@ describe('Stellar Alerts Watcher Services (#425, #427, #428, #429)', () => {
     );
     expect(evicted?.status).toBe('EVICTED');
 
-    const warning = engine.checkEntryTTL(
+    const critical = engine.checkEntryTTL(
       { keyHash: '0x456', contractId: 'CCONTR', durability: 'PERSISTENT', liveUntilLedger: 2000 },
+      1000,
+    );
+    expect(critical?.status).toBe('CRITICAL');
+
+    const warning = engine.checkEntryTTL(
+      { keyHash: '0x456', contractId: 'CCONTR', durability: 'PERSISTENT', liveUntilLedger: 10000 },
       1000,
     );
     expect(warning?.status).toBe('WARNING');

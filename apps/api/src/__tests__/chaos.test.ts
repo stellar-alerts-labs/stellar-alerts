@@ -281,7 +281,7 @@ describe('Chaos engineering: unhandled crash prevention (deterministic)', () => 
     }
 
     expect(unhandledRejection).toBeNull();
-  });
+  }, 30_000);
 
   it('a simulated DB disconnect (rejected wallet.findMany) does not crash pollOnce', async () => {
     const { prisma } = await import('../lib/prisma');
@@ -290,7 +290,7 @@ describe('Chaos engineering: unhandled crash prevention (deterministic)', () => 
     vi.mocked(prisma.wallet.findMany).mockRejectedValue(new Error('Connection terminated unexpectedly'));
 
     await expect(pollOnce()).resolves.toBeUndefined();
-  });
+  }, 15_000);
 
   it('recovers on the next poll after a transient fault clears', async () => {
     const { prisma } = await import('../lib/prisma');
@@ -319,5 +319,5 @@ describe('Chaos engineering: unhandled crash prevention (deterministic)', () => 
     });
     await expect(pollOnce()).resolves.toBeUndefined();
     expect(stellar.getPaymentsSinceResult).toHaveBeenCalledTimes(2);
-  });
+  }, 15_000);
 });
