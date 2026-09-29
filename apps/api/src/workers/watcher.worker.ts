@@ -18,6 +18,8 @@ import { MemoryMonitor, MemorySnapshot } from '../utils/memory-monitor';
 import { appendPaymentChecksum } from '../services/checksumChain.service';
 import { createLogger } from '../lib/logger';
 import { WorkerLifecycleManager } from '../lib/worker-lifecycle';
+import { startTelemetry, shutdownTelemetry } from '../lib/telemetry';
+import { startWorkerMetricsServer, stopWorkerMetricsServer } from '../lib/worker-metrics-server';
 import { trace, SpanStatusCode, TraceFlags } from '@opentelemetry/api';
 
 export const watcherLifecycle = new WorkerLifecycleManager({
@@ -26,6 +28,12 @@ export const watcherLifecycle = new WorkerLifecycleManager({
   maxInFlight: 20,
   autoRegisterSignals: true,
 });
+
+// Flush in-flight spans and close the scrape socket on SIGTERM. Without this
+// the last batch of spans (which includes the webhook dispatch phases for any
+// delivery in progress) is lost when the pod is killed.
+watcherLifecycle.registerCleanup('stop-worker-metrics-server', () => stopWorkerMetricsServer());
+watcherLifecycle.registerCleanup('shutdown-telemetry', () => shutdownTelemetry());
 import {
   BOUNDED_BACKFILL_LIMIT,
   buildCursorGapClearedUpdate,
@@ -881,7 +889,17 @@ async function processSorobanContractEvents(contractId: string) {
 }
 
 if (require.main === module) {
-  registerSupervisorHeartbeat();
-  startMemoryMonitor();
-  runWatcher();
+  // The dispatcher runs as its own process in production, so it has to start its
+  // own OpenTelemetry SDK — without this every `trace.*` call in this file and
+  // in lib/queue.ts resolves to the no-op tracer and the worker's spans are
+  // silently dropped. A distinct service name is what lets Jaeger separate
+  // worker spans from API server spans.
+  startTelemetry({ serviceName: process.env.OTEL_WORKER_SERVICE_NAME || `${env.OTEL_SERVICE_NAME}-worker` })
+    .catch((err) => console.warn('[Telemetry] Failed to start tracing:', err.message))
+    .finally(() => {
+      startWorkerMetricsServer();
+      registerSupervisorHeartbeat();
+      startMemoryMonitor();
+      runWatcher();
+    });
 }

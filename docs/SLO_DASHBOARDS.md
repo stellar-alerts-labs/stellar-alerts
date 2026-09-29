@@ -40,6 +40,19 @@ All operations carry W3C-compliant trace headers through every stage of the life
 2. **`x-correlation-id`**: Unique request/event correlation identifier preserved end-to-end for log aggregation in Grafana / Loki.
 3. **`x-request-id`**: Client-originated or gateway-assigned request ID echoed on all HTTP responses.
 
+### Webhook Dispatch
+
+The BullMQ boundary is the one place where the context has to be carried by
+hand, because BullMQ serialises plain JSON and cannot hold an
+`opentelemetry-api` `Context`. The dispatcher writes `traceparent`/`tracestate`
+onto the job payload and re-establishes them as a remote parent, then emits one
+`webhook.dispatch` client span per HTTP attempt with DNS / TCP / TLS / TTFB /
+response-stream phases, plus Prometheus series for attempt outcomes.
+
+See [`WEBHOOK_DISPATCH_OBSERVABILITY.md`](./WEBHOOK_DISPATCH_OBSERVABILITY.md)
+for the span shape, the metric definitions, the rollout/rollback switches and
+the local Jaeger + Prometheus stack.
+
 ---
 
 ## Privacy Sanitization & Redaction

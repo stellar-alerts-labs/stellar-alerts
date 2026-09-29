@@ -1,0 +1,31 @@
+# Prometheus scrape configuration for local development.
+#
+# In development the API and the dispatcher worker run on the host (via
+# `npm run dev` / `npm run dev:worker`), not as compose services, so they are
+# reached through the `host.docker.internal` gateway that docker-compose.yml
+# adds to this container. In a deployed environment these jobs are replaced by
+# the cluster's own ServiceMonitor/PodMonitor configuration.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+scrape_configs:
+  # The Fastify API server's existing /metrics route.
+  - job_name: stellar-alerts-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:3001"]
+        labels:
+          service: stellar-alerts-api
+
+  # The dispatcher worker's own scrape endpoint. Only present when the worker is
+  # started with WORKER_METRICS_ENABLED=true; otherwise this target is down and
+  # the webhook dispatch series are simply absent, which is the default posture.
+  - job_name: stellar-alerts-dispatcher
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:3002"]
+        labels:
+          service: stellar-alerts-dispatcher

@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { webhookDispatchMetrics } from '../lib/webhook-telemetry';
 
 export interface QueueMetricsSnapshot {
   queueName: string;
@@ -11,6 +12,22 @@ export interface QueueMetricsSnapshot {
   activeWorkers: number;
 }
 
+function processMetrics(): string {
+  const mem = process.memoryUsage();
+  const uptime = process.uptime();
+
+  return [
+    '# HELP process_uptime_seconds Process uptime in seconds',
+    '# TYPE process_uptime_seconds gauge',
+    `process_uptime_seconds ${uptime.toFixed(1)}`,
+    '',
+    '# HELP nodejs_heap_used_bytes Process heap memory used in bytes',
+    '# TYPE nodejs_heap_used_bytes gauge',
+    `nodejs_heap_used_bytes ${mem.heapUsed}`,
+    '',
+  ].join('\n');
+}
+
 export function generatePrometheusMetrics(snapshot?: Partial<QueueMetricsSnapshot>): string {
   const qName = snapshot?.queueName || 'webhooks';
   const waiting = snapshot?.waitingCount ?? 0;
@@ -19,9 +36,6 @@ export function generatePrometheusMetrics(snapshot?: Partial<QueueMetricsSnapsho
   const failed = snapshot?.failedCount ?? 0;
   const latency = snapshot?.avgLatencyMs ?? 42.5;
   const workers = snapshot?.activeWorkers ?? 2;
-
-  const mem = process.memoryUsage();
-  const uptime = process.uptime();
 
   return [
     '# HELP stellar_alerts_queue_waiting_jobs Number of waiting jobs in BullMQ queue',
@@ -48,14 +62,10 @@ export function generatePrometheusMetrics(snapshot?: Partial<QueueMetricsSnapsho
     '# TYPE stellar_alerts_active_workers_count gauge',
     `stellar_alerts_active_workers_count ${workers}`,
     '',
-    '# HELP process_uptime_seconds Process uptime in seconds',
-    '# TYPE process_uptime_seconds gauge',
-    `process_uptime_seconds ${uptime.toFixed(1)}`,
-    '',
-    '# HELP nodejs_heap_used_bytes Process heap memory used in bytes',
-    '# TYPE nodejs_heap_used_bytes gauge',
-    `nodejs_heap_used_bytes ${mem.heapUsed}`,
-    '',
+    processMetrics(),
+    // Webhook dispatch per-phase timings (DNS / TCP / TLS / TTFB / response
+    // stream) and attempt outcomes. See lib/webhook-telemetry.ts.
+    webhookDispatchMetrics.render(),
   ].join('\n');
 }
 

@@ -19,6 +19,14 @@ import { dispatchWhatsAppAlert } from '../utils/whatsapp';
 import { emailService } from '../services/email.service';
 import { dispatchDiscordAlert } from '../utils/discord';
 import { dispatchSlackAlert, isValidSlackWebhookUrl } from '../utils/slack';
+import { sendInstrumentedWebhookRequest } from './webhook-http-transport';
+import {
+  captureQueueTraceContext,
+  runWithQueueTraceContext,
+  queueTraceContextFromJob,
+} from './webhook-trace-context';
+import { webhookTracer, WEBHOOK_DISPATCH_SPAN_NAME, webhookDispatchMetrics } from './webhook-telemetry';
+import { SpanStatusCode } from '@opentelemetry/api';
 
 function decryptWebhookSecret(webhook: {
   keyVersion: number;
@@ -48,6 +56,14 @@ export interface AlertJobData {
   receivedAt: string;
   /** Correlation ID propagated from the originating HTTP request, if any. */
   requestId?: string;
+  /**
+   * W3C TraceContext carried across the BullMQ boundary so the delivery trace
+   * joins the ingestion trace that produced it. BullMQ serialises plain JSON,
+   * so an `opentelemetry-api` Context cannot cross the queue directly.
+   * Absent on jobs enqueued before this shipped — those just start a new trace.
+   */
+  traceparent?: string;
+  tracestate?: string;
 }
 
 const redisHost = process.env.REDIS_HOST || "localhost";
@@ -61,7 +77,21 @@ export let dlqQueue: Queue<AlertJobData> | null = null;
 export let alertQueueEvents: QueueEvents | null = null;
 export let alertWorker: Worker<AlertJobData> | null = null;
 
-const circuitBreakers = new Map<string, CircuitBreaker<any>>();
+const circuitBreakers = new Map<string, WebhookCircuitBreaker>();
+
+/**
+ * Arguments accepted by the per-webhook circuit breaker's action. The optional
+ * trailing `attempt` is the 1-based delivery attempt, surfaced on the span so a
+ * retried delivery is distinguishable from a first try in Jaeger.
+ */
+type WebhookDispatchAction = [
+  url: string,
+  payload: string,
+  headers: Record<string, string>,
+  attempt?: number,
+];
+
+type WebhookCircuitBreaker = CircuitBreaker<WebhookDispatchAction, Response>;
 
 interface CircuitBreakerState {
   state: "closed" | "open" | "half-open";
@@ -163,24 +193,31 @@ async function assertBotIsChannelAdmin(botToken: string, chatId: string): Promis
 
 async function getOrCreateCircuitBreaker(
   webhookId: string,
-): Promise<CircuitBreaker<any>> {
+): Promise<WebhookCircuitBreaker> {
   if (circuitBreakers.has(webhookId)) {
     return circuitBreakers.get(webhookId)!;
   }
 
-  const breaker = new CircuitBreaker(
-    async (url: string, payload: string, headers: Record<string, string>) => {
-      const response = await fetchWithTimeout(
+  const breaker = new CircuitBreaker<WebhookDispatchAction, Response>(
+    async (url: string, payload: string, headers: Record<string, string>, attempt = 1) => {
+      // Instrumented transport: injects the W3C trace context onto the
+      // customer's request and opens a `webhook.dispatch` client span carrying
+      // DNS / TCP / TLS / TTFB / response-stream timings.
+      const { response, finalUrl } = await sendInstrumentedWebhookRequest({
+        webhookId,
         url,
-        {
-          method: "POST",
-          headers,
-          body: payload,
+        method: 'POST',
+        headers,
+        body: payload,
+        timeoutMs: env.WEBHOOK_TIMEOUT_MS,
+        attempt,
+        // Re-validate every redirect hop. The URL stored on the webhook record
+        // was checked before the first request, but a redirect can point
+        // anywhere, including link-local metadata endpoints.
+        onRedirect: async (_from, to) => {
+          await validateUrlForSsrf(to);
         },
-        env.WEBHOOK_TIMEOUT_MS,
-        undefined,
-        'Webhook',
-      );
+      });
 
       if (response.status === 429) {
         const error = new Error(`Rate limited: ${response.status}`) as Error & {
@@ -193,7 +230,7 @@ async function getOrCreateCircuitBreaker(
       }
 
       if (response.status >= 500) {
-        throw new Error(`Server error: ${response.status}`);
+        throw new Error(`Server error: ${response.status} from ${finalUrl}`);
       }
 
       return response;
@@ -212,9 +249,12 @@ async function getOrCreateCircuitBreaker(
   if (redisState) {
     if (redisState.state === "open") {
       breaker.open();
-    } else if (redisState.state === "half-open") {
-      breaker.halfOpen();
     } else {
+      // opossum exposes `open()`/`close()` only — `halfOpen` is a read-only
+      // boolean getter, so there is no public way to force the half-open
+      // state. Half-open only permits a trial request, which is exactly what
+      // `close()` does; opossum still emits `halfOpen`/`close` on its own when
+      // the breaker later transitions, and those listeners re-sync Redis.
       breaker.close();
     }
     console.log(`[CircuitBreaker] Initialized webhook ${webhookId} with Redis state: ${redisState.state}`);
@@ -277,7 +317,12 @@ async function updateCircuitBreakerState(
   });
 }
 
-export async function dispatchWebhookAndLog(webhookId: string, payload: any, retryAfterBackoff = false) {
+export async function dispatchWebhookAndLog(
+  webhookId: string,
+  payload: any,
+  retryAfterBackoff = false,
+  attempt = 1,
+) {
   let targetUrl: string | undefined;
 
   try {
@@ -298,6 +343,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       await validateUrlForSsrf(webhook.url);
     } catch (ssrfErr: any) {
       console.error(`[WebhookDispatch] SSRF validation blocked delivery to ${webhook.url}: ${ssrfErr.message}`);
+      webhookDispatchMetrics.record({ timings: null, outcome: 'ssrf_blocked', status: null });
       await prisma.webhookLog.create({
         data: {
           webhookId,
@@ -316,6 +362,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
         console.warn(
           `[WebhookDispatch] Circuit breaker OPEN for webhook ${webhookId}, skipping dispatch`,
         );
+        webhookDispatchMetrics.record({ timings: null, outcome: 'circuit_open', status: null });
         await prisma.webhookLog.create({
           data: {
             webhookId,
@@ -357,10 +404,15 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     const signature = generateWebhookSignature(payloadString, webhookSecret);
 
     const breaker = await getOrCreateCircuitBreaker(webhookId);
-    const response = await breaker.fire(webhook.url, payloadString, {
-      "Content-Type": "application/json",
-      "X-Stellar-Signature": signature.headerValue,
-    });
+    const response = await breaker.fire(
+      webhook.url,
+      payloadString,
+      {
+        "Content-Type": "application/json",
+        "X-Stellar-Signature": signature.headerValue,
+      },
+      attempt,
+    );
 
     const responseBody = await response.text();
 
@@ -391,6 +443,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       console.warn(
         `[WebhookDispatch] Circuit breaker prevented request for webhook ${webhookId}`,
       );
+      webhookDispatchMetrics.record({ timings: null, outcome: 'circuit_open', status: null });
       await prisma.webhookLog.create({
         data: {
           webhookId,
@@ -413,7 +466,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
       if (!retryAfterBackoff) {
         console.warn(`[WebhookDispatch] Rate limited by ${targetUrl}; retrying after ${delayMs}ms`);
         await waitForAdaptiveBackoff(delayMs);
-        return dispatchWebhookAndLog(webhookId, payload, true);
+        return dispatchWebhookAndLog(webhookId, payload, true, attempt + 1);
       }
 
       console.warn(`[WebhookDispatch] Endpoint still rate limited after adaptive retry for ${webhookId}`);
@@ -425,7 +478,7 @@ export async function dispatchWebhookAndLog(webhookId: string, payload: any, ret
     let failureCount = 1;
 
     if (breaker && typeof breaker.stats === "object") {
-      const stats = breaker.stats();
+      const stats = breaker.stats;
       failureCount = stats?.failures || 1;
     }
 
@@ -590,7 +643,12 @@ export async function failedJobHandler({ jobId, failedReason }: { jobId?: string
   }
 }
 
-export async function processAlertDispatch(data: AlertJobData) {
+/**
+ * Body of {@link processAlertDispatch}, run with the job's trace context active
+ * so the fan-out span — and every `webhook.dispatch` client span under it — is
+ * parented to the ingestion trace that produced the job.
+ */
+async function runAlertDispatch(data: AlertJobData) {
   await workerFairnessManager.acquireWalletSlot(data.walletId);
   try {
     // Get user's active webhooks
@@ -841,14 +899,52 @@ export async function processAlertDispatch(data: AlertJobData) {
   }
 }
 
+/**
+ * Fan-out entry point for one alert job.
+ *
+ * Re-establishes the producing trace from the job payload, then runs the
+ * dispatch under a `webhook.dispatch.fanout` span. The per-webhook client spans
+ * nest underneath, so a Jaeger trace reads
+ * `watcher.… -> webhook.dispatch.fanout -> webhook.dispatch (x N)`.
+ */
+export async function processAlertDispatch(data: AlertJobData) {
+  const carrier = queueTraceContextFromJob(data);
+  return runWithQueueTraceContext(carrier, () =>
+    webhookTracer.startActiveSpan(WEBHOOK_DISPATCH_SPAN_NAME + '.fanout', async (span) => {
+      try {
+        span.setAttribute('messaging.system', 'bullmq');
+        span.setAttribute('messaging.destination.name', 'payment-alerts');
+        span.setAttribute('payment.id', data.paymentId);
+        span.setAttribute('payment.wallet_id', data.walletId);
+        if (carrier?.traceparent) {
+          span.setAttribute('messaging.traceparent', carrier.traceparent);
+        }
+        await runAlertDispatch(data);
+        span.setStatus({ code: SpanStatusCode.OK });
+      } catch (err: any) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err?.message });
+        span.recordException(err instanceof Error ? err : new Error(String(err)));
+        throw err;
+      } finally {
+        span.end();
+      }
+    }),
+  );
+}
+
 export async function enqueuePaymentAlert(data: AlertJobData) {
+  // Capture the caller's trace before anything awaits, so the job carries the
+  // ingestion context even though BullMQ only persists plain JSON.
+  const traceContext = captureQueueTraceContext();
+  const jobData: AlertJobData = { ...data, ...traceContext };
+
   if (!alertQueue) {
     queueLog.info({ txHash: data.txHash }, 'Queue not connected for payment. Dispatching alert directly in-process...');
-    return processAlertDispatch(data);
+    return processAlertDispatch(jobData);
   }
 
   try {
-    const job = await alertQueue.add("dispatch-alert", data, {
+    const job = await alertQueue.add("dispatch-alert", jobData, {
       jobId: `payment-${data.txHash}`,
     });
     queueLog.info({ jobId: job.id, txHash: data.txHash, requestId: data.requestId }, '📨 Enqueued payment alert job');
@@ -858,7 +954,7 @@ export async function enqueuePaymentAlert(data: AlertJobData) {
       { txHash: data.txHash, err: err.message },
       'Failed to enqueue alert. Falling back to direct dispatch...',
     );
-    return processAlertDispatch(data);
+    return processAlertDispatch(jobData);
   }
 }
 

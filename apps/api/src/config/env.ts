@@ -33,6 +33,22 @@ const envSchema = z.object({
   SOROBAN_SAC_WORKER_ENABLED: z.string().optional().default("true"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default("http://localhost:4318/v1/traces"),
   OTEL_SERVICE_NAME: z.string().optional().default("stellar-alerts-api"),
+  // Worker-process tracing. The dispatcher worker runs as its own process, so it
+  // has to start its own SDK; `OTEL_TRACES_ENABLED=false` turns that off without
+  // touching the API server, and `OTEL_SERVICE_NAME` should be overridden to a
+  // distinct value so Jaeger can tell API spans from dispatcher spans.
+  OTEL_TRACES_ENABLED: z.string().optional().default("true"),
+  // Webhook dispatch instrumentation: W3C TraceContext propagation, per-phase
+  // (DNS/TCP/TLS/TTFB/stream) spans, and Prometheus metrics.
+  WEBHOOK_DISPATCH_TELEMETRY_ENABLED: z.string().optional().default("true"),
+  // "native" drives node:http/https so per-phase timings are observable.
+  // "fetch" falls back to undici, which can only report TTFB and stream time.
+  WEBHOOK_DISPATCH_TRANSPORT: z.enum(["native", "fetch"]).optional().default("native"),
+  WEBHOOK_DISPATCH_MAX_REDIRECTS: z.coerce.number().int().min(0).max(20).optional().default(5),
+  // Optional scrape endpoint for the dispatcher process, which does not serve
+  // HTTP itself. The API server already exposes the same registry on /metrics.
+  WORKER_METRICS_ENABLED: z.string().optional().default("false"),
+  WORKER_METRICS_PORT: z.coerce.number().int().positive().max(65535).optional().default(3002),
   // Provider timeouts & deadlines (#303)
   EXTERNAL_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
   HORIZON_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
@@ -53,6 +69,17 @@ const envSchema = z.object({
   WASM_ANALYZER_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(5000),
 });
 export type Env = z.infer<typeof envSchema>;
+
+/**
+ * Interprets a string env flag. Only an explicit `true`/`1`/`yes`/`on` (in any
+ * case) enables a flag; anything else — including a typo like `TREU` — is off.
+ * Treating unknown values as "on" is how a bad deploy silently doubles someone's
+ * bill, so this fails closed.
+ */
+export function envFlag(value: string | undefined | null, fallback = false): boolean {
+  if (value === undefined || value === null || value === '') return fallback;
+  return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
 
 const parseEnv = (): Env => {
   const envInput = {
@@ -81,6 +108,10 @@ const parseEnv = (): Env => {
     SOROBAN_SAC_WORKER_ENABLED: process.env.SOROBAN_SAC_WORKER_ENABLED || "true",
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318/v1/traces",
     OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME || "stellar-alerts-api",
+    OTEL_TRACES_ENABLED: process.env.OTEL_TRACES_ENABLED || "true",
+    WEBHOOK_DISPATCH_TELEMETRY_ENABLED: process.env.WEBHOOK_DISPATCH_TELEMETRY_ENABLED || "true",
+    WEBHOOK_DISPATCH_TRANSPORT: process.env.WEBHOOK_DISPATCH_TRANSPORT || "native",
+    WEBHOOK_DISPATCH_MAX_REDIRECTS: process.env.WEBHOOK_DISPATCH_MAX_REDIRECTS || "5",
   };
 
   const isProd = process.env.NODE_ENV === 'production';
@@ -140,6 +171,14 @@ const parseEnv = (): Env => {
       SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
       SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
       SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
+      OTEL_SERVICE_NAME: "stellar-alerts-api",
+      OTEL_TRACES_ENABLED: "true",
+      WEBHOOK_DISPATCH_TELEMETRY_ENABLED: "true",
+      WEBHOOK_DISPATCH_TRANSPORT: "native",
+      WEBHOOK_DISPATCH_MAX_REDIRECTS: "5",
+      WORKER_METRICS_ENABLED: "false",
+      WORKER_METRICS_PORT: 3002,
     } as unknown as Env;
   }
 
@@ -166,6 +205,14 @@ const parseEnv = (): Env => {
     SOROBAN_INDEXER_BENCHMARK_INTERVAL_MS: "3600000",
     SOROBAN_INDEXER_BENCHMARK_DATA_ROWS: "10000",
     SOROBAN_STAKING_REWARD_WORKER_ENABLED: "true",
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
+    OTEL_SERVICE_NAME: "stellar-alerts-api",
+    OTEL_TRACES_ENABLED: "true",
+    WEBHOOK_DISPATCH_TELEMETRY_ENABLED: "true",
+    WEBHOOK_DISPATCH_TRANSPORT: "native",
+    WEBHOOK_DISPATCH_MAX_REDIRECTS: "5",
+    WORKER_METRICS_ENABLED: "false",
+    WORKER_METRICS_PORT: 3002,
   } as unknown as Env;
 };
 
