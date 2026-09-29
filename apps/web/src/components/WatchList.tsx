@@ -1,52 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-
-type WatchItem = {
-  id: string;
-  publicKey: string;
-  label?: string;
-  createdAt: string;
-};
+import { useWallets } from '@/lib/hooks/useDashboardQueries';
 
 export function WatchList({ onSelect }: { onSelect?: (walletId: string) => void }) {
-  const [watches, setWatches] = useState<WatchItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { data: session } = useSession();
+  const { data: watches = [], error, isLoading } = useWallets();
 
-  useEffect(() => {
-    const fetchWatches = async () => {
-      const accessToken = (session as (typeof session & { accessToken?: string }) | null)?.accessToken;
-      if (!accessToken) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const res = await fetch('http://localhost:3001/wallets', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.wallets) {
-            setWatches(data.wallets);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to fetch watches', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWatches();
-  }, [session]);
-
-  if (loading) {
+  if (isLoading) {
     return <div className="mt-6 text-gray-500">Loading watched addresses...</div>;
+  }
+
+  if (error) {
+    return <div className="mt-6 text-red-400" role="alert">{error.message}</div>;
   }
 
   if (watches.length === 0) {

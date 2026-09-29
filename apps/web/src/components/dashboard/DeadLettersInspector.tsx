@@ -1,48 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSession } from 'next-auth/react';
-
-interface DeadLetterRow {
-  id: string;
-  deliveryKey: string | null;
-  paymentId: string | null;
-  channel: string;
-  destination: string | null;
-  error: string;
-  status: 'pending' | 'retried' | 'suppressed';
-  retryCount: number;
-  failedAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface DeadLetterAuditRow {
-  id: string;
-  deadLetterId: string;
-  actorUserId: string | null;
-  action: string;
-  note: string | null;
-  createdAt: string;
-}
-
-interface DeadLetterDetail extends DeadLetterRow {
-  auditLogs: DeadLetterAuditRow[];
-}
-
-interface DeadLetterListResponse {
-  success?: boolean;
-  items: DeadLetterRow[];
-  pagination: { page: number; pageSize: number; total: number; totalPages: number };
-}
-
-interface DeadLetterFilters {
-  channel?: string;
-  status?: string;
-  q?: string;
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+import { useRef, useState } from 'react';
+import { useDeliveries, useDelivery, type DeliveryDTO } from '@/lib/hooks/useDashboardQueries';
 
 const CHANNEL_STYLES: Record<string, string> = {
   telegram: 'text-sky-300 bg-sky-500/10 border-sky-500/30',
@@ -52,7 +11,7 @@ const CHANNEL_STYLES: Record<string, string> = {
   queue: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
 };
 
-const STATUS_STYLES: Record<DeadLetterRow['status'], string> = {
+const STATUS_STYLES: Record<DeliveryDTO['status'], string> = {
   pending: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
   retried: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
   suppressed: 'text-red-300 bg-red-500/10 border-red-500/30',
@@ -76,99 +35,36 @@ function formatDate(value: string): string {
  * channel/search/age, replay idempotently, suppress, and inspect audit history.
  */
 export function DeadLettersInspector() {
-  const { data: session } = useSession();
-  const [items, setItems] = useState<DeadLetterRow[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<DeadLetterDetail | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<DeadLetterFilters>({});
+  const [filters, setFilters] = useState<{ channel?: string; status?: string; q?: string }>({});
+  const [searchQuery, setSearchQuery] = useState('');
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestRef = useRef<{ page: number; pageSize: number; filters: DeadLetterFilters }>({
-    page: 1,
-    pageSize: 20,
-    filters: {},
+  const { data, error, isLoading, runDeliveryAction } = useDeliveries({
+    ...filters,
+    page,
+    pageSize,
   });
-  latestRef.current = { page: pagination.page, pageSize: pagination.pageSize, filters };
+  const { data: selected, mutate: mutateSelected } = useDelivery(selectedId);
+  const items = data?.items ?? [];
+  const pagination = data?.pagination ?? { page, pageSize, total: 0, totalPages: 0 };
 
-  const fetchItems = useCallback(
-    async (page: number, nextFilters: DeadLetterFilters, pageSize: number) => {
-      if (!session?.accessToken) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('pageSize', String(pageSize));
-        if (nextFilters.channel) params.set('channel', nextFilters.channel);
-        if (nextFilters.status) params.set('status', nextFilters.status);
-        if (nextFilters.q) params.set('q', nextFilters.q);
-        const res = await fetch(`${API_BASE_URL}/dead-letters?${params}`, {
-          headers: { Authorization: `Bearer ${session.accessToken}` },
-        });
-        const data = (await res.json()) as Partial<DeadLetterListResponse>;
-        if (!res.ok || !data.items) {
-          throw new Error((data as any).error || 'Failed to load dead letters');
-        }
-        setItems(data.items);
-        setPagination(data.pagination as DeadLetterListResponse['pagination']);
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [session],
-  );
-
-  useEffect(() => {
-    void fetchItems(latestRef.current.page, latestRef.current.filters, latestRef.current.pageSize);
-  }, [fetchItems]);
-
-  const openDetail = useCallback(async (id: string) => {
-    if (!session?.accessToken) return;
-    setSelected(null);
+  const openDetail = (id: string) => setSelectedId(id);
+  const runAction = async (id: string, action: 'replay' | 'suppress') => {
+    setActingId(id);
+    setActionError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/dead-letters/${id}`, {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      });
-      const data = (await res.json()) as { success?: boolean; deadLetter?: DeadLetterDetail };
-      if (res.ok && data.success && data.deadLetter) {
-        setSelected(data.deadLetter);
-      }
-    } catch {
-      setSelected(null);
+      await runDeliveryAction(id, action);
+      if (selectedId === id) await mutateSelected();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : `Failed to ${action}`);
+    } finally {
+      setActingId(null);
     }
-  }, [session]);
-
-  const runAction = useCallback(
-    async (id: string, action: 'replay' | 'suppress') => {
-      if (!session?.accessToken) return;
-      setActingId(id);
-      setActionError(null);
-      try {
-        const res = await fetch(`${API_BASE_URL}/dead-letters/${id}/${action}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.accessToken}` },
-        });
-        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-        if (!res.ok) {
-          throw new Error((data as any).message || data.error || `Failed to ${action}`);
-        }
-        await fetchItems(latestRef.current.page, latestRef.current.filters, latestRef.current.pageSize);
-        if (selected?.id === id) {
-          await openDetail(id);
-        }
-      } catch (err) {
-        setActionError((err as Error).message);
-      } finally {
-        setActingId(null);
-      }
-    },
-    [session, fetchItems, selected, openDetail],
-  );
+  };
 
   return (
     <div className="space-y-6" data-testid="dead-letters-inspector">
@@ -179,7 +75,7 @@ export function DeadLettersInspector() {
           onChange={(e) => {
             const next = { ...filters, channel: e.target.value || undefined };
             setFilters(next);
-            void fetchItems(1, next, pagination.pageSize);
+            setPage(1);
           }}
           data-testid="dead-letters-channel-filter"
           className="px-3 py-2 rounded-xl bg-[#12121f] border border-white/10 text-sm text-gray-200 focus:outline-none focus:border-cyan-500/50"
@@ -195,7 +91,7 @@ export function DeadLettersInspector() {
           onChange={(e) => {
             const next = { ...filters, status: e.target.value || undefined };
             setFilters(next);
-            void fetchItems(1, next, pagination.pageSize);
+            setPage(1);
           }}
           data-testid="dead-letters-status-filter"
           className="px-3 py-2 rounded-xl bg-[#12121f] border border-white/10 text-sm text-gray-200 focus:outline-none focus:border-cyan-500/50"
@@ -207,12 +103,15 @@ export function DeadLettersInspector() {
         </select>
 
         <input
-          value={filters.q ?? ''}
+          value={searchQuery}
           onChange={(e) => {
-            const next = { ...filters, q: e.target.value || undefined };
-            setFilters(next);
+            const value = e.target.value;
+            setSearchQuery(value);
             if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-            searchTimerRef.current = setTimeout(() => void fetchItems(1, next, pagination.pageSize), 400);
+            searchTimerRef.current = setTimeout(() => {
+              setFilters((current) => ({ ...current, q: value || undefined }));
+              setPage(1);
+            }, 400);
           }}
           placeholder="Search error or destination"
           data-testid="dead-letters-search"
@@ -224,11 +123,11 @@ export function DeadLettersInspector() {
         <p className="text-xs text-red-400" role="alert">{actionError}</p>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="text-sm text-gray-400 py-8 text-center">Loading dead letters…</div>
       ) : error ? (
         <div className="text-sm text-red-400 py-8 text-center bg-red-950/20 rounded-2xl border border-red-500/30" role="alert">
-          {error}
+          {error.message}
         </div>
       ) : items.length === 0 ? (
         <div className="text-sm text-gray-400 py-8 text-center bg-white/5 rounded-2xl border border-white/10">
@@ -317,7 +216,7 @@ export function DeadLettersInspector() {
             <button
               type="button"
               disabled={pagination.page <= 1}
-              onClick={() => void fetchItems(pagination.page - 1, filters, pagination.pageSize)}
+              onClick={() => setPage(pagination.page - 1)}
               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-40 cursor-pointer"
             >
               Previous
@@ -325,7 +224,7 @@ export function DeadLettersInspector() {
             <button
               type="button"
               disabled={pagination.page >= pagination.totalPages}
-              onClick={() => void fetchItems(pagination.page + 1, filters, pagination.pageSize)}
+              onClick={() => setPage(pagination.page + 1)}
               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-40 cursor-pointer"
             >
               Next
@@ -336,7 +235,7 @@ export function DeadLettersInspector() {
 
       {/* Detail drawer */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedId(null)}>
           <div
             className="w-full max-w-lg h-[90vh] overflow-y-auto bg-[#0a0a14] border border-white/15 rounded-3xl p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
@@ -349,7 +248,7 @@ export function DeadLettersInspector() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => setSelectedId(null)}
                 className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Close detail"
               >

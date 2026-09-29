@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 import {
   EmailTemplatePreview,
   type EmailTemplateConfig,
 } from '@/components/dashboard';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+import { useAlertPreferences } from '@/lib/hooks/useDashboardQueries';
 
 interface SettingsForm {
   telegramChatId: string;
@@ -15,36 +13,31 @@ interface SettingsForm {
 }
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
   const [form, setForm] = useState<SettingsForm>({ telegramChatId: '', emailEnabled: true });
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const { data: preferences, error: preferencesError, updateAlertPreferences } = useAlertPreferences();
 
-  const authHeaders = useCallback(() => {
-    const headers: Record<string, string> = {};
-    if (session?.accessToken) headers['Authorization'] = `Bearer ${session.accessToken}`;
-    return headers;
-  }, [session]);
+  useEffect(() => {
+    if (!preferences) return;
+    setForm({
+      telegramChatId: 'telegramChatId' in preferences ? preferences.telegramChatId ?? '' : '',
+      emailEnabled: 'emailEnabled' in preferences ? preferences.emailEnabled : true,
+    });
+  }, [preferences]);
 
   const handleSavePreferences = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setStatus(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/notifications/preferences`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          telegramChatId: form.telegramChatId.trim() || undefined,
-          emailEnabled: form.emailEnabled,
-        }),
+      await updateAlertPreferences({
+        telegramChatId: form.telegramChatId.trim() || undefined,
+        emailEnabled: form.emailEnabled,
       });
-      const ok = res.ok;
-      const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-      setStatus({ ok, message: ok ? (data.message ?? 'Preferences saved.') : (data.error ?? 'Failed to save preferences.') });
+      setStatus({ ok: true, message: 'Preferences saved.' });
     } catch (err) {
-      console.error(err);
-      setStatus({ ok: false, message: 'Could not reach API server.' });
+      setStatus({ ok: false, message: err instanceof Error ? err.message : 'Could not reach API server.' });
     } finally {
       setSaving(false);
     }
@@ -52,11 +45,7 @@ export default function SettingsPage() {
 
   const handleSaveEmailTemplate = async (template: EmailTemplateConfig) => {
     try {
-      await fetch(`${API_BASE_URL}/notifications/preferences`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ emailTemplate: template }),
-      });
+      await updateAlertPreferences({ emailTemplate: template });
     } catch (err) {
       console.error('Failed to save email template preferences:', err);
     }
@@ -70,6 +59,8 @@ export default function SettingsPage() {
           Configure how and where StellarAlerts delivers payment alerts.
         </p>
       </div>
+
+      {preferencesError && <p className="text-sm text-red-400" role="alert">{preferencesError.message}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Alert Channels */}

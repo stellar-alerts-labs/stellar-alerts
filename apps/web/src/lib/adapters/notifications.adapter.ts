@@ -15,6 +15,17 @@ export interface UpdatePreferencesInput {
   whatsappNumber?: string;
   whatsappEnabled?: boolean;
   mfaToken?: string;
+  emailTemplate?: {
+    brandName: string;
+    logoUrl: string;
+    primaryColor: string;
+    accentColor: string;
+    footerText: string;
+    amount: string;
+    asset: string;
+    fromAddress: string;
+    txHash: string;
+  };
 }
 
 export interface TestPingResult {
