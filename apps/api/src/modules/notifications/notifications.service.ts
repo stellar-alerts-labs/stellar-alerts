@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma';
 import { mfaService } from '../auth/mfa.service';
 import { encryptPersonalField, decryptPersonalField } from '../../utils/privacy';
 import { isValidE164Number } from '../../utils/whatsapp';
+import { thresholdFilter, thresholdFromReplyId } from '../../utils/whatsapp-interactive';
 
 export interface NotificationPreferences {
   telegramChatId?: string;
@@ -18,6 +19,32 @@ export interface NotificationPreferences {
 }
 
 export class NotificationsService {
+  /** Applies an interactive WhatsApp action to the preference belonging to a sender. */
+  async applyWhatsAppAction(from: string, replyId: string): Promise<{ kind: 'configure' | 'updated' | 'enabled' | 'disabled' | 'help' | 'unknown'; amount?: number }> {
+    const normalized = from.startsWith('+') ? from : `+${from}`;
+    const preferences = await prisma.notificationPreference.findMany();
+    const preference = preferences.find((candidate: any) => decryptPersonalField(candidate.whatsappNumber) === normalized);
+    if (!preference) throw new Error('No WhatsApp preference is linked to this number');
+
+    if (replyId === 'alerts:configure') return { kind: 'configure' };
+    if (replyId === 'alerts:enable') {
+      await prisma.notificationPreference.update({ where: { id: preference.id }, data: { whatsappEnabled: true } });
+      return { kind: 'enabled' };
+    }
+    if (replyId === 'alerts:disable') {
+      await prisma.notificationPreference.update({ where: { id: preference.id }, data: { whatsappEnabled: false } });
+      return { kind: 'disabled' };
+    }
+    if (replyId === 'alerts:help') return { kind: 'help' };
+
+    const amount = thresholdFromReplyId(replyId);
+    if (amount === null) return { kind: 'unknown' };
+    await prisma.notificationPreference.update({
+      where: { id: preference.id },
+      data: { whatsappEnabled: true, filterRules: thresholdFilter(amount) as any },
+    });
+    return { kind: 'updated', amount };
+  }
   /**
    * Update notification preferences (MFA-protected).
    * 

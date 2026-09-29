@@ -39,6 +39,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,6 +50,9 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Scan repository and full Git history for Stellar secret keys
+        run: npm run test:secrets && node scripts/stellar-secret-scanner.mjs --history
 
       - name: Generate Prisma Client
         run: npx prisma generate

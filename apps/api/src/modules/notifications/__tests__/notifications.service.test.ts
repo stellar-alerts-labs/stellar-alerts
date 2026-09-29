@@ -6,6 +6,8 @@ vi.mock('../../../lib/prisma', () => {
       notificationPreference: {
         upsert: vi.fn().mockResolvedValue({}),
         findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn().mockResolvedValue({}),
       },
     },
   };
@@ -22,7 +24,7 @@ vi.mock('../../auth/mfa.service', () => {
 
 import { notificationsService } from '../notifications.service';
 import { prisma } from '../../../lib/prisma';
-import { decryptPersonalField } from '../../../utils/privacy';
+import { decryptPersonalField, encryptPersonalField } from '../../../utils/privacy';
 
 describe('NotificationsService.sendTestPing', () => {
   const originalEnv = process.env;
@@ -171,5 +173,27 @@ describe('NotificationsService whatsapp opt-in/opt-out', () => {
         update: expect.objectContaining({ whatsappEnabled: false }),
       }),
     );
+  });
+});
+
+describe('NotificationsService WhatsApp interactive actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.notificationPreference.findMany as any).mockResolvedValue([
+      { id: 'pref-1', whatsappNumber: encryptPersonalField('+14155551234') },
+    ]);
+  });
+
+  it('updates the saved threshold and enables WhatsApp for a linked sender', async () => {
+    await expect(notificationsService.applyWhatsAppAction('14155551234', 'threshold:25')).resolves.toEqual({ kind: 'updated', amount: 25 });
+    expect(prisma.notificationPreference.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'pref-1' },
+      data: expect.objectContaining({ whatsappEnabled: true, filterRules: { operator: 'AND', rules: [{ field: 'amount', operator: 'gte', value: 25 }] } }),
+    }));
+  });
+
+  it('does not allow an unknown WhatsApp number to configure alerts', async () => {
+    await expect(notificationsService.applyWhatsAppAction('19999999999', 'threshold:25')).rejects.toThrow('No WhatsApp preference');
+    expect(prisma.notificationPreference.update).not.toHaveBeenCalled();
   });
 });

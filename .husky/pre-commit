@@ -1,4 +1,4 @@
 set -e
 npm run generate:types
 git add openapi.json packages/shared/src/generated/api-types.ts
-
+node scripts/stellar-secret-scanner.mjs --staged

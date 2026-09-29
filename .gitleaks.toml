@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "stellar-secret-key"
+description = "Stellar secret key"
+regex = '''\bS[A-Z0-9]{55}\b'''
+keywords = ["S"]
+severity = "CRITICAL"

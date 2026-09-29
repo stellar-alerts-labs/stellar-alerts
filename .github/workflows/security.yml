@@ -18,6 +18,18 @@ permissions:
   security-events: write
 
 jobs:
+  stellar-secret-scan:
+    name: Stellar Secret Key Leak Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/stellar-secret-scanner.mjs --history
+
   osv-scan:
     name: OSV Dependency Vulnerability Scan
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.5.0
