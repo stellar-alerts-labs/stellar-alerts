@@ -48,7 +48,7 @@ npm install
    | `pool_timeout` | `10` | Seconds a query waits for a free connection before failing |
    | `idle_timeout` | `30` | Seconds an unused connection is kept before being released |
 
-   Set `DATABASE_REPLICA_URL` to send read-only queries (wallet and payment
+   Set `READ_REPLICA_URL` to send read-only queries (wallet and payment
    listings) to a PostgreSQL read replica. Without it those queries run against
    the primary.
 
@@ -80,6 +80,29 @@ npm run test:api
 npx tsc -p apps/api/tsconfig.json --noEmit
 npx tsc -p apps/web/tsconfig.json --noEmit
 ```
+
+Validate the documented environment variable names and run the focused tests
+for the contribution checks with:
+
+```bash
+npm run check:env-examples
+npm run test:contributor-checks
+```
+
+The pre-commit hook runs the environment validation automatically and scans
+staged additions for common token, private-key, and sensitive-assignment
+formats. You can run the same secret check directly with:
+
+```bash
+npm run check:secrets -- --staged
+```
+
+The secret scanner inspects only added text lines in the staged diff (or in
+each commit from the base-to-head range used in CI). It reports the detector
+type, file, and line number without printing the matching value. It
+intentionally skips existing repository contents, deleted lines, and binary
+files, and its focused patterns
+do not replace a full secret-management review.
 
 ---
 
@@ -135,4 +158,3 @@ Or launch components individually from the project root:
 Have questions or want to discuss an issue before working on it? Join our Telegram maintainers & contributors chat:
 
 👉 **[Join Stellar Alerts Telegram Group](https://t.me/+uElHrnWMb180MWM0)**
-
