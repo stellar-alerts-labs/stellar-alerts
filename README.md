@@ -144,6 +144,7 @@ launchctl load ~/Library/LaunchAgents/com.stellaralerts.daemon.plist
 - **Grant Submission Qualification Matrix**: See **[SUBMISSION.md](SUBMISSION.md)**.
 - **System Design & API Specs**: See **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 - **Contribution Guidelines**: See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+- **Code of Conduct**: See **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**.
 - **Development Roadmap**: See **[ROADMAP.md](ROADMAP.md)**.
 - **Soroban Smart Contract**: See **[contracts/alert_registry/README.md](contracts/alert_registry/README.md)**.
 
@@ -154,6 +155,12 @@ launchctl load ~/Library/LaunchAgents/com.stellaralerts.daemon.plist
 Join our official Telegram community to ask questions, chat with maintainers, discuss Drips Wave sprint tasks, and stay updated on new releases:
 
 👉 **[Join Stellar Alerts on Telegram](https://t.me/+uElHrnWMb180MWM0)**
+
+---
+
+## 🤝 Code of Conduct
+
+We are committed to fostering an open and welcoming community. All contributors and participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md), which outlines our standards, reporting channels, and enforcement responsibilities.
 
 ---
 
