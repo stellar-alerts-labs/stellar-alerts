@@ -113,3 +113,114 @@ describe('ClientRegistry', () => {
     expect(entry.queue).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Issue #333 — subscription tracking & reregister (new behaviour)
+// ---------------------------------------------------------------------------
+describe('ClientRegistry – subscription tracking', () => {
+  it('initialises with an empty subscriptions set', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+    expect(entry.subscriptions.size).toBe(0);
+  });
+
+  it('records a subscribed topic', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+
+    registry.subscribe(entry, 'payments');
+    expect(entry.subscriptions.has('payments')).toBe(true);
+  });
+
+  it('does not duplicate topics when subscribe is called twice', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+
+    registry.subscribe(entry, 'payments');
+    registry.subscribe(entry, 'payments');
+    expect(entry.subscriptions.size).toBe(1);
+  });
+
+  it('removes a topic on unsubscribe', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+
+    registry.subscribe(entry, 'payments');
+    registry.unsubscribe(entry, 'payments');
+    expect(entry.subscriptions.has('payments')).toBe(false);
+  });
+
+  it('tracks multiple distinct topics independently', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+
+    registry.subscribe(entry, 'payments');
+    registry.subscribe(entry, 'deliveries');
+    expect(entry.subscriptions.size).toBe(2);
+
+    registry.unsubscribe(entry, 'payments');
+    expect(entry.subscriptions.has('payments')).toBe(false);
+    expect(entry.subscriptions.has('deliveries')).toBe(true);
+  });
+});
+
+describe('ClientRegistry – reregister (re-auth socket swap)', () => {
+  it('replaces the socket on an existing entry without touching subscriptions', () => {
+    const registry = new ClientRegistry();
+    const oldSocket = makeSocket();
+    const entry = registry.register('user-a', oldSocket);
+    registry.subscribe(entry, 'payments');
+
+    const newSocket = makeSocket();
+    registry.reregister(entry, newSocket);
+
+    expect(entry.socket).toBe(newSocket);
+    expect(entry.subscriptions.has('payments')).toBe(true); // preserved
+  });
+
+  it('clears the queue when the socket is replaced so stale messages are not replayed', () => {
+    const registry = new ClientRegistry();
+    const oldSocket = makeSocket(0); // CONNECTING — nothing flushes
+    const entry = registry.register('user-a', oldSocket);
+
+    registry.broadcastToUser('user-a', msg('payment', { seq: 1 }));
+    expect(entry.queue).toHaveLength(1);
+
+    const newSocket = makeSocket();
+    registry.reregister(entry, newSocket);
+
+    // Queue was reset; old stale message is gone
+    expect(entry.queue).toHaveLength(0);
+  });
+
+  it('can deliver new messages via the new socket after reregister', () => {
+    const registry = new ClientRegistry();
+    const oldSocket = makeSocket();
+    const entry = registry.register('user-a', oldSocket);
+
+    const newSocket = makeSocket();
+    registry.reregister(entry, newSocket);
+
+    registry.broadcastToUser('user-a', msg('payment', { seq: 99 }));
+
+    expect(newSocket.sent).toHaveLength(1);
+    expect(JSON.parse(newSocket.sent[0]).payload.seq).toBe(99);
+    // Old socket received nothing after the swap
+    expect(oldSocket.sent.filter((s) => JSON.parse(s).payload.seq === 99)).toHaveLength(0);
+  });
+
+  it('the entry remains registered under the same userId after reregister', () => {
+    const registry = new ClientRegistry();
+    const socket = makeSocket();
+    const entry = registry.register('user-a', socket);
+    registry.reregister(entry, makeSocket());
+
+    expect(registry.clientCountForUser('user-a')).toBe(1);
+    expect(registry.connectedUserIds()).toContain('user-a');
+  });
+});

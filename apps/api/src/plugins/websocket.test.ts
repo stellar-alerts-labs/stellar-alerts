@@ -26,6 +26,17 @@ vi.mock('../lib/redis', () => ({
 
 vi.mock('@fastify/websocket', () => ({ default: vi.fn() }));
 
+// WsAuthManager is replaced with a no-op so timer-based tests don't need fake
+// timers in this file — those are tested in ws-auth-manager.test.ts.
+vi.mock('../lib/ws-auth-manager', () => ({
+  WsAuthManager: vi.fn().mockImplementation(() => ({
+    track: vi.fn(),
+    untrack: vi.fn(),
+    activeCount: vi.fn().mockReturnValue(0),
+  })),
+  EXPIRY_WARN_BEFORE_SECONDS: 60,
+}));
+
 function makeFakeSocket() {
   return {
     readyState: 1, // OPEN
@@ -62,6 +73,11 @@ function makeFakeServer() {
   return server;
 }
 
+// Helper: grab the handler registered for a socket event.
+function getSocketHandler(socket: ReturnType<typeof makeFakeSocket>, event: string) {
+  return socket.on.mock.calls.find(([e]) => e === event)?.[1];
+}
+
 describe('WebSocket plugin auth + tenant isolation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,7 +111,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
   });
 
   it('admits a connection with a valid token and sends a connection message', async () => {
-    verifyToken.mockReturnValue({ id: 'user-a', email: 'a@example.com' });
+    verifyToken.mockReturnValue({ id: 'user-a', email: 'a@example.com', exp: 9999999999 });
     const plugin = await loadPlugin();
     const server = makeFakeServer();
     await plugin(server);
@@ -111,7 +127,9 @@ describe('WebSocket plugin auth + tenant isolation', () => {
 
   it('routes a Redis-published event only to the connected sockets for that userId', async () => {
     verifyToken.mockImplementation((token: string) =>
-      token === 'token-a' ? { id: 'user-a' } : { id: 'user-b' }
+      token === 'token-a'
+        ? { id: 'user-a', exp: 9999999999 }
+        : { id: 'user-b', exp: 9999999999 },
     );
     const plugin = await loadPlugin();
     const server = makeFakeServer();
@@ -132,7 +150,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
         type: 'payment',
         payload: { id: 'pay_1' },
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
 
     expect(socketA.sent).toHaveLength(1);
@@ -141,7 +159,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
   });
 
   it('routes delivery events to the connected user the same way as payment events', async () => {
-    verifyToken.mockReturnValue({ id: 'user-a' });
+    verifyToken.mockReturnValue({ id: 'user-a', exp: 9999999999 });
     const plugin = await loadPlugin();
     const server = makeFakeServer();
     await plugin(server);
@@ -157,7 +175,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
         type: 'delivery',
         payload: { id: 'log_1', statusCode: 200 },
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
 
     expect(socket.sent).toHaveLength(1);
@@ -165,7 +183,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
   });
 
   it('stops routing to a socket after it disconnects', async () => {
-    verifyToken.mockReturnValue({ id: 'user-a' });
+    verifyToken.mockReturnValue({ id: 'user-a', exp: 9999999999 });
     const plugin = await loadPlugin();
     const server = makeFakeServer();
     await plugin(server);
@@ -174,7 +192,7 @@ describe('WebSocket plugin auth + tenant isolation', () => {
     server.routes['/ws'](socket, { query: { token: 'token-a' } });
     socket.sent = [];
 
-    const closeHandler = socket.on.mock.calls.find(([event]) => event === 'close')?.[1];
+    const closeHandler = getSocketHandler(socket, 'close');
     expect(closeHandler).toBeDefined();
     closeHandler();
 
@@ -185,10 +203,158 @@ describe('WebSocket plugin auth + tenant isolation', () => {
         type: 'payment',
         payload: { id: 'pay_1' },
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
 
     expect(socket.sent).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #333 — reauth, subscribe / unsubscribe
+// ---------------------------------------------------------------------------
+describe('WebSocket plugin – reauth flow (issue #333)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    subscriberMessageHandler = undefined;
+  });
+
+  it('accepts a valid reauth message and sends reauthenticated status', async () => {
+    // First call: initial connect token. Second call: reauth token.
+    verifyToken
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 })
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 + 900 });
+
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'initial-token' } });
+    socket.sent = []; // clear connection message
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'reauth', token: 'new-token' })));
+
+    expect(socket.sent).toHaveLength(1);
+    expect(socket.sent[0].type).toBe('connection');
+    expect(socket.sent[0].payload.status).toBe('reauthenticated');
+  });
+
+  it('includes restored subscriptions in the reauthenticated payload', async () => {
+    verifyToken
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 })
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 + 900 });
+
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'initial-token' } });
+
+    const msgHandler = getSocketHandler(socket, 'message');
+
+    // Subscribe to a topic first
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'subscribe', topic: 'payments' })));
+
+    socket.sent = [];
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'reauth', token: 'new-token' })));
+
+    expect(socket.sent[0].payload.restoredSubscriptions).toContain('payments');
+  });
+
+  it('closes the socket when reauth token belongs to a different user', async () => {
+    verifyToken
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 })
+      .mockReturnValueOnce({ id: 'user-b', exp: 9999999999 }); // different user!
+
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'token-a' } });
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'reauth', token: 'token-b' })));
+
+    expect(socket.close).toHaveBeenCalledWith(4401, 'Unauthorized');
+  });
+
+  it('closes the socket when reauth token is invalid', async () => {
+    verifyToken
+      .mockReturnValueOnce({ id: 'user-a', exp: 9999999999 })
+      .mockImplementationOnce(() => { throw new Error('expired'); });
+
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'token-a' } });
+    socket.sent = [];
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'reauth', token: 'bad-token' })));
+
+    const errorMsg = socket.sent.find((m) => m.type === 'token_expired');
+    expect(errorMsg).toBeDefined();
+    expect(socket.close).toHaveBeenCalledWith(4401, 'Unauthorized');
+  });
+});
+
+describe('WebSocket plugin – subscription management (issue #333)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('records a subscribe message without sending a response', async () => {
+    verifyToken.mockReturnValue({ id: 'user-a', exp: 9999999999 });
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'token-a' } });
+    socket.sent = [];
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'subscribe', topic: 'payments' })));
+
+    // No reply expected — the subscription is silently recorded server-side
+    expect(socket.sent).toHaveLength(0);
+    expect(socket.close).not.toHaveBeenCalled();
+  });
+
+  it('handles an unsubscribe message without error', async () => {
+    verifyToken.mockReturnValue({ id: 'user-a', exp: 9999999999 });
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'token-a' } });
+    socket.sent = [];
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'subscribe', topic: 'deliveries' })));
+    msgHandler!(Buffer.from(JSON.stringify({ type: 'unsubscribe', topic: 'deliveries' })));
+
+    expect(socket.close).not.toHaveBeenCalled();
+  });
+
+  it('does not crash on a malformed inbound message', async () => {
+    verifyToken.mockReturnValue({ id: 'user-a', exp: 9999999999 });
+    const plugin = await loadPlugin();
+    const server = makeFakeServer();
+    await plugin(server);
+
+    const socket = makeFakeSocket();
+    server.routes['/ws'](socket, { query: { token: 'token-a' } });
+
+    const msgHandler = getSocketHandler(socket, 'message');
+    expect(() => msgHandler!(Buffer.from('not-json-{{{}'))).not.toThrow();
   });
 });
 
@@ -221,5 +387,23 @@ describe('WebSocketMessage type', () => {
     };
 
     expect(message.type).toBe('delivery');
+  });
+
+  it('should support token_expiring message type', () => {
+    const message: WebSocketMessage = {
+      type: 'token_expiring',
+      payload: { message: 'Token expiring soon', expiresAt: new Date().toISOString() },
+      timestamp: new Date().toISOString(),
+    };
+    expect(message.type).toBe('token_expiring');
+  });
+
+  it('should support token_expired message type', () => {
+    const message: WebSocketMessage = {
+      type: 'token_expired',
+      payload: { message: 'Token has expired' },
+      timestamp: new Date().toISOString(),
+    };
+    expect(message.type).toBe('token_expired');
   });
 });
