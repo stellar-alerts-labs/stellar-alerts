@@ -11,6 +11,22 @@ export class ApiClient {
     this.apiKey = apiKey || getCliConfig().STELLAR_ALERTS_API_KEY;
   }
 
+  /**
+   * Returns a new ApiClient instance with the given token applied.
+   * The original instance is not mutated. Used by commands that resolve
+   * the token via the auth precedence chain.
+   */
+  withToken(token: string | undefined): ApiClient {
+    return new ApiClient(this.baseUrl, token);
+  }
+
+  /**
+   * Returns a new ApiClient instance with the given base URL.
+   */
+  withBaseUrl(url: string): ApiClient {
+    return new ApiClient(url, this.apiKey);
+  }
+
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
