@@ -4,6 +4,12 @@ import { prisma } from '../../lib/prisma';
 import { KeyRotationManager } from '../../utils/key-rotation-manager';
 import { cryptoVault } from '../../utils/crypto-vault';
 import { validateUrlForSsrf, ssrfSafeFetch } from '../../utils/ssrf';
+import {
+  buildCursorWhere,
+  buildCursorPage,
+  CURSOR_ORDER_BY,
+  CursorError,
+} from '../../utils/pagination';
 import { dynamicPayloadTransformer, PayloadTransformationRule } from './payload-transformer';
 
 export interface WebhookTestResult {
@@ -149,6 +155,49 @@ export class WebhooksService {
         healthScorecard: scorecard,
       };
     });
+  }
+
+  /**
+   * Returns a cursor-paginated list of delivery logs for a specific webhook.
+   * Only returns logs for webhooks owned by `userId` — ownership is verified
+   * before the log query so a user can never read another user's logs by
+   * guessing a webhookId.
+   *
+   * Stable ordering: createdAt DESC, id DESC.
+   */
+  async getWebhookLogs(webhookId: string, userId: string, limit: number = 20, cursor?: string) {
+    // Verify ownership
+    const webhook = await prisma.webhook.findFirst({
+      where: { id: webhookId, userId },
+      select: { id: true },
+    });
+    if (!webhook) {
+      throw new Error('Webhook not found');
+    }
+
+    const where: Record<string, any> = { webhookId };
+
+    if (cursor) {
+      const cursorWhere = buildCursorWhere(cursor);
+      Object.assign(where, cursorWhere);
+    }
+
+    const rows = await prisma.webhookLog.findMany({
+      where,
+      orderBy: CURSOR_ORDER_BY,
+      take: limit + 1,
+      select: {
+        id: true,
+        webhookId: true,
+        statusCode: true,
+        responseBody: true,
+        error: true,
+        sentAt: true,
+        createdAt: true,
+      },
+    });
+
+    return buildCursorPage(rows, limit);
   }
 
   async removeWebhook(id: string, userId: string) {

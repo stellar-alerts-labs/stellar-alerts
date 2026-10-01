@@ -5,6 +5,7 @@ import {
   suppressDeadLetterSchema,
 } from './dead-letters.schema';
 import { deadLettersService } from './dead-letters.service';
+import { CursorError } from '../../utils/pagination';
 import { ConflictError, NotFoundError, ValidationError, zodValidationError } from '../../lib/errors';
 
 export class DeadLettersController {
@@ -15,8 +16,15 @@ export class DeadLettersController {
     }
 
     const userId = (request as any).user.id;
-    const result = await deadLettersService.list(userId, parsed.data);
-    return reply.send({ success: true, ...result });
+    try {
+      const result = await deadLettersService.list(userId, parsed.data);
+      return reply.send({ success: true, ...result });
+    } catch (err) {
+      if (err instanceof CursorError) {
+        return reply.status(400).send({ error: 'Invalid cursor', message: (err as Error).message });
+      }
+      throw err;
+    }
   }
 
   async get(request: FastifyRequest, reply: FastifyReply) {

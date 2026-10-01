@@ -63,7 +63,6 @@ describe('DeadLettersService (#273)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.deadLetter.findMany.mockResolvedValue([]);
-    mockPrisma.deadLetter.count.mockResolvedValue(0);
     mockPrisma.deadLetter.findFirst.mockResolvedValue(null);
     mockPrisma.deadLetter.update.mockImplementation(async ({ data }) => ({
       ...pendingDeadLetter,
@@ -80,20 +79,35 @@ describe('DeadLettersService (#273)', () => {
     mockProcessAlertDispatch.mockResolvedValue(undefined);
   });
 
-  it('lists only the caller-owned dead letters with pagination', async () => {
+  it('lists only the caller-owned dead letters with cursor pagination', async () => {
     mockPrisma.deadLetter.findMany.mockResolvedValue([{ id: 'dl-1' }]);
-    mockPrisma.deadLetter.count.mockResolvedValue(1);
 
-    const result = await deadLettersService.list(userA, { channel: 'telegram', page: 2, pageSize: 10 });
+    const result = await deadLettersService.list(userA, { channel: 'telegram', limit: 10 });
 
     expect(mockPrisma.deadLetter.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ userId: userA, channel: 'telegram' }),
-        skip: 10,
-        take: 10,
+        orderBy: expect.arrayContaining([
+          expect.objectContaining({ failedAt: 'desc' }),
+          expect.objectContaining({ id: 'desc' }),
+        ]),
+        take: 11, // limit+1 for cursor pagination
+        select: expect.objectContaining({
+          id: true,
+          deliveryKey: true,
+          paymentId: true,
+          channel: true,
+          destination: true,
+          error: true,
+          status: true,
+          retryCount: true,
+          failedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        }),
       }),
     );
-    expect(result.pagination).toEqual({ page: 2, pageSize: 10, total: 1, totalPages: 1 });
+    expect(result.pagination).toEqual({ limit: 10, hasNextPage: false });
   });
 
   it('filters by error search and age', async () => {
@@ -109,6 +123,11 @@ describe('DeadLettersService (#273)', () => {
             { destination: { contains: '429', mode: 'insensitive' } },
           ],
         }),
+        orderBy: expect.arrayContaining([
+          expect.objectContaining({ failedAt: 'desc' }),
+          expect.objectContaining({ id: 'desc' }),
+        ]),
+        take: 21, // limit+1 for cursor pagination
       }),
     );
   });

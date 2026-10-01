@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { createWebhookSchema, webhookParamsSchema } from './webhooks.schema';
+import { createWebhookSchema, webhookParamsSchema, listWebhookLogsQuerySchema } from './webhooks.schema';
 import { webhooksService } from './webhooks.service';
+import { CursorError } from '../../utils/pagination';
 import { NotFoundError, zodValidationError } from '../../lib/errors';
 
 export class WebhooksController {
@@ -54,6 +55,37 @@ export class WebhooksController {
         throw new NotFoundError(error.message);
       }
       throw error;
+    }
+  }
+
+  async getWebhookLogs(request: FastifyRequest, reply: FastifyReply) {
+    const params = webhookParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      throw zodValidationError(params, 'Invalid parameters');
+    }
+
+    const query = listWebhookLogsQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      throw zodValidationError(query, 'Invalid query');
+    }
+
+    const userId = (request as any).user.id;
+    try {
+      const result = await webhooksService.getWebhookLogs(
+        params.data.id,
+        userId,
+        query.data.limit,
+        query.data.cursor,
+      );
+      return reply.send({ success: true, logs: result.items, pagination: result.pagination });
+    } catch (err: any) {
+      if (err instanceof CursorError) {
+        return reply.status(400).send({ error: 'Invalid cursor', message: err.message });
+      }
+      if (err.message === 'Webhook not found') {
+        throw new NotFoundError(err.message);
+      }
+      throw err;
     }
   }
 }

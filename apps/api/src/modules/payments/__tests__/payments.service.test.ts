@@ -58,7 +58,11 @@ describe('PaymentsService', () => {
       expect(prisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { walletId: 'wallet-9', wallet: { userId: 'user-1' } },
-          take: 10,
+          take: 11, // limit+1 for cursor pagination
+          orderBy: expect.arrayContaining([
+            expect.objectContaining({ receivedAt: expect.any(String) }),
+            expect.objectContaining({ id: expect.any(String) }),
+          ]),
         }),
       );
     });
@@ -69,7 +73,13 @@ describe('PaymentsService', () => {
       await service.getPayments('user-1');
 
       expect(prisma.payment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ orderBy: { receivedAt: 'desc' } }),
+        expect.objectContaining({
+          orderBy: expect.arrayContaining([
+            expect.objectContaining({ receivedAt: 'desc' }),
+            expect.objectContaining({ id: 'desc' }),
+          ]),
+          take: 21, // limit+1 for cursor pagination
+        }),
       );
     });
 
@@ -79,7 +89,13 @@ describe('PaymentsService', () => {
       await service.getPayments('user-1', undefined, 20, { sortBy: 'amount', sortOrder: 'asc' });
 
       expect(prisma.payment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ orderBy: { amount: 'asc' } }),
+        expect.objectContaining({
+          orderBy: expect.arrayContaining([
+            expect.objectContaining({ amount: 'asc' }),
+            expect.objectContaining({ id: 'asc' }),
+          ]),
+          take: 21, // limit+1 for cursor pagination
+        }),
       );
     });
 
@@ -147,8 +163,11 @@ describe('PaymentsService', () => {
           memo: { contains: 'rent', mode: 'insensitive' },
           receivedAt: { gte: dateFrom },
         },
-        orderBy: { asset: 'asc' },
-        take: 5,
+        orderBy: expect.arrayContaining([
+          expect.objectContaining({ asset: 'asc' }),
+          expect.objectContaining({ id: 'asc' }),
+        ]),
+        take: 6, // limit+1 for cursor pagination
       });
     });
   });

@@ -1,6 +1,12 @@
 import { prisma, prismaRead } from '../../lib/prisma';
 import { isSupportedFiatCurrency, convertUsdToFiat, SupportedFiatCurrency } from '../../lib/exchange-rates';
 import { addDifferentialPrivacyNoise } from '../../utils/differential-privacy';
+import {
+  buildCursorWhere,
+  buildCursorPage,
+  encodeCursor,
+  CursorError,
+} from '../../utils/pagination';
 import { withSummaryCache } from '../../lib/summaryCache';
 
 export type PaymentSortField = 'receivedAt' | 'amount' | 'asset';
@@ -11,11 +17,26 @@ export interface GetPaymentsFilters {
   memo?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  /** @deprecated Use cursor-based pagination. sortBy/sortOrder still respected for export endpoints. */
   sortBy?: PaymentSortField;
+  /** @deprecated Use cursor-based pagination. */
   sortOrder?: SortOrder;
+  /** Opaque cursor returned by a previous page's `pagination.nextCursor`. */
+  cursor?: string;
 }
 
 export class PaymentsService {
+  /**
+   * Returns a cursor-paginated page of payments for a user.
+   *
+   * Stable ordering: `receivedAt DESC, id DESC` — matches the existing
+   * `Payment_walletId_receivedAt_idx` and `Payment_receivedAt_idx` DB indexes.
+   * The cursor encodes `{ receivedAt, id }` so subsequent pages resume
+   * exactly where the previous one ended.
+   *
+   * For bulk export callers (tax export, PDF) pass a large `limit` and omit
+   * `cursor`; those callers never use the pagination envelope.
+   */
   async getPayments(
     userId: string,
     walletId?: string,
@@ -44,23 +65,56 @@ export class PaymentsService {
       };
     }
 
+    // Cursor condition — payments use receivedAt (not createdAt) as the primary
+    // sort key, so we encode { receivedAt, id } and apply the same
+    // "earlier than cursor" OR clause against those two fields.
+    if (filters.cursor) {
+      const { receivedAt, id } = decodePaymentCursor(filters.cursor);
+      const cursorWhere = {
+        OR: [
+          { receivedAt: { lt: receivedAt } },
+          { receivedAt, id: { lt: id } },
+        ],
+      };
+      // Merge with any existing receivedAt range filter carefully
+      if (where.receivedAt) {
+        where.AND = [{ receivedAt: where.receivedAt }, cursorWhere];
+        delete where.receivedAt;
+      } else {
+        Object.assign(where, cursorWhere);
+      }
+    }
+
     const sortBy = filters.sortBy ?? 'receivedAt';
     const sortOrder = filters.sortOrder ?? 'desc';
 
     console.log(
       `[PaymentsService] Fetching up to ${limit} payments for user ${userId}${
         walletId ? ` (wallet ${walletId})` : ' (all wallets)'
-      }, sorted by ${sortBy} ${sortOrder}`
+      }, sorted by ${sortBy} ${sortOrder}${filters.cursor ? ' (cursor page)' : ''}`
     );
 
+    // Fetch limit+1 to detect whether a next page exists.
+    // Export callers pass limit=5000 and no cursor, so the +1 is negligible.
     // where.walletId / where.asset are indexed (Payment_walletId_idx,
-    // Payment_asset_idx, Payment_walletId_receivedAt_idx); orderBy fields
-    // are indexed except `amount`, which has no dedicated index today.
-    return prismaRead.payment.findMany({
+    // Payment_asset_idx, Payment_walletId_receivedAt_idx).
+    const rows = await prismaRead.payment.findMany({
       where,
-      orderBy: { [sortBy]: sortOrder },
-      take: limit,
+      orderBy: [{ [sortBy]: sortOrder }, { id: sortOrder }],
+      take: limit + 1,
     });
+
+    const hasNextPage = rows.length > limit;
+    const items = hasNextPage ? rows.slice(0, limit) : rows;
+    const nextCursor =
+      hasNextPage && items.length > 0
+        ? encodePaymentCursor(items[items.length - 1])
+        : undefined;
+
+    return {
+      items,
+      pagination: { limit, nextCursor, hasNextPage },
+    };
   }
   
   async getPaymentsSummary(userId: string, walletId?: string, fiatCurrency?: string) {
@@ -74,11 +128,11 @@ export class PaymentsService {
           ? { walletId, wallet: { userId } }
           : { wallet: { userId } };
 
-         console.log(
-        `[PaymentsService] Fetching summary for user ${userId}${
-        walletId ? ` (wallet ${walletId})` : ' (all wallets)'
-        }`,
-       );
+        console.log(
+          `[PaymentsService] Fetching summary for user ${userId}${
+            walletId ? ` (wallet ${walletId})` : ' (all wallets)'
+          }`,
+        );
 
         const result = await prismaRead.payment.aggregate({
           where,
@@ -283,3 +337,60 @@ export class PaymentsService {
 }
 
 export const paymentsService = new PaymentsService();
+
+// ---------------------------------------------------------------------------
+// Payment-specific cursor helpers
+// Payments use `receivedAt` (not `createdAt`) as the primary sort key, so
+// we keep a dedicated encode/decode pair rather than the generic utility.
+// ---------------------------------------------------------------------------
+
+interface PaymentCursorPayload {
+  receivedAt: string;
+  id: string;
+}
+
+/**
+ * Encodes the last payment on a page into an opaque base64url cursor.
+ */
+export function encodePaymentCursor(item: { id: string; receivedAt: Date }): string {
+  const payload: PaymentCursorPayload = {
+    receivedAt: item.receivedAt.toISOString(),
+    id: item.id,
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Decodes an opaque payment cursor.
+ * Throws {@link CursorError} if the cursor is malformed or missing required fields.
+ */
+export function decodePaymentCursor(cursor: string): { receivedAt: Date; id: string } {
+  let raw: string;
+  try {
+    raw = Buffer.from(cursor, 'base64url').toString('utf8');
+  } catch {
+    throw new CursorError();
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new CursorError();
+  }
+
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    typeof (payload as any).receivedAt !== 'string' ||
+    typeof (payload as any).id !== 'string' ||
+    isNaN(Date.parse((payload as any).receivedAt))
+  ) {
+    throw new CursorError();
+  }
+
+  return {
+    receivedAt: new Date((payload as PaymentCursorPayload).receivedAt),
+    id: (payload as PaymentCursorPayload).id,
+  };
+}

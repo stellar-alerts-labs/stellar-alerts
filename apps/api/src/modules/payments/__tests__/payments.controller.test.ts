@@ -39,7 +39,10 @@ describe('PaymentsController', () => {
         },
         user: { id: 'user-1' },
       };
-      vi.mocked(paymentsService.getPayments).mockResolvedValue([]);
+      vi.mocked(paymentsService.getPayments).mockResolvedValue({
+        items: [],
+        pagination: { limit: 20, hasNextPage: false },
+      });
 
       await paymentsController.getPayments(mockRequest, mockReply);
 
@@ -56,12 +59,15 @@ describe('PaymentsController', () => {
           sortOrder: 'asc',
         },
       );
-      expect(mockReply.send).toHaveBeenCalledWith({ success: true, payments: [] });
+      expect(mockReply.send).toHaveBeenCalledWith({ success: true, payments: [], pagination: expect.any(Object) });
     });
 
     it('defaults sortBy/sortOrder when not provided', async () => {
       mockRequest = { query: {}, user: { id: 'user-1' } };
-      vi.mocked(paymentsService.getPayments).mockResolvedValue([]);
+      vi.mocked(paymentsService.getPayments).mockResolvedValue({
+        items: [],
+        pagination: { limit: 20, hasNextPage: false },
+      });
 
       await paymentsController.getPayments(mockRequest, mockReply);
 
@@ -100,24 +106,24 @@ describe('PaymentsController', () => {
   describe('getPaymentsSummary', () => {
     it('should pass if walletId is missing because it is optional', async () => {
       mockRequest = { query: {}, user: { id: 'user-1' } };
-      
+
       const mockSummary = { volume: 1500, count: 5 };
       vi.mocked(paymentsService.getPaymentsSummary).mockResolvedValue(mockSummary);
-      
+
       await paymentsController.getPaymentsSummary(mockRequest, mockReply);
-      
+
       expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
-      
+
     });
 
     it('should return volume and count for a valid walletId', async () => {
       mockRequest = { query: { walletId: 'wallet_123' }, user: { id: 'user-1' } };
       const mockSummary = { volume: 1500, count: 5 };
-      
+
       vi.mocked(paymentsService.getPaymentsSummary).mockResolvedValue(mockSummary);
-      
+
       await paymentsController.getPaymentsSummary(mockRequest, mockReply);
-      
+
       expect(paymentsService.getPaymentsSummary).toHaveBeenCalledWith('user-1', 'wallet_123', undefined);
       expect(mockReply.send).toHaveBeenCalledWith({ success: true, summary: mockSummary });
     });

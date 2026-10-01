@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { createWalletSchema, deleteWalletSchema } from './wallets.schema';
+import { createWalletSchema, deleteWalletSchema, listWalletsQuerySchema } from './wallets.schema';
 import { walletsService } from './wallets.service';
+import { CursorError } from '../../utils/pagination';
 import { ConflictError, NotFoundError, ValidationError, zodValidationError } from '../../lib/errors';
 
 export class WalletsController {
@@ -32,9 +33,21 @@ export class WalletsController {
   }
 
   async getWallets(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = listWalletsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw zodValidationError(parsed, 'Invalid query');
+    }
+
     const userId = (request as any).user.id;
-    const wallets = await walletsService.getWallets(userId);
-    return reply.send({ success: true, wallets });
+    try {
+      const result = await walletsService.getWallets(userId, parsed.data.limit, parsed.data.cursor);
+      return reply.send({ success: true, wallets: result.items, pagination: result.pagination });
+    } catch (err) {
+      if (err instanceof CursorError) {
+        return reply.status(400).send({ error: 'Invalid cursor', message: (err as Error).message });
+      }
+      throw err;
+    }
   }
 
   async getIngestionStatus(request: FastifyRequest, reply: FastifyReply) {

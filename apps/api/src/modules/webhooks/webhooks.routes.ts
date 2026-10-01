@@ -9,4 +9,5 @@ export async function webhooksRoutes(app: FastifyInstance) {
   app.get('/webhooks', webhooksController.getWebhooks.bind(webhooksController));
   app.delete('/webhooks/:id', webhooksController.deleteWebhook.bind(webhooksController));
   app.post('/webhooks/:id/test', webhooksController.testWebhook.bind(webhooksController));
+  app.get('/webhooks/:id/logs', webhooksController.getWebhookLogs.bind(webhooksController));
 }

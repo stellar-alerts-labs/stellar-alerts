@@ -45,10 +45,9 @@ export interface components {
             status?: "pending" | "retried" | "suppressed";
             q?: string;
             maxAgeDays?: number;
-            /** @default 1 */
-            page: number;
             /** @default 20 */
-            pageSize: number;
+            limit: number;
+            cursor?: string;
         };
         SuppressDeadLetterInput: {
             note?: string;

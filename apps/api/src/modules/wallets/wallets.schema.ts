@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import * as StellarSdk from 'stellar-sdk';
+import { cursorSchema, limitSchema } from '../../utils/pagination';
 
 export const createWalletSchema = z.object({
   publicKey: z.string().refine((val) => StellarSdk.StrKey.isValidEd25519PublicKey(val), {
@@ -12,4 +13,9 @@ export const createWalletSchema = z.object({
 
 export const deleteWalletSchema = z.object({
   id: z.string(),
+});
+
+export const listWalletsQuerySchema = z.object({
+  limit: limitSchema,
+  cursor: cursorSchema,
 });

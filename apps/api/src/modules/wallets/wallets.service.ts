@@ -1,5 +1,11 @@
 import { prisma, prismaRead } from '../../lib/prisma';
 import { verifyZkProof } from '../../utils/zkp-verifier';
+import {
+  buildCursorWhere,
+  buildCursorPage,
+  CURSOR_ORDER_BY,
+  CursorError,
+} from '../../utils/pagination';
 
 export class WalletsService {
   async addWallet(userId: string, publicKey: string, label?: string, zkProof?: any, publicSignals?: string[]) {
@@ -43,11 +49,25 @@ export class WalletsService {
     }
   }
 
-  async getWallets(userId: string) {
-    return prismaRead.wallet.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
+  /**
+   * Returns a cursor-paginated list of wallets for the user.
+   * Stable ordering: createdAt DESC, id DESC.
+   */
+  async getWallets(userId: string, limit: number = 20, cursor?: string) {
+    const where: Record<string, any> = { userId };
+
+    if (cursor) {
+      const cursorWhere = buildCursorWhere(cursor);
+      Object.assign(where, cursorWhere);
+    }
+
+    const rows = await prismaRead.wallet.findMany({
+      where,
+      orderBy: CURSOR_ORDER_BY,
+      take: limit + 1,
     });
+
+    return buildCursorPage(rows, limit);
   }
 
   /**
