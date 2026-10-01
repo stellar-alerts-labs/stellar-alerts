@@ -202,3 +202,8 @@ export type RefreshSession = Prisma.RefreshSessionModel
  * 
  */
 export type RefreshTokenHistory = Prisma.RefreshTokenHistoryModel
+/**
+ * Model TransactionSimulation
+ * 
+ */
+export type TransactionSimulation = Prisma.TransactionSimulationModel

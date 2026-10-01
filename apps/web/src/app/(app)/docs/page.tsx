@@ -33,6 +33,16 @@ const NOTIFICATION_ENDPOINTS: EndpointDoc[] = [
   { method: 'POST', path: '/notifications/preferences', summary: 'Persist telegram/email/emailTemplate preferences.', auth: 'Session' },
 ];
 
+const TX_SIMULATION_ENDPOINTS: EndpointDoc[] = [
+  {
+    method: 'POST',
+    path: '/tx-simulation/analyze',
+    summary:
+      'Score a transaction envelope before signing. Returns an allow/review/block verdict with footprint, drain, authorization, contract and resource indicators. Supply your own simulateTransaction output plus optional ledger baselines; the response’s coverage block says which checks actually ran.',
+    auth: 'Session',
+  },
+];
+
 const DEAD_LETTER_ENDPOINTS: EndpointDoc[] = [
   { method: 'GET', path: '/dead-letters', summary: 'List dead letters; filter by channel, status, q, maxAgeDays (paginated).', auth: 'Ownership' },
   { method: 'GET', path: '/dead-letters/:id', summary: 'Fetch a dead letter with its audit history.', auth: 'Ownership' },
@@ -121,6 +131,11 @@ export default function DocsPage() {
       <EndpointTable title="Wallets" description="Manage watch-only Stellar addresses." endpoints={WALLET_ENDPOINTS} />
       <EndpointTable title="Payments" description="Payment ledger inspection & aggregates." endpoints={PAYMENT_ENDPOINTS} />
       <EndpointTable title="Notifications" description="Alert channel & email template preferences." endpoints={NOTIFICATION_ENDPOINTS} />
+      <EndpointTable
+        title="Transaction Simulation"
+        description="Pre-signing threat scoring for Stellar & Soroban envelopes."
+        endpoints={TX_SIMULATION_ENDPOINTS}
+      />
       <EndpointTable title="Dead Letters" description="Terminal delivery failures — inspect, replay, suppress with audit history (#273)." endpoints={DEAD_LETTER_ENDPOINTS} />
 
       <section className="rounded-3xl bg-cyan-950/30 border border-cyan-500/30 p-7 space-y-3">
@@ -130,6 +145,11 @@ export default function DocsPage() {
           <li>Ownership-scoped routes additionally verify the resource belongs to the caller&apos;s user id.</li>
           <li>DID challenges are single-use and expire after 5 minutes; verify requires the exact issued challenge.</li>
           <li>Idempotent delivery: webhook/telegram/email dispatches deduplicate through <code className="text-cyan-300 font-mono">notificationDeliveryAttempt</code> (#272).</li>
+          <li>
+            <code className="text-cyan-300 font-mono">/tx-simulation/analyze</code> never calls an RPC. You pass your own{' '}
+            <code className="text-cyan-300 font-mono">simulateTransaction</code> output with the envelope, so a
+            simulation can never be paired with a different transaction than the one being scored.
+          </li>
         </ul>
       </section>
     </div>

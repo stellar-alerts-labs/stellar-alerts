@@ -32,7 +32,7 @@ describe('OpenAPI schema sync & type generator (issue #162)', () => {
     expect(document.openapi).toMatch(/^3\./);
     const schemas = (document as any).components.schemas;
     expect(Object.keys(schemas).sort()).toEqual([
-      'CreateExportInput',
+      'AnalyzeTransactionInput',
       'CreateWalletInput',
       'CreateWebhookInput',
       'DIDChallengeInput',

@@ -64,21 +64,14 @@ const envSchema = z.object({
   // Wasm contract upload/analysis limits for the wasm-analyzer module.
   WASM_ANALYZER_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional().default(5 * 1024 * 1024),
   WASM_ANALYZER_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(5000),
-  // Asynchronous export jobs (#321)
-  EXPORT_WORKER_ENABLED: z.string().optional().default("true"),
-  // Directory for generated export files; empty = <os tmpdir>/stellar-alerts-exports.
-  EXPORT_STORAGE_DIR: z.string().optional().default(""),
-  // How long a finished export stays downloadable before cleanup deletes it.
-  EXPORT_TTL_SECONDS: z.coerce.number().int().positive().optional().default(86400),
-  // Lifetime of each signed download URL handed out by GET /exports/:id.
-  EXPORT_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().optional().default(300),
-  EXPORT_MAX_ROWS: z.coerce.number().int().positive().optional().default(100000),
-  EXPORT_BATCH_SIZE: z.coerce.number().int().positive().optional().default(500),
-  EXPORT_MAX_ACTIVE_JOBS_PER_USER: z.coerce.number().int().positive().optional().default(3),
-  EXPORT_WORKER_CONCURRENCY: z.coerce.number().int().positive().optional().default(2),
-  EXPORT_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().optional().default(600000),
-  // A job stuck in `running` longer than this (e.g. worker crash) is failed.
-  EXPORT_STALE_JOB_MS: z.coerce.number().int().positive().optional().default(1800000),
+  // Pre-execution transaction simulation (#pre-execution-simulation). The
+  // envelope cap bounds how much XDR a single request can make the API decode;
+  // it is enforced by the zod request schema, not here, so a client that sends
+  // an oversized envelope gets a 400 with field-level detail.
+  TX_SIMULATION_MAX_ENVELOPE_BYTES: z.coerce.number().int().positive().optional().default(64 * 1024),
+  // Per-client rate limit for POST /tx-simulation/analyze, on top of the
+  // app-wide RATE_LIMIT_MAX.
+  TX_SIMULATION_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional().default(20),
 });
 export type Env = z.infer<typeof envSchema>;
 

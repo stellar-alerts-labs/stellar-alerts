@@ -111,6 +111,7 @@ stellar-alerts/
 | `/exports/:id` | GET | Yes | Export status and progress; includes a short-lived signed download URL once completed |
 | `/exports/:id/download` | GET | Signed URL | Stream a completed export file (`expires` + `sig` query params) |
 | `/wasm-analyzer/analyze` | POST | Yes | Upload a Soroban contract WASM binary (`multipart/form-data`, field `file`) for static security analysis — see [§6.1](#61-wasm-analyzer-api) |
+| `/tx-simulation/analyze` | POST | Yes | Score a transaction envelope for pre-signing threats (drain, footprint, auth, contract, resource) — see [§6.2](#62-pre-execution-transaction-simulation) |
 
 ---
 
@@ -183,3 +184,22 @@ so contract binaries can be screened before they're indexed.
   ```
   A malformed binary still returns `200` with `analysis.valid: false` and `analysis.parseError` set — parsing failure is itself a stable, structured finding, not a server error.
 - **Audit logging**: every request (accepted, rejected, or flagged) writes a `SecurityAuditLog` row (`eventType: "WASM_ANALYSIS_UPLOAD"`) capturing the requesting user, upload metadata, SHA-256 digest, and finding codes, so uploads are reviewable after the fact. A logging failure is caught and logged server-side; it never fails the API response.
+
+### 6.2 Pre-Execution Transaction Simulation
+
+`POST /tx-simulation/analyze` scores a transaction envelope before it is
+signed or submitted. The engine ([tx-simulation.ts](file:///c:/Users/user/OneDrive/Documents/Open-source/stellar-alerts/apps/api/src/lib/tx-simulation.ts))
+is a **pure function** — no network, no database, no clock — so the same
+inputs always produce the same report and the whole thing is testable without
+a live network. Full indicator catalogue and scoring rules are in
+[docs/TX_PRE_EXECUTION_SIMULATION.md](file:///c:/Users/user/OneDrive/Documents/Open-source/stellar-alerts/docs/TX_PRE_EXECUTION_SIMULATION.md).
+
+- **Auth**: valid session JWT, same as every other module (`authenticateHook`).
+- **Rate limit**: `TX_SIMULATION_RATE_LIMIT_MAX` (default 20/min) on top of the app-wide limiter.
+- **The server never calls an RPC.** The caller supplies their own `simulateTransaction` output alongside the XDR. Re-simulating server-side would let a caller pair a clean simulation with a hostile envelope; keeping the pairing explicit in the request keeps the verdict honest about what it checked.
+- **Optional inputs sharpen the analysis but are never required**: `simulation` (enables footprint diffing), `ledgerBaseline` (enables balance-relative drain math and the contract/recipient allow-lists), and `options` (per-request threshold overrides). The response's `coverage` block states which checks actually ran — a clean verdict on a thin analysis is not the same as a clean verdict on a thorough one.
+- **Five indicator categories**: `footprint` (declared vs. accessed ledger keys — a write outside the declared footprint is critical, since a Soroban transaction cannot do that legitimately), `drain` (balance exhaustion, dust residue, multi-destination splits, merge/clawback), `authorization` (master-key grants, threshold changes, trustline revocations), `contract` (unverified deploys/interactions, excessive TTL extension, protocol 23+ `restoreFootprint`), and `resource` (CPU budget anomalies, footprint size).
+- **Scoring** uses fixed severity weights (`low` 5 / `medium` 12 / `high` 25 / `critical` 40) matching `utils/wasm-analyzer.ts`, so "critical" carries the same magnitude across both analyzers. A level floor prevents a serious finding from being diluted by low-severity noise, and the verdict blocks on *any* critical indicator regardless of total score — which is what makes it usable as a signing gate rather than a dashboard.
+- **Fee-bump handling**: `envelope.txHash` is the outer envelope hash (what the ledger indexes); `innerTxHash` is reported separately and the two differ on a fee-bump. Operations are read from the inner transaction, as that is what executes.
+- **Strict request body**: unrecognised keys are rejected at every level with a 400. Dropping them silently would quietly lower `coverage` without telling anyone.
+- **Persistence**: each call writes a `TransactionSimulation` row (user, hashes, network, level, verdict, score, indicator codes, report JSON, footprint diff). The envelope XDR itself is deliberately **not** stored — the row is already keyed by `envelopeHash`, and keeping raw XDR out prevents the table from becoming a store of unscanned payloads. Callers still receive the XDR in the response; `persist: false` skips the row for dry runs. A write failure never fails the request: the response reports `persisted: false` and returns the report intact.

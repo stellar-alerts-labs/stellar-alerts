@@ -10,12 +10,7 @@ import {
   sandboxReplayInputSchema,
   listSandboxReplaysQuerySchema,
 } from './modules/dead-letters/dead-letters.schema';
-import {
-  createExportSchema,
-  downloadExportQuerySchema,
-  exportIdSchema,
-  listExportsQuerySchema,
-} from './modules/exports/exports.schema';
+import { analyzeTransactionSchema } from './modules/tx-simulation/tx-simulation.schema';
 
 /**
  * The one envelope shape every thrown AppError (lib/errors.ts) is
@@ -58,6 +53,7 @@ export const openApiComponentSchemas = {
   SandboxReplayIdParams: z.toJSONSchema(sandboxReplayIdSchema),
   SandboxReplayInput: z.toJSONSchema(sandboxReplayInputSchema),
   ListSandboxReplaysQuery: z.toJSONSchema(listSandboxReplaysQuerySchema),
+  AnalyzeTransactionInput: z.toJSONSchema(analyzeTransactionSchema),
   ErrorResponse: z.toJSONSchema(errorResponseSchema),
   CreateExportInput: z.toJSONSchema(createExportSchema),
   ExportIdParams: z.toJSONSchema(exportIdSchema),
@@ -80,7 +76,7 @@ export const openApiOptions = {
       { name: 'webhooks', description: 'Custom webhook alert endpoint management' },
       { name: 'dead-letters', description: 'Inspection, replay and suppression of failed notification deliveries' },
       { name: 'webhook-sandbox', description: 'Sandbox replay of dead letters against a mock webhook receiver with response inspection' },
-      { name: 'exports', description: 'Asynchronous CSV/PDF export jobs with progress and signed downloads' },
+      { name: 'tx-simulation', description: 'Pre-execution simulation and threat scoring of transaction envelopes' },
     ],
     components: {
       schemas: openApiComponentSchemas as Record<string, any>,

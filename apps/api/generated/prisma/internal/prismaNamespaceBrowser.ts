@@ -87,7 +87,8 @@ export const ModelName = {
   DeadLetterAudit: 'DeadLetterAudit',
   MfaRecoveryCode: 'MfaRecoveryCode',
   RefreshSession: 'RefreshSession',
-  RefreshTokenHistory: 'RefreshTokenHistory'
+  RefreshTokenHistory: 'RefreshTokenHistory',
+  TransactionSimulation: 'TransactionSimulation'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -652,6 +653,26 @@ export const RefreshTokenHistoryScalarFieldEnum = {
 } as const
 
 export type RefreshTokenHistoryScalarFieldEnum = (typeof RefreshTokenHistoryScalarFieldEnum)[keyof typeof RefreshTokenHistoryScalarFieldEnum]
+
+
+export const TransactionSimulationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  envelopeHash: 'envelopeHash',
+  innerEnvelopeHash: 'innerEnvelopeHash',
+  networkPassphrase: 'networkPassphrase',
+  isFeeBump: 'isFeeBump',
+  riskLevel: 'riskLevel',
+  verdict: 'verdict',
+  score: 'score',
+  indicatorCodes: 'indicatorCodes',
+  report: 'report',
+  footprintDiff: 'footprintDiff',
+  requestSnapshot: 'requestSnapshot',
+  createdAt: 'createdAt'
+} as const
+
+export type TransactionSimulationScalarFieldEnum = (typeof TransactionSimulationScalarFieldEnum)[keyof typeof TransactionSimulationScalarFieldEnum]
 
 
 export const SortOrder = {

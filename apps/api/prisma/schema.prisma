@@ -28,7 +28,7 @@ model User {
   mfaRecoveryCodes   MfaRecoveryCode[]
   notificationDeliveries NotificationDelivery[]
   refreshSessions        RefreshSession[]
-  telegramSyncCodes      TelegramSyncCode[]
+  transactionSimulations TransactionSimulation[]
 }
 
 model Wallet {
@@ -773,5 +773,61 @@ model RefreshTokenHistory {
   @@index([familyId])
   @@index([jti])
   @@index([userId])
+}
+
+// ── Pre-execution transaction simulation (threat scoring) ─────────────────────
+//
+// One row per POST /tx-simulation/analyze call. The engine itself
+// (src/lib/tx-simulation.ts) is pure and offline; this table is the audit
+// trail so a user can answer "what did this envelope look like when I asked,
+// and what did we tell them?".
+//
+// The envelope XDR itself is deliberately NOT stored: it can be large and is
+// already identified by `envelopeHash`, and keeping raw XDR out of the row
+// means this table can't become a store of unscanned payloads. Likewise
+// `riskBreakdown`/`footprintDiff` are stored as JSON snapshots — the analysis
+// is a point-in-time judgement against the simulation/ledger data the caller
+// supplied, so replaying it later is not guaranteed to reproduce them.
+model TransactionSimulation {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Hash of the envelope exactly as submitted — for a fee-bump this is the
+  // OUTER envelope hash, which is what the ledger indexes.
+  envelopeHash String
+  // Hash of the inner transaction. Equal to envelopeHash unless fee-bump.
+  innerEnvelopeHash String
+
+  networkPassphrase String
+  isFeeBump         Boolean @default(false)
+
+  // 'none' | 'low' | 'medium' | 'high' | 'critical'
+  riskLevel String
+  // 'allow' | 'review' | 'block'
+  verdict   String
+  score     Int
+
+  // Distinct indicator codes, worst-first, so history can be queried without
+  // digging through the full JSON snapshot below.
+  indicatorCodes String[] @default([])
+
+  // Full point-in-time report: risk breakdown, coverage flags, and the decoded
+  // evidence backing each indicator.
+  report Json
+  // Footprint diff (declared vs accessed), or null when the caller supplied
+  // no simulation result to diff against.
+  footprintDiff Json?
+
+  // The caller's network/ledger inputs, kept so a disputed verdict can be
+  // explained later. Contains no secrets — passphrases and public addresses only.
+  requestSnapshot Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([envelopeHash])
+  @@index([riskLevel])
+  @@index([createdAt])
 }
 

@@ -196,7 +196,7 @@ export type UserWhereInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeListRelationFilter
   notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
   refreshSessions?: Prisma.RefreshSessionListRelationFilter
-  telegramSyncCodes?: Prisma.TelegramSyncCodeListRelationFilter
+  transactionSimulations?: Prisma.TransactionSimulationListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -219,7 +219,7 @@ export type UserOrderByWithRelationInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeOrderByRelationAggregateInput
   notificationDeliveries?: Prisma.NotificationDeliveryOrderByRelationAggregateInput
   refreshSessions?: Prisma.RefreshSessionOrderByRelationAggregateInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeOrderByRelationAggregateInput
+  transactionSimulations?: Prisma.TransactionSimulationOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -245,7 +245,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeListRelationFilter
   notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
   refreshSessions?: Prisma.RefreshSessionListRelationFilter
-  telegramSyncCodes?: Prisma.TelegramSyncCodeListRelationFilter
+  transactionSimulations?: Prisma.TransactionSimulationListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -290,7 +290,7 @@ export type UserCreateInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -313,7 +313,7 @@ export type UserUncheckedCreateInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -336,7 +336,7 @@ export type UserUpdateInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -359,7 +359,7 @@ export type UserUncheckedUpdateInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -652,6 +652,20 @@ export type UserUpdateOneRequiredWithoutRefreshSessionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRefreshSessionsInput, Prisma.UserUpdateWithoutRefreshSessionsInput>, Prisma.UserUncheckedUpdateWithoutRefreshSessionsInput>
 }
 
+export type UserCreateNestedOneWithoutTransactionSimulationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTransactionSimulationsInput, Prisma.UserUncheckedCreateWithoutTransactionSimulationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTransactionSimulationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutTransactionSimulationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutTransactionSimulationsInput, Prisma.UserUncheckedCreateWithoutTransactionSimulationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutTransactionSimulationsInput
+  upsert?: Prisma.UserUpsertWithoutTransactionSimulationsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTransactionSimulationsInput, Prisma.UserUpdateWithoutTransactionSimulationsInput>, Prisma.UserUncheckedUpdateWithoutTransactionSimulationsInput>
+}
+
 export type UserCreateWithoutWalletsInput = {
   id?: string
   email: string
@@ -671,7 +685,7 @@ export type UserCreateWithoutWalletsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWalletsInput = {
@@ -693,7 +707,7 @@ export type UserUncheckedCreateWithoutWalletsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWalletsInput = {
@@ -731,7 +745,7 @@ export type UserUpdateWithoutWalletsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWalletsInput = {
@@ -753,7 +767,7 @@ export type UserUncheckedUpdateWithoutWalletsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutNotifyPrefsInput = {
@@ -775,7 +789,7 @@ export type UserCreateWithoutNotifyPrefsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutNotifyPrefsInput = {
@@ -797,7 +811,7 @@ export type UserUncheckedCreateWithoutNotifyPrefsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutNotifyPrefsInput = {
@@ -835,7 +849,7 @@ export type UserUpdateWithoutNotifyPrefsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotifyPrefsInput = {
@@ -857,7 +871,7 @@ export type UserUncheckedUpdateWithoutNotifyPrefsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAlertRulesInput = {
@@ -879,7 +893,7 @@ export type UserCreateWithoutAlertRulesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAlertRulesInput = {
@@ -901,7 +915,7 @@ export type UserUncheckedCreateWithoutAlertRulesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAlertRulesInput = {
@@ -939,7 +953,7 @@ export type UserUpdateWithoutAlertRulesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAlertRulesInput = {
@@ -961,111 +975,7 @@ export type UserUncheckedUpdateWithoutAlertRulesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserCreateWithoutTelegramSyncCodesInput = {
-  id?: string
-  email: string
-  mfaSecret?: string | null
-  mfaEnabled?: boolean
-  createdAt?: Date | string
-  wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
-  webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
-  notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
-  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
-  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
-  anchorWatches?: Prisma.AnchorTransactionWatchCreateNestedManyWithoutUserInput
-  dexSwapWatches?: Prisma.DexSwapWatchCreateNestedManyWithoutUserInput
-  alertRules?: Prisma.AlertRuleCreateNestedManyWithoutUserInput
-  deliveryAttempts?: Prisma.NotificationDeliveryAttemptCreateNestedManyWithoutUserInput
-  deadLetters?: Prisma.DeadLetterCreateNestedManyWithoutUserInput
-  webhookSandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutUserInput
-  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
-  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
-  refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-}
-
-export type UserUncheckedCreateWithoutTelegramSyncCodesInput = {
-  id?: string
-  email: string
-  mfaSecret?: string | null
-  mfaEnabled?: boolean
-  createdAt?: Date | string
-  wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
-  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
-  notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
-  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
-  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
-  anchorWatches?: Prisma.AnchorTransactionWatchUncheckedCreateNestedManyWithoutUserInput
-  dexSwapWatches?: Prisma.DexSwapWatchUncheckedCreateNestedManyWithoutUserInput
-  alertRules?: Prisma.AlertRuleUncheckedCreateNestedManyWithoutUserInput
-  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUncheckedCreateNestedManyWithoutUserInput
-  deadLetters?: Prisma.DeadLetterUncheckedCreateNestedManyWithoutUserInput
-  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutUserInput
-  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
-  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
-  refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutTelegramSyncCodesInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutTelegramSyncCodesInput, Prisma.UserUncheckedCreateWithoutTelegramSyncCodesInput>
-}
-
-export type UserUpsertWithoutTelegramSyncCodesInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutTelegramSyncCodesInput, Prisma.UserUncheckedUpdateWithoutTelegramSyncCodesInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutTelegramSyncCodesInput, Prisma.UserUncheckedCreateWithoutTelegramSyncCodesInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutTelegramSyncCodesInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutTelegramSyncCodesInput, Prisma.UserUncheckedUpdateWithoutTelegramSyncCodesInput>
-}
-
-export type UserUpdateWithoutTelegramSyncCodesInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  mfaSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  mfaEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
-  webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
-  notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
-  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
-  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
-  anchorWatches?: Prisma.AnchorTransactionWatchUpdateManyWithoutUserNestedInput
-  dexSwapWatches?: Prisma.DexSwapWatchUpdateManyWithoutUserNestedInput
-  alertRules?: Prisma.AlertRuleUpdateManyWithoutUserNestedInput
-  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUpdateManyWithoutUserNestedInput
-  deadLetters?: Prisma.DeadLetterUpdateManyWithoutUserNestedInput
-  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutUserNestedInput
-  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
-  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
-  refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-}
-
-export type UserUncheckedUpdateWithoutTelegramSyncCodesInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  mfaSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  mfaEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
-  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
-  notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
-  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
-  anchorWatches?: Prisma.AnchorTransactionWatchUncheckedUpdateManyWithoutUserNestedInput
-  dexSwapWatches?: Prisma.DexSwapWatchUncheckedUpdateManyWithoutUserNestedInput
-  alertRules?: Prisma.AlertRuleUncheckedUpdateManyWithoutUserNestedInput
-  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUncheckedUpdateManyWithoutUserNestedInput
-  deadLetters?: Prisma.DeadLetterUncheckedUpdateManyWithoutUserNestedInput
-  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutUserNestedInput
-  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
-  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
-  refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWebhooksInput = {
@@ -1087,7 +997,7 @@ export type UserCreateWithoutWebhooksInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWebhooksInput = {
@@ -1109,7 +1019,7 @@ export type UserUncheckedCreateWithoutWebhooksInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWebhooksInput = {
@@ -1147,7 +1057,7 @@ export type UserUpdateWithoutWebhooksInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWebhooksInput = {
@@ -1169,7 +1079,7 @@ export type UserUncheckedUpdateWithoutWebhooksInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSorobanSubscriptionsInput = {
@@ -1191,7 +1101,7 @@ export type UserCreateWithoutSorobanSubscriptionsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSorobanSubscriptionsInput = {
@@ -1213,7 +1123,7 @@ export type UserUncheckedCreateWithoutSorobanSubscriptionsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSorobanSubscriptionsInput = {
@@ -1251,7 +1161,7 @@ export type UserUpdateWithoutSorobanSubscriptionsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSorobanSubscriptionsInput = {
@@ -1273,7 +1183,7 @@ export type UserUncheckedUpdateWithoutSorobanSubscriptionsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMultisigSignerWatchesInput = {
@@ -1295,7 +1205,7 @@ export type UserCreateWithoutMultisigSignerWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMultisigSignerWatchesInput = {
@@ -1317,7 +1227,7 @@ export type UserUncheckedCreateWithoutMultisigSignerWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMultisigSignerWatchesInput = {
@@ -1355,7 +1265,7 @@ export type UserUpdateWithoutMultisigSignerWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMultisigSignerWatchesInput = {
@@ -1377,7 +1287,7 @@ export type UserUncheckedUpdateWithoutMultisigSignerWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAnchorWatchesInput = {
@@ -1399,7 +1309,7 @@ export type UserCreateWithoutAnchorWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAnchorWatchesInput = {
@@ -1421,7 +1331,7 @@ export type UserUncheckedCreateWithoutAnchorWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAnchorWatchesInput = {
@@ -1459,7 +1369,7 @@ export type UserUpdateWithoutAnchorWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAnchorWatchesInput = {
@@ -1481,7 +1391,7 @@ export type UserUncheckedUpdateWithoutAnchorWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutDexSwapWatchesInput = {
@@ -1503,7 +1413,7 @@ export type UserCreateWithoutDexSwapWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutDexSwapWatchesInput = {
@@ -1525,7 +1435,7 @@ export type UserUncheckedCreateWithoutDexSwapWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutDexSwapWatchesInput = {
@@ -1563,7 +1473,7 @@ export type UserUpdateWithoutDexSwapWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDexSwapWatchesInput = {
@@ -1585,7 +1495,7 @@ export type UserUncheckedUpdateWithoutDexSwapWatchesInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutNotificationDeliveriesInput = {
@@ -1607,7 +1517,7 @@ export type UserCreateWithoutNotificationDeliveriesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutUserInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutNotificationDeliveriesInput = {
@@ -1629,7 +1539,7 @@ export type UserUncheckedCreateWithoutNotificationDeliveriesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutUserInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutNotificationDeliveriesInput = {
@@ -1667,7 +1577,7 @@ export type UserUpdateWithoutNotificationDeliveriesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutUserNestedInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotificationDeliveriesInput = {
@@ -1689,7 +1599,7 @@ export type UserUncheckedUpdateWithoutNotificationDeliveriesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutUserNestedInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutDeliveryAttemptsInput = {
@@ -1711,7 +1621,7 @@ export type UserCreateWithoutDeliveryAttemptsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutDeliveryAttemptsInput = {
@@ -1733,7 +1643,7 @@ export type UserUncheckedCreateWithoutDeliveryAttemptsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutDeliveryAttemptsInput = {
@@ -1771,7 +1681,7 @@ export type UserUpdateWithoutDeliveryAttemptsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDeliveryAttemptsInput = {
@@ -1793,7 +1703,7 @@ export type UserUncheckedUpdateWithoutDeliveryAttemptsInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutDeadLettersInput = {
@@ -1815,7 +1725,7 @@ export type UserCreateWithoutDeadLettersInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutDeadLettersInput = {
@@ -1837,7 +1747,7 @@ export type UserUncheckedCreateWithoutDeadLettersInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutDeadLettersInput = {
@@ -1875,7 +1785,7 @@ export type UserUpdateWithoutDeadLettersInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDeadLettersInput = {
@@ -1897,7 +1807,7 @@ export type UserUncheckedUpdateWithoutDeadLettersInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWebhookSandboxReplaysInput = {
@@ -1919,7 +1829,7 @@ export type UserCreateWithoutWebhookSandboxReplaysInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWebhookSandboxReplaysInput = {
@@ -1941,7 +1851,7 @@ export type UserUncheckedCreateWithoutWebhookSandboxReplaysInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWebhookSandboxReplaysInput = {
@@ -1979,7 +1889,7 @@ export type UserUpdateWithoutWebhookSandboxReplaysInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWebhookSandboxReplaysInput = {
@@ -2001,7 +1911,7 @@ export type UserUncheckedUpdateWithoutWebhookSandboxReplaysInput = {
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMfaRecoveryCodesInput = {
@@ -2023,7 +1933,7 @@ export type UserCreateWithoutMfaRecoveryCodesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMfaRecoveryCodesInput = {
@@ -2045,7 +1955,7 @@ export type UserUncheckedCreateWithoutMfaRecoveryCodesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMfaRecoveryCodesInput = {
@@ -2083,7 +1993,7 @@ export type UserUpdateWithoutMfaRecoveryCodesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMfaRecoveryCodesInput = {
@@ -2105,7 +2015,7 @@ export type UserUncheckedUpdateWithoutMfaRecoveryCodesInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRefreshSessionsInput = {
@@ -2127,7 +2037,7 @@ export type UserCreateWithoutRefreshSessionsInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutUserInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRefreshSessionsInput = {
@@ -2149,7 +2059,7 @@ export type UserUncheckedCreateWithoutRefreshSessionsInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutUserInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedCreateNestedManyWithoutUserInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRefreshSessionsInput = {
@@ -2187,7 +2097,7 @@ export type UserUpdateWithoutRefreshSessionsInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutUserNestedInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRefreshSessionsInput = {
@@ -2209,7 +2119,111 @@ export type UserUncheckedUpdateWithoutRefreshSessionsInput = {
   webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutUserNestedInput
   mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
-  telegramSyncCodes?: Prisma.TelegramSyncCodeUncheckedUpdateManyWithoutUserNestedInput
+  transactionSimulations?: Prisma.TransactionSimulationUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutTransactionSimulationsInput = {
+  id?: string
+  email: string
+  mfaSecret?: string | null
+  mfaEnabled?: boolean
+  createdAt?: Date | string
+  wallets?: Prisma.WalletCreateNestedManyWithoutUserInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutUserInput
+  notifyPrefs?: Prisma.NotificationPreferenceCreateNestedOneWithoutUserInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherCreateNestedManyWithoutUserInput
+  anchorWatches?: Prisma.AnchorTransactionWatchCreateNestedManyWithoutUserInput
+  dexSwapWatches?: Prisma.DexSwapWatchCreateNestedManyWithoutUserInput
+  alertRules?: Prisma.AlertRuleCreateNestedManyWithoutUserInput
+  deliveryAttempts?: Prisma.NotificationDeliveryAttemptCreateNestedManyWithoutUserInput
+  deadLetters?: Prisma.DeadLetterCreateNestedManyWithoutUserInput
+  webhookSandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutUserInput
+  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutTransactionSimulationsInput = {
+  id?: string
+  email: string
+  mfaSecret?: string | null
+  mfaEnabled?: boolean
+  createdAt?: Date | string
+  wallets?: Prisma.WalletUncheckedCreateNestedManyWithoutUserInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutUserInput
+  notifyPrefs?: Prisma.NotificationPreferenceUncheckedCreateNestedOneWithoutUserInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedCreateNestedManyWithoutUserInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedCreateNestedManyWithoutUserInput
+  anchorWatches?: Prisma.AnchorTransactionWatchUncheckedCreateNestedManyWithoutUserInput
+  dexSwapWatches?: Prisma.DexSwapWatchUncheckedCreateNestedManyWithoutUserInput
+  alertRules?: Prisma.AlertRuleUncheckedCreateNestedManyWithoutUserInput
+  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUncheckedCreateNestedManyWithoutUserInput
+  deadLetters?: Prisma.DeadLetterUncheckedCreateNestedManyWithoutUserInput
+  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutUserInput
+  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutTransactionSimulationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutTransactionSimulationsInput, Prisma.UserUncheckedCreateWithoutTransactionSimulationsInput>
+}
+
+export type UserUpsertWithoutTransactionSimulationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutTransactionSimulationsInput, Prisma.UserUncheckedUpdateWithoutTransactionSimulationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutTransactionSimulationsInput, Prisma.UserUncheckedCreateWithoutTransactionSimulationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutTransactionSimulationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutTransactionSimulationsInput, Prisma.UserUncheckedUpdateWithoutTransactionSimulationsInput>
+}
+
+export type UserUpdateWithoutTransactionSimulationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  mfaSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mfaEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wallets?: Prisma.WalletUpdateManyWithoutUserNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutUserNestedInput
+  notifyPrefs?: Prisma.NotificationPreferenceUpdateOneWithoutUserNestedInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUpdateManyWithoutUserNestedInput
+  anchorWatches?: Prisma.AnchorTransactionWatchUpdateManyWithoutUserNestedInput
+  dexSwapWatches?: Prisma.DexSwapWatchUpdateManyWithoutUserNestedInput
+  alertRules?: Prisma.AlertRuleUpdateManyWithoutUserNestedInput
+  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUpdateManyWithoutUserNestedInput
+  deadLetters?: Prisma.DeadLetterUpdateManyWithoutUserNestedInput
+  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutUserNestedInput
+  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutTransactionSimulationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  mfaSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mfaEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wallets?: Prisma.WalletUncheckedUpdateManyWithoutUserNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutUserNestedInput
+  notifyPrefs?: Prisma.NotificationPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  sorobanSubscriptions?: Prisma.SorobanContractSubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  multisigSignerWatches?: Prisma.MultisigSignerWatcherUncheckedUpdateManyWithoutUserNestedInput
+  anchorWatches?: Prisma.AnchorTransactionWatchUncheckedUpdateManyWithoutUserNestedInput
+  dexSwapWatches?: Prisma.DexSwapWatchUncheckedUpdateManyWithoutUserNestedInput
+  alertRules?: Prisma.AlertRuleUncheckedUpdateManyWithoutUserNestedInput
+  deliveryAttempts?: Prisma.NotificationDeliveryAttemptUncheckedUpdateManyWithoutUserNestedInput
+  deadLetters?: Prisma.DeadLetterUncheckedUpdateManyWithoutUserNestedInput
+  webhookSandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutUserNestedInput
+  mfaRecoveryCodes?: Prisma.MfaRecoveryCodeUncheckedUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -2231,7 +2245,7 @@ export type UserCountOutputType = {
   mfaRecoveryCodes: number
   notificationDeliveries: number
   refreshSessions: number
-  telegramSyncCodes: number
+  transactionSimulations: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2248,7 +2262,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   mfaRecoveryCodes?: boolean | UserCountOutputTypeCountMfaRecoveryCodesArgs
   notificationDeliveries?: boolean | UserCountOutputTypeCountNotificationDeliveriesArgs
   refreshSessions?: boolean | UserCountOutputTypeCountRefreshSessionsArgs
-  telegramSyncCodes?: boolean | UserCountOutputTypeCountTelegramSyncCodesArgs
+  transactionSimulations?: boolean | UserCountOutputTypeCountTransactionSimulationsArgs
 }
 
 /**
@@ -2355,8 +2369,8 @@ export type UserCountOutputTypeCountRefreshSessionsArgs<ExtArgs extends runtime.
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountTelegramSyncCodesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TelegramSyncCodeWhereInput
+export type UserCountOutputTypeCountTransactionSimulationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TransactionSimulationWhereInput
 }
 
 
@@ -2380,7 +2394,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   mfaRecoveryCodes?: boolean | Prisma.User$mfaRecoveryCodesArgs<ExtArgs>
   notificationDeliveries?: boolean | Prisma.User$notificationDeliveriesArgs<ExtArgs>
   refreshSessions?: boolean | Prisma.User$refreshSessionsArgs<ExtArgs>
-  telegramSyncCodes?: boolean | Prisma.User$telegramSyncCodesArgs<ExtArgs>
+  transactionSimulations?: boolean | Prisma.User$transactionSimulationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -2424,7 +2438,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   mfaRecoveryCodes?: boolean | Prisma.User$mfaRecoveryCodesArgs<ExtArgs>
   notificationDeliveries?: boolean | Prisma.User$notificationDeliveriesArgs<ExtArgs>
   refreshSessions?: boolean | Prisma.User$refreshSessionsArgs<ExtArgs>
-  telegramSyncCodes?: boolean | Prisma.User$telegramSyncCodesArgs<ExtArgs>
+  transactionSimulations?: boolean | Prisma.User$transactionSimulationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -2447,7 +2461,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     mfaRecoveryCodes: Prisma.$MfaRecoveryCodePayload<ExtArgs>[]
     notificationDeliveries: Prisma.$NotificationDeliveryPayload<ExtArgs>[]
     refreshSessions: Prisma.$RefreshSessionPayload<ExtArgs>[]
-    telegramSyncCodes: Prisma.$TelegramSyncCodePayload<ExtArgs>[]
+    transactionSimulations: Prisma.$TransactionSimulationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2863,7 +2877,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   mfaRecoveryCodes<T extends Prisma.User$mfaRecoveryCodesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$mfaRecoveryCodesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MfaRecoveryCodePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notificationDeliveries<T extends Prisma.User$notificationDeliveriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notificationDeliveriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationDeliveryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   refreshSessions<T extends Prisma.User$refreshSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$refreshSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RefreshSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  telegramSyncCodes<T extends Prisma.User$telegramSyncCodesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$telegramSyncCodesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TelegramSyncCodePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  transactionSimulations<T extends Prisma.User$transactionSimulationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$transactionSimulationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransactionSimulationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3622,27 +3636,27 @@ export type User$refreshSessionsArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
- * User.telegramSyncCodes
+ * User.transactionSimulations
  */
-export type User$telegramSyncCodesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type User$transactionSimulationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the TelegramSyncCode
+   * Select specific fields to fetch from the TransactionSimulation
    */
-  select?: Prisma.TelegramSyncCodeSelect<ExtArgs> | null
+  select?: Prisma.TransactionSimulationSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the TelegramSyncCode
+   * Omit specific fields from the TransactionSimulation
    */
-  omit?: Prisma.TelegramSyncCodeOmit<ExtArgs> | null
+  omit?: Prisma.TransactionSimulationOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.TelegramSyncCodeInclude<ExtArgs> | null
-  where?: Prisma.TelegramSyncCodeWhereInput
-  orderBy?: Prisma.TelegramSyncCodeOrderByWithRelationInput | Prisma.TelegramSyncCodeOrderByWithRelationInput[]
-  cursor?: Prisma.TelegramSyncCodeWhereUniqueInput
+  include?: Prisma.TransactionSimulationInclude<ExtArgs> | null
+  where?: Prisma.TransactionSimulationWhereInput
+  orderBy?: Prisma.TransactionSimulationOrderByWithRelationInput | Prisma.TransactionSimulationOrderByWithRelationInput[]
+  cursor?: Prisma.TransactionSimulationWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.TelegramSyncCodeScalarFieldEnum | Prisma.TelegramSyncCodeScalarFieldEnum[]
+  distinct?: Prisma.TransactionSimulationScalarFieldEnum | Prisma.TransactionSimulationScalarFieldEnum[]
 }
 
 /**

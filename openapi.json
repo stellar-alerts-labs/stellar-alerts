@@ -276,6 +276,168 @@
         ],
         "additionalProperties": false
       },
+      "AnalyzeTransactionInput": {
+        "type": "object",
+        "properties": {
+          "envelopeXdr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512000
+          },
+          "networkPassphrase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "simulation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "costCpuInsns": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "costMemBytes": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "readOnlyLedgerKeys": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "readWriteLedgerKeys": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "archivedLedgerKeys": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "restoreRequired": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ledgerBaseline": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "nativeBalanceStroops": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "knownRecipients": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "trustedContracts": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "drainExhaustionRatio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000
+                  },
+                  "drainSplitDestinationThreshold": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 1000
+                  },
+                  "dustResidueStroops": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "ttlExtensionLedgerThreshold": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "cpuInstructionThreshold": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "maxFootprintEntries": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000
+                  },
+                  "pathPaymentAsymmetryRatio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000
+                  },
+                  "footprintExpansionRatio": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "persist": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "envelopeXdr",
+          "networkPassphrase"
+        ],
+        "additionalProperties": false
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -454,8 +616,8 @@
       "description": "Sandbox replay of dead letters against a mock webhook receiver with response inspection"
     },
     {
-      "name": "exports",
-      "description": "Asynchronous CSV/PDF export jobs with progress and signed downloads"
+      "name": "tx-simulation",
+      "description": "Pre-execution simulation and threat scoring of transaction envelopes"
     }
   ]
 }

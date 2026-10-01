@@ -86,6 +86,35 @@ export interface components {
             /** @default 20 */
             pageSize: number;
         };
+        AnalyzeTransactionInput: {
+            envelopeXdr: string;
+            networkPassphrase: string;
+            simulation?: {
+                status?: string;
+                costCpuInsns?: string;
+                costMemBytes?: string;
+                readOnlyLedgerKeys?: string[];
+                readWriteLedgerKeys?: string[];
+                archivedLedgerKeys?: string[];
+                restoreRequired?: boolean;
+            } | null;
+            ledgerBaseline?: {
+                nativeBalanceStroops?: string;
+                knownRecipients?: string[];
+                trustedContracts?: string[];
+            } | null;
+            options?: {
+                drainExhaustionRatio?: number;
+                drainSplitDestinationThreshold?: number;
+                dustResidueStroops?: number;
+                ttlExtensionLedgerThreshold?: number;
+                cpuInstructionThreshold?: number;
+                maxFootprintEntries?: number;
+                pathPaymentAsymmetryRatio?: number;
+                footprintExpansionRatio?: number;
+            } | null;
+            persist?: boolean;
+        };
         ErrorResponse: {
             error: {
                 /** @description Stable, machine-readable error code (e.g. VALIDATION_ERROR, NOT_FOUND, CONFLICT). */

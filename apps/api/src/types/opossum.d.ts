@@ -23,6 +23,10 @@ declare module "opossum" {
     };
   }
 
+  /**
+   * opossum's breaker is an EventEmitter: `open`/`halfOpen`/`close` are
+   * emitted so state can be mirrored to Redis or a metrics sink.
+   */
   class CircuitBreaker<T extends (...args: any[]) => Promise<any>> {
     constructor(
       fn: T,
@@ -37,7 +41,14 @@ declare module "opossum" {
     isClosed(): boolean;
     isOpen(): boolean;
     isHalfOpen(): boolean;
-    on(event: string, listener: (...args: any[]) => void): this;
+    on(event: string | symbol, listener: (...args: any[]) => void): this;
+    once(event: string | symbol, listener: (...args: any[]) => void): this;
+    off(event: string | symbol, listener: (...args: any[]) => void): this;
+    removeListener(
+      event: string | symbol,
+      listener: (...args: any[]) => void
+    ): this;
+    removeAllListeners(event?: string | symbol): this;
   }
 
   export = CircuitBreaker;

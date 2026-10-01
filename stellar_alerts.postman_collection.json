@@ -274,6 +274,77 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Transaction Simulation",
+      "item": [
+        {
+          "name": "Analyze Transaction (dry run)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Session JWT saved by 'Verify Magic Link'."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"envelopeXdr\": \"{{envelopeXdr}}\",\n  \"networkPassphrase\": \"Test SDF Network ; September 2015\",\n  \"persist\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tx-simulation/analyze",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tx-simulation",
+                "analyze"
+              ]
+            },
+            "description": "Score an envelope before signing. persist:false skips the audit row. With no `simulation` and no `ledgerBaseline`, only checks that need neither can run - check `coverage` in the response to see what was actually analysed."
+          },
+          "response": []
+        },
+        {
+          "name": "Analyze Transaction (full coverage)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Session JWT saved by 'Verify Magic Link'."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"envelopeXdr\": \"{{envelopeXdr}}\",\n  \"networkPassphrase\": \"Test SDF Network ; September 2015\",\n  \"simulation\": {\n    \"status\": \"SUCCESS\",\n    \"costCpuInsns\": \"1234567\",\n    \"readOnlyLedgerKeys\": [],\n    \"readWriteLedgerKeys\": [],\n    \"archivedLedgerKeys\": [],\n    \"restoreRequired\": false\n  },\n  \"ledgerBaseline\": {\n    \"nativeBalanceStroops\": \"100000000\",\n    \"knownRecipients\": [],\n    \"trustedContracts\": []\n  },\n  \"options\": {\n    \"drainExhaustionRatio\": 0.9,\n    \"drainSplitDestinationThreshold\": 3,\n    \"ttlExtensionLedgerThreshold\": 535\n  },\n  \"persist\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tx-simulation/analyze",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tx-simulation",
+                "analyze"
+              ]
+            },
+            "description": "Supplies a `simulateTransaction` result for the SAME envelope plus caller-known ledger facts, which is what enables the footprint diff and the balance-relative drain checks. A `verdict: allow` here means far more was checked than in the dry run - see the `coverage` block in the response."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -296,6 +367,12 @@
       "key": "walletId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "envelopeXdr",
+      "value": "",
+      "type": "string",
+      "description": "Base64 TransactionEnvelope XDR, from a `simulateTransaction` dry run or a signing flow."
     }
   ]
 }

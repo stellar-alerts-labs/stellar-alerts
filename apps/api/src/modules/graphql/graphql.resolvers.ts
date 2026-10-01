@@ -1,4 +1,4 @@
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { prisma } from '../../lib/prisma';
 
 interface PaymentFilter {
@@ -13,47 +13,84 @@ interface SorobanEventFilter {
 }
 
 /**
- * Creates an async generator that yields messages published to a Redis pub/sub channel.
- * ioredis subscriber clients are not async iterables, so we bridge with a queue + event.
+ * Builds an `AsyncIterableIterator` over a Redis pub/sub channel.
+ *
+ * `ioredis` publishes messages through its `message` event and does not
+ * implement `Symbol.asyncIterator` itself, so the messages are drained off an
+ * in-memory queue. `transform` returns `null` to drop a message that the
+ * subscription's filter rejects — dropping happens before the queue, so a
+ * filtered subscription never yields a `null` payload downstream. The queue is
+ * unbounded to match pub/sub semantics (a slow consumer must not silently lose
+ * published payments), and `return()` both unsubscribes and closes the socket
+ * so a disconnecting subscription does not leak a connection per subscriber.
  */
-async function* redisChannelIterator(
-  subscriber: Redis,
+function createChannelIterator(
+  redis: Redis,
   channel: string,
-): AsyncGenerator<string> {
-  const queue: string[] = [];
-  let resolve: (() => void) | null = null;
+  transform: (payload: string) => Record<string, unknown> | null,
+): AsyncIterableIterator<Record<string, unknown>> {
+  const queue: Record<string, unknown>[] = [];
   let done = false;
+  let notify: (() => void) | null = null;
 
-  subscriber.on('message', (_ch: string, msg: string) => {
-    if (_ch !== channel) return;
-    queue.push(msg);
-    if (resolve) {
-      const r = resolve;
-      resolve = null;
-      r();
-    }
+  const wake = () => {
+    const resume = notify;
+    notify = null;
+    resume?.();
+  };
+
+  const subscriber = redis.duplicate();
+
+  subscriber.on('message', (incomingChannel: string, message: string) => {
+    if (incomingChannel !== channel || done) return;
+    const value = transform(message);
+    if (value === null) return;
+    queue.push(value);
+    wake();
   });
 
-  subscriber.on('end', () => {
+  const cleanup = async () => {
+    if (done) return;
     done = true;
-    if (resolve) {
-      const r = resolve;
-      resolve = null;
-      r();
+    wake();
+    try {
+      await subscriber.unsubscribe(channel);
+    } catch {
+      // The socket may already be closing; quitting below is sufficient.
     }
-  });
+    try {
+      await subscriber.quit();
+    } catch {
+      subscriber.disconnect();
+    }
+  };
 
-  while (true) {
-    if (queue.length > 0) {
-      yield queue.shift()!;
-    } else if (done) {
-      return;
-    } else {
-      await new Promise<void>((res) => {
-        resolve = res;
-      });
-    }
-  }
+  const subscribe = (async () => {
+    await subscriber.subscribe(channel);
+  })();
+
+  const iterator: AsyncIterableIterator<Record<string, unknown>> = {
+    async next() {
+      await subscribe;
+      while (queue.length === 0) {
+        if (done) return { done: true, value: undefined };
+        await new Promise<void>((resolve) => {
+          notify = resolve;
+        });
+      }
+      const value = queue.shift() as Record<string, unknown>;
+      return { done: false, value };
+    },
+    async return() {
+      await cleanup();
+      return { done: true, value: undefined };
+    },
+    [Symbol.asyncIterator]() {
+      return iterator;
+    },
+  };
+
+  return iterator;
 }
 
 export const createResolvers = (redis: Redis) => ({
@@ -62,79 +99,37 @@ export const createResolvers = (redis: Redis) => ({
   },
   Subscription: {
     paymentStream: {
-      subscribe: async (_: unknown, { filter }: { filter?: PaymentFilter }) => {
-        const subscriber = redis.duplicate();
-        await subscriber.subscribe('payments');
+      subscribe: async (_: unknown, { filter }: { filter?: PaymentFilter }) =>
+        createChannelIterator(redis, 'payments', (message) => {
+          const payment = JSON.parse(message) as Record<string, unknown>;
 
-        const asyncIterator = {
-          [Symbol.asyncIterator]: async function* () {
-            try {
-              for await (const message of redisChannelIterator(subscriber, 'payments')) {
-                const payment = JSON.parse(message);
+          if (filter) {
+            if (filter.walletId && payment.walletId !== filter.walletId) return null;
+            if (filter.asset && payment.asset !== filter.asset) return null;
+            if (filter.minAmount && Number(payment.amount) < filter.minAmount) return null;
+          }
 
-                if (filter) {
-                  if (filter.walletId && payment.walletId !== filter.walletId) continue;
-                  if (filter.asset && payment.asset !== filter.asset) continue;
-                  if (filter.minAmount && parseFloat(payment.amount) < filter.minAmount) continue;
-                }
-
-                yield payment;
-              }
-            } finally {
-              await subscriber.quit();
-            }
-          },
-        };
-
-        return asyncIterator;
-      },
+          return payment;
+        }),
     },
     sorobanEventStream: {
-      subscribe: async (_: unknown, { filter }: { filter?: SorobanEventFilter }) => {
-        const subscriber = redis.duplicate();
-        await subscriber.subscribe('soroban_events');
+      subscribe: async (_: unknown, { filter }: { filter?: SorobanEventFilter }) =>
+        createChannelIterator(redis, 'soroban_events', (message) => {
+          const event = JSON.parse(message) as Record<string, unknown>;
 
-        const asyncIterator = {
-          [Symbol.asyncIterator]: async function* () {
-            try {
-              for await (const message of redisChannelIterator(subscriber, 'soroban_events')) {
-                const event = JSON.parse(message);
+          if (filter) {
+            if (filter.contractId && event.contractId !== filter.contractId) return null;
+            if (filter.topicSymbol && event.topicSymbol !== filter.topicSymbol) return null;
+          }
 
-                if (filter) {
-                  if (filter.contractId && event.contractId !== filter.contractId) continue;
-                  if (filter.topicSymbol && event.topicSymbol !== filter.topicSymbol) continue;
-                }
-
-                yield event;
-              }
-            } finally {
-              await subscriber.quit();
-            }
-          },
-        };
-
-        return asyncIterator;
-      },
+          return event;
+        }),
     },
     systemMetrics: {
-      subscribe: async () => {
-        const subscriber = redis.duplicate();
-        await subscriber.subscribe('system_metrics');
-
-        const asyncIterator = {
-          [Symbol.asyncIterator]: async function* () {
-            try {
-              for await (const message of redisChannelIterator(subscriber, 'system_metrics')) {
-                yield JSON.parse(message);
-              }
-            } finally {
-              await subscriber.quit();
-            }
-          },
-        };
-
-        return asyncIterator;
-      },
+      subscribe: async () =>
+        createChannelIterator(redis, 'system_metrics', (message) =>
+          JSON.parse(message) as Record<string, unknown>,
+        ),
     },
   },
 });

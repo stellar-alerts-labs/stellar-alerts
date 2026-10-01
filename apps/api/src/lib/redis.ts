@@ -193,8 +193,12 @@ function createClient(): Redis {
 export const redis = createClient();
 
 /**
- * Returns the shared Redis singleton client instance.
- * Use this when a module needs to import the client by a named function.
+ * Accessor for the shared Redis client.
+ *
+ * Consumers that need the raw client rather than the degraded-safe helpers
+ * above (GraphQL subscriptions, the gRPC server) take it through this function
+ * instead of building a second connection, so every caller shares the one
+ * client and its lifecycle, retry and degradation handlers.
  */
 export function getRedisClient(): Redis {
   return redis;

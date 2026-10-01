@@ -32,8 +32,16 @@ describe('Stellar Alerts Watcher Services (#425, #427, #428, #429)', () => {
     );
     expect(evicted?.status).toBe('EVICTED');
 
+    // remaining <= 1000 ledgers is the CRITICAL band
+    const critical = engine.checkEntryTTL(
+      { keyHash: '0x789', contractId: 'CCONTR', durability: 'PERSISTENT', liveUntilLedger: 1500 },
+      1000,
+    );
+    expect(critical?.status).toBe('CRITICAL');
+
+    // remaining above the CRITICAL band but under the ~1 day minLive threshold
     const warning = engine.checkEntryTTL(
-      { keyHash: '0x456', contractId: 'CCONTR', durability: 'PERSISTENT', liveUntilLedger: 3000 },
+      { keyHash: '0x456', contractId: 'CCONTR', durability: 'PERSISTENT', liveUntilLedger: 5000 },
       1000,
     );
     expect(warning?.status).toBe('WARNING');

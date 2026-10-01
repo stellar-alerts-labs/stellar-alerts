@@ -1,6 +1,8 @@
-// The Apollo Server accepts either a DocumentNode or a plain string for typeDefs.
-// We use a tagged template for syntax highlighting without importing 'graphql' directly.
-export const typeDefs = `#graphql
+// `gql` was removed from the `graphql` root export in 16.14; `parse` is the
+// supported way to turn an SDL template literal into a DocumentNode.
+import { parse } from 'graphql';
+
+export const typeDefs = parse(`
   type Payment {
     id: String!
     walletId: String!
@@ -53,4 +55,4 @@ export const typeDefs = `#graphql
   type Query {
     health: String
   }
-`;
+`);
