@@ -6,12 +6,12 @@ import {
   MerkleProofStep,
 } from "../utils/merkle-verifier";
 import { decodeScAddress, decodeScAmount, formatTokenAmount } from "./stellar";
+import { stellarNetwork } from "../config/network";
 import { sorobanStateService } from "../modules/soroban-state/soroban-state.service";
 import { env } from "../config/env";
 import { withDeadline } from "./external-request";
 
-const SOROBAN_RPC_URL =
-  process.env.SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
+export const SOROBAN_RPC_URL = stellarNetwork.sorobanRpcUrl;
 const LEDGER_BATCH_SIZE = 100;
 const MAX_ACTIVE_CONTRACTS = 100;
 
@@ -99,9 +99,12 @@ export async function loadContractRegistry(): Promise<
 
 /**
  * Routes an event to matching subscribed users based on contract ID and topic.
+ *
+ * Accepts a typed `SorobanRpcEvent` instead of `any`, so callers are
+ * required to pass a well-shaped event object at compile time.
  */
 export function routeEventToUsers(
-  event: any,
+  event: SorobanRpcEvent,
 ): { contractId: string; topic: string; userIds: string[] }[] {
   const routes: { contractId: string; topic: string; userIds: string[] }[] = [];
   const contractId = event.contractId;
@@ -111,8 +114,18 @@ export function routeEventToUsers(
   const contract = contractRegistry.get(contractId);
   if (!contract) return routes;
 
-  // Determine topic from event
-  const topic = event.topic?.[0] || "default";
+  // Determine topic from event.  The first element of the raw topic array
+  // is conventionally the event name symbol (e.g. "transfer"); fall back
+  // to "default" for events with an empty or missing topic array.
+  const firstTopic = Array.isArray(event.topic) ? event.topic[0] : undefined;
+  const topic =
+    (typeof firstTopic === 'string'
+      ? firstTopic
+      : typeof firstTopic === 'object' &&
+        firstTopic !== null &&
+        'symbol' in firstTopic
+      ? String((firstTopic as { symbol: unknown }).symbol)
+      : null) ?? 'default';
 
   // Check for exact topic match
   let matchedUserIds = contract.topicRoutes.get(topic);
@@ -292,12 +305,16 @@ export async function fetchContractEvents(
 
 /**
  * Fetches contract events within a ledger range with pagination.
+ *
+ * Each yielded batch contains `EnrichedSorobanEvent` objects — the raw RPC
+ * records with a guaranteed `ledgerSeq` field so callers never have to
+ * fall back to `(parsed as any).ledgerSeq`.
  */
 export async function* fetchContractEventsInRange(
   contractId: string,
   startLedger: number,
   endLedger: number,
-): AsyncGenerator<any[]> {
+): AsyncGenerator<EnrichedSorobanEvent[]> {
   let currentStart = startLedger;
 
   while (currentStart <= endLedger) {
@@ -325,27 +342,30 @@ export async function* fetchContractEventsInRange(
         'Soroban RPC getEvents',
       );
 
-      const events = response.events || [];
+      const events: SorobanRpcEvent[] = response.events || [];
 
       if (events.length > 0) {
-        const enrichedEvents = events.map((evt: any) => ({
+        const enrichedEvents: EnrichedSorobanEvent[] = events.map((evt) => ({
           ...evt,
-          ledgerSeq: evt.ledger || currentStart,
+          // Guarantee a numeric ledgerSeq — evt.ledger is the authoritative
+          // source; fall back to the batch start when the field is absent.
+          ledgerSeq: evt.ledger ?? currentStart,
         }));
         yield enrichedEvents;
       }
 
       if (events.length > 0 && events[events.length - 1]?.ledger) {
-        currentStart = events[events.length - 1].ledger + 1;
+        currentStart = (events[events.length - 1].ledger as number) + 1;
       } else {
         currentStart = batchEnd + 1;
       }
 
       if (events.length === 0) break;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(
         `[SorobanRPC] Error fetching events for ${contractId} in range [${currentStart}, ${batchEnd}]:`,
-        error.message,
+        errMsg,
       );
       currentStart = batchEnd + 1;
     }
