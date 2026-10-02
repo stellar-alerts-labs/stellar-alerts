@@ -1,7 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
-import { env } from '../config/env';
-import { prisma, connectWithRetry } from '../lib/prisma';
-import { stellar, decodeHorizonAsset, parseSacTransferEvent } from '../lib/stellar';
+import { prisma } from '../lib/prisma';
+import { stellar, decodeHorizonAsset, parseSacTransferEvent, formatTokenAmount } from '../lib/stellar';
 import { enqueuePaymentAlert } from '../lib/queue';
 import { publishPaymentEvent } from '../lib/realtime';
 import {
@@ -59,34 +58,48 @@ export async function processPaymentRecord(
   record: any,
   options: { skipGapCheck?: boolean; previousPagingToken?: string | null } = {}
 ) {
-  return tracer.startActiveSpan('watcher.processPaymentRecord', async (span) => {
-    try {
-      let amount: string | undefined;
-      let asset: string = "XLM";
-      let assetIssuer: string | null = null;
-      let fromAddress: string = '';
-      let memo: string | null = null;
-      const txHash: string = record.transaction_hash || record.hash || '';
-      const receivedAt: Date = new Date(record.created_at || Date.now());
+  let amount: string | undefined;
+  let asset: string = 'XLM';
+  let assetIssuer: string | null = null;
+  let fromAddress: string = '';
+  const txHash: string = record.transaction_hash || record.hash || '';
+  const receivedAt: Date = new Date(record.created_at || Date.now());
 
-      if (record.type === "payment") {
-        const decodedAsset = decodeHorizonAsset(record);
-        amount = record.amount;
-        asset = decodedAsset.assetCode;
-        assetIssuer = decodedAsset.assetIssuer;
-        fromAddress = record.from || '';
-        memo = record.memo || null;
-      } else if (record.type === 'create_account') {
-        amount = record.starting_balance;
-        asset = "XLM";
-        assetIssuer = null;
-        fromAddress = record.funder || "";
-      } else {
-        const sacTransfer = parseSacTransferEvent(record);
-        if (!sacTransfer) {
-          span.end();
-          return;
+  if (record.type === 'payment') {
+    const decodedAsset = decodeHorizonAsset(record);
+    amount = record.amount;
+    asset = decodedAsset.assetCode;
+    assetIssuer = decodedAsset.assetIssuer;
+    fromAddress = record.from || '';
+  } else if (record.type === 'create_account') {
+    amount = record.starting_balance;
+    asset = 'XLM';
+    assetIssuer = null;
+    fromAddress = record.funder || '';
+  } else {
+    const sacTransfer = parseSacTransferEvent(record);
+    if (!sacTransfer) return;
+
+    let decimals = 7;
+    let symbol = sacTransfer.assetCode ?? sacTransfer.contractId ?? 'Unknown';
+
+    if (sacTransfer.contractId) {
+      try {
+        const meta = await getSacMetadata(sacTransfer.contractId);
+        if (meta) {
+          decimals = meta.decimals;
+          symbol = meta.symbol || symbol;
         }
+      } catch (err: any) {
+        console.warn(`[WatcherWorker] Error resolving SAC metadata for ${sacTransfer.contractId}:`, err?.message);
+      }
+    }
+
+    amount = formatTokenAmount(sacTransfer.rawAmount, decimals);
+    asset = symbol;
+    assetIssuer = sacTransfer.assetIssuer;
+    fromAddress = sacTransfer.from;
+  }
 
         amount = sacTransfer.amount;
         asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? "Unknown";
