@@ -1,4 +1,5 @@
 import * as StellarSdk from 'stellar-sdk';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 import { env } from '../config/env';
 import { withDeadline } from './external-request';
 
@@ -333,7 +334,7 @@ export class MultiNodeHorizonClient {
     limit = 50,
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<{ records: any[]; allNodesFailed: boolean; lastError: string | null }> {
-    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
       console.warn(`[MultiNodeHorizon] Skipping invalid public key checksum: "${publicKey}"`);
       return { records: [], allNodesFailed: false, lastError: null };
     }
@@ -443,7 +444,7 @@ export const stellar = {
     publicKey: string,
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<{ signers: MultisigSigner[]; thresholds: MultisigThresholds } | null> {
-    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
       console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return null;
     }
@@ -475,7 +476,7 @@ export const stellar = {
     limit: number = 10,
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ) {
-    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
       console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return [];
     }

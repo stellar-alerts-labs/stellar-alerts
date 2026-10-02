@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import * as StellarSdk from 'stellar-sdk';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 
 export const createWalletSchema = z.object({
-  publicKey: z.string().refine((val) => StellarSdk.StrKey.isValidEd25519PublicKey(val), {
+  publicKey: z.string().refine((val) => isValidEd25519PublicKey(val), {
     message: 'Invalid Stellar public key format or checksum',
   }),
   label: z.string().optional(),
