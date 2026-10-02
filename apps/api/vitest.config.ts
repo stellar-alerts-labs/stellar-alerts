@@ -13,6 +13,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Integration suites under src/testing use real Postgres/Redis. They run via
+    // the dedicated `test:integration` script (vitest.integration.config.ts) and
+    // skip automatically when the services are unreachable, so the default unit
+    // run (`test`) stays hermetic.
+    exclude: ['src/testing/__tests__/**'],
     // Safe dummy values so suites that import modules which validate env at
     // import time (e.g. config/env.ts via lib/prisma) don't process.exit(1).
     env: {

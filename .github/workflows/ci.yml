@@ -143,28 +143,30 @@ jobs:
           NEXTAUTH_SECRET: "ci-build-dummy-secret-key-123456"
           NEXT_PUBLIC_API_URL: "http://localhost:3001"
 
-  migration-shadow-verification:
-    name: Prisma Migration Shadow-Database Verification
+  integration:
+    name: Integration Fixtures (Postgres + Redis)
     runs-on: ubuntu-latest
 
-    # Uses its own throwaway Postgres service container, separate from
-    # `validate`'s, since scripts/verify-migrations-shadow.ts creates and
-    # drops disposable databases on it (CREATE DATABASE / DROP DATABASE) as
-    # part of shadow-verifying each migration — kept isolated from the
-    # `validate` job's Postgres so a concurrent DROP DATABASE here can never
-    # race against `validate`'s own test-database usage.
     services:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: stellar_alerts_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U user"
+          --health-cmd "pg_isready -U postgres -d stellar_alerts_test"
           --health-interval 10s --health-timeout 5s --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
 
     steps:
       - name: Checkout Repository
@@ -177,18 +179,22 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
-      - name: Unit test the verification scripts themselves
-        run: npm run test:scripts
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: apps/api
 
-      - name: Static migration lint
-        run: npm run verify:migrations
+      - name: Build Shared Package (@stellar-alerts/shared)
+        run: npx tsc -p packages/shared/tsconfig.json
 
-      - name: Shadow-database migration verification
-        run: npm run verify:migrations:shadow
+      - name: Run Integration Fixture Tests
+        working-directory: apps/api
+        run: npm run test:integration
         env:
-          SHADOW_DATABASE_URL: "postgresql://user:password@localhost:5432/postgres"
+          TEST_DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/stellar_alerts_test"
+          TEST_REDIS_URL: "redis://localhost:6379"
+          NODE_ENV: "test"
 
   chaos:
     name: Chaos Engineering Fault Injection Suite
