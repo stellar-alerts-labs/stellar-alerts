@@ -103,6 +103,15 @@ describe('SSRF-Safe Webhook Destination Validation & Egress Policy (#312)', () =
       ).rejects.toThrow(/Destination resolves to restricted or private IP address/);
     });
 
+    it('allows a hostname when at least one resolved address is public across mixed IPv4/IPv6 DNS records', async () => {
+      const mockMixedDns = vi.fn().mockResolvedValue(['10.0.0.4', '2606:4700:4700::1111']);
+      const result = await validateUrlForSsrf('https://api.example.com/webhook', {
+        dnsLookupFn: mockMixedDns,
+      });
+
+      expect(result.resolvedIps).toEqual(['2606:4700:4700::1111']);
+    });
+
     it('rejects disallowed ports', async () => {
       const mockLookup = vi.fn().mockResolvedValue(['93.184.216.34']);
       await expect(
@@ -167,6 +176,20 @@ describe('SSRF-Safe Webhook Destination Validation & Egress Policy (#312)', () =
         }),
       ).rejects.toThrow(/Too many redirects/);
 
+      globalFetchMock.mockRestore();
+    });
+
+    it('uses a public IPv6 candidate when the hostname resolves to mixed private/public addresses', async () => {
+      const globalFetchMock = vi.spyOn(globalThis, 'fetch');
+      globalFetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+      const mockLookup = vi.fn().mockResolvedValue(['10.0.0.4', '2606:4700:4700::1111']);
+
+      const response = await ssrfSafeFetch('https://api.example.com/webhook', {
+        ssrfOptions: { dnsLookupFn: mockLookup },
+      });
+
+      expect(response.status).toBe(204);
       globalFetchMock.mockRestore();
     });
   });

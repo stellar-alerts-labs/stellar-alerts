@@ -27,10 +27,39 @@ export interface SignerApprovalNeeded {
   totalSigners: number;
 }
 
+export type SignerAuditIssueType =
+  | 'signer_weight_changed'
+  | 'master_key_weight_modified'
+  | 'total_weight_below_threshold';
+
+export interface SignerAuditFinding {
+  issueType: SignerAuditIssueType;
+  treasuryId: string;
+  treasuryPublicKey: string;
+  treasuryLabel: string | null;
+  userId: string;
+  signerPublicKey?: string;
+  requiredThreshold: number;
+  currentWeight?: number;
+  totalWeight?: number;
+  details: string;
+}
+
+export type MultisigAlertPayload = SignerApprovalNeeded | SignerAuditFinding;
+
 /** Pluggable so tests (and future channel wiring) don't have to touch real notification infra. */
-export type MultisigNotifier = (payload: SignerApprovalNeeded) => Promise<void> | void;
+export type MultisigNotifier = (payload: MultisigAlertPayload) => Promise<void> | void;
 
 export const defaultMultisigNotifier: MultisigNotifier = (payload) => {
+  if ('issueType' in payload) {
+    const prefix = payload.signerPublicKey ? payload.signerPublicKey.slice(0, 8) : 'treasury';
+    console.log(
+      `[MultisigWatcher] 🚨 ${payload.issueType} on treasury "${payload.treasuryLabel ?? payload.treasuryPublicKey.slice(0, 8)}" ` +
+        `(${prefix}...) ${payload.details}`,
+    );
+    return;
+  }
+
   console.log(
     `[MultisigWatcher] 🔔 Signature needed from ${payload.signerPublicKey.slice(0, 8)}... on treasury ` +
       `"${payload.treasuryLabel ?? payload.treasuryPublicKey.slice(0, 8)}" ` +
@@ -47,10 +76,101 @@ interface TreasuryWithWatchers {
   signerWatchers: { userId: string; signerPublicKey: string }[];
 }
 
+export interface SetOptionsAuditEvent {
+  type?: string;
+  signer_key?: string;
+  signer_weight?: number | string;
+  master_weight?: number | string;
+}
+
+export interface SignerAuditConfig {
+  signers: MultisigSigner[];
+  thresholds: MultisigThresholds;
+  masterWeight: number;
+}
+
 interface PendingTxRecord {
   id: string;
   innerTxHash: string;
   envelopeXdr: string;
+}
+
+export function auditSignerConfiguration(
+  config: SignerAuditConfig,
+  thresholdLevel: MultisigThresholdLevel = 'medium',
+  setOptionsEvent?: SetOptionsAuditEvent,
+): SignerAuditFinding[] {
+  const requiredThreshold =
+    thresholdLevel === 'low'
+      ? config.thresholds.low
+      : thresholdLevel === 'high'
+        ? config.thresholds.high
+        : config.thresholds.medium;
+
+  const findings: SignerAuditFinding[] = [];
+  const totalWeight = config.signers.reduce((total, signer) => total + signer.weight, 0) + config.masterWeight;
+
+  if (totalWeight < requiredThreshold) {
+    findings.push({
+      issueType: 'total_weight_below_threshold',
+      treasuryId: '',
+      treasuryPublicKey: '',
+      treasuryLabel: null,
+      userId: '',
+      requiredThreshold,
+      totalWeight,
+      details: `Configured total signing weight ${totalWeight} is below the ${thresholdLevel} threshold (${requiredThreshold})`,
+    });
+  }
+
+  if (setOptionsEvent?.type === 'set_options') {
+    const eventSignerKey = setOptionsEvent.signer_key;
+    if (eventSignerKey) {
+      const signer = config.signers.find((candidate) => candidate.key === eventSignerKey);
+      const eventSignerWeight =
+        typeof setOptionsEvent.signer_weight === 'number'
+          ? setOptionsEvent.signer_weight
+          : Number.isFinite(Number(setOptionsEvent.signer_weight))
+            ? Number(setOptionsEvent.signer_weight)
+            : null;
+
+      if (signer && eventSignerWeight !== null && signer.weight !== eventSignerWeight) {
+        findings.push({
+          issueType: 'signer_weight_changed',
+          treasuryId: '',
+          treasuryPublicKey: '',
+          treasuryLabel: null,
+          userId: '',
+          signerPublicKey: eventSignerKey,
+          requiredThreshold,
+          currentWeight: eventSignerWeight,
+          details: `Signer ${eventSignerKey.slice(0, 8)}... changed weight from ${signer.weight} to ${eventSignerWeight}`,
+        });
+      }
+    }
+
+    const eventMasterWeight =
+      typeof setOptionsEvent.master_weight === 'number'
+        ? setOptionsEvent.master_weight
+        : Number.isFinite(Number(setOptionsEvent.master_weight))
+          ? Number(setOptionsEvent.master_weight)
+          : null;
+
+    if (eventMasterWeight !== null && config.masterWeight !== eventMasterWeight) {
+      findings.push({
+        issueType: 'master_key_weight_modified',
+        treasuryId: '',
+        treasuryPublicKey: '',
+        treasuryLabel: null,
+        userId: '',
+        requiredThreshold,
+        currentWeight: eventMasterWeight,
+        details: `Master key weight changed from ${config.masterWeight} to ${eventMasterWeight}`,
+      });
+    }
+  }
+
+  return findings;
 }
 
 /**
@@ -142,8 +262,6 @@ export async function runMultisigWatcherPass(notify: MultisigNotifier = defaultM
   });
 
   for (const treasury of treasuries) {
-    if (treasury.pendingTxs.length === 0) continue;
-
     const account = await stellar.getAccountSigners(treasury.publicKey);
     if (!account) {
       console.warn(
@@ -151,6 +269,43 @@ export async function runMultisigWatcherPass(notify: MultisigNotifier = defaultM
       );
       continue;
     }
+
+    const auditConfig = {
+      signers: account.signers,
+      thresholds: account.thresholds,
+      masterWeight: account.masterWeight,
+    };
+
+    const latestSetOptions = (await stellar.getRecentSetOptionsOperations?.(treasury.publicKey, { limit: 5 }))?.[0];
+    const findings = [...new Map(
+      [...auditSignerConfiguration(auditConfig, treasury.thresholdLevel as MultisigThresholdLevel),
+        ...auditSignerConfiguration(
+          auditConfig,
+          treasury.thresholdLevel as MultisigThresholdLevel,
+          latestSetOptions,
+        )].map((finding) => [
+          `${finding.issueType}:${finding.signerPublicKey ?? 'master'}:${finding.details}`,
+          finding,
+        ]),
+    ).values()];
+
+    for (const finding of findings) {
+      const targetWatchers = finding.signerPublicKey
+        ? treasury.signerWatchers.filter((watcher) => watcher.signerPublicKey === finding.signerPublicKey)
+        : treasury.signerWatchers;
+
+      for (const watcher of targetWatchers) {
+        await notify({
+          ...finding,
+          treasuryId: treasury.id,
+          treasuryPublicKey: treasury.publicKey,
+          treasuryLabel: treasury.label,
+          userId: watcher.userId,
+        });
+      }
+    }
+
+    if (treasury.pendingTxs.length === 0) continue;
 
     for (const pendingTx of treasury.pendingTxs) {
       try {
