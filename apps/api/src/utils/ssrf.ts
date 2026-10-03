@@ -286,17 +286,18 @@ export async function validateUrlForSsrf(
     throw new SsrfValidationError(`No IP addresses found for hostname "${hostname}"`, targetUrl, 'NO_IP_RESOLVED');
   }
 
-  for (const ip of resolvedIps) {
-    if (isPrivateIp(ip)) {
-      throw new SsrfValidationError(
-        `Destination resolves to restricted or private IP address (${ip})`,
-        targetUrl,
-        'PRIVATE_IP_BLOCKED',
-      );
-    }
+  const publicResolvedIps = getPublicResolvedIps(resolvedIps);
+
+  if (publicResolvedIps.length === 0) {
+    const blockedIp = resolvedIps[0] ?? rawHost;
+    throw new SsrfValidationError(
+      `Destination resolves to restricted or private IP address (${blockedIp})`,
+      targetUrl,
+      'PRIVATE_IP_BLOCKED',
+    );
   }
 
-  return { url: parsedUrl, resolvedIps };
+  return { url: parsedUrl, resolvedIps: publicResolvedIps };
 }
 
 /**
@@ -355,11 +356,9 @@ export async function ssrfSafeFetch(
       if (!location) {
         throw new SsrfValidationError('Redirect response missing Location header', currentUrl, 'MISSING_REDIRECT_LOCATION');
       }
+    }
 
-      // Resolve relative redirect against current URL
-      const nextUrl = new URL(location, currentUrl).toString();
-      currentUrl = nextUrl;
-      redirectsCount++;
+    if (handledRedirect) {
       continue;
     }
 
@@ -376,4 +375,6 @@ export async function ssrfSafeFetch(
 
     return response;
   }
+
+  return new Response(null, { status: 204 });
 }
