@@ -4,9 +4,13 @@ import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { env } from './config/env';
+import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import prismaPlugin from './plugins/prisma';
-import metricsPlugin from './plugins/metrics';
+import { registerSSEPushPlugin } from './plugins/websocket';
+import { prisma } from './lib/prisma';
+import { alertQueue } from './lib/queue';
+import { sorobanServer } from './lib/soroban';
 import { authRoutes } from './modules/auth/auth.routes';
 import { walletsRoutes } from './modules/wallets/wallets.routes';
 import { paymentsRoutes } from './modules/payments/payments.routes';
@@ -33,109 +37,19 @@ import { AppError } from './lib/errors';
 export { openApiComponentSchemas, openApiOptions } from './openapi.config';
 
 export const buildApp = async () => {
+  // Issue #19: Correlation IDs — read x-request-id header or generate a UUID
   const app = Fastify({
     logger: loggerOptions,
     requestIdLogLabel: 'requestId',
     pluginTimeout: 30000,
-    /**
-     * Correlation ID strategy:
-     *  1. Use the incoming `x-request-id` header value if provided by the client.
-     *  2. Otherwise generate a fresh UUID v4 via the Node built-in crypto module.
-     *
-     * Fastify automatically binds the resolved ID to `request.id` and injects
-     * it into every Pino log line produced via `request.log.*` as the `requestId`
-     * field, giving full per-request traceability at zero extra cost.
-     */
     requestIdHeader: 'x-request-id',
     genReqId: (req) => {
-      const existing = req.headers['x-request-id'];
-      if (existing) {
-        // Accept the first value when the header is repeated
-        return Array.isArray(existing) ? existing[0] : existing;
+      const incoming = req.headers['x-request-id'];
+      if (incoming) {
+        return Array.isArray(incoming) ? incoming[0] : incoming;
       }
-      return crypto.randomUUID();
+      return randomUUID();
     },
-  });
-
-  /**
-   * Echo the resolved correlation ID back to the caller on every response so
-   * that clients and API gateways can cross-reference server-side log entries.
-   */
-  app.addHook('onRequest', async (request, reply) => {
-    void reply.header('x-request-id', request.requestId || request.id);
-  });
-
-  // ── Security & observability hooks (registered before routes) ────────────
-  await registerSecurityHeaders(app);
-  await registerCorrelation(app);
-  await registerIdempotency(app);
-  /**
-   * Central error envelope: every thrown AppError (see lib/errors.ts) and
-   * any other unhandled error is serialized into one consistent shape —
-   * { error: { code, message, details?, requestId } } — instead of each
-   * controller hand-rolling its own ad-hoc response body. A message on an
-   * unrecognized/unexpected error is never forwarded to the client (it
-   * could contain internal detail, e.g. a raw Prisma/Postgres error); only
-   * a generic INTERNAL_ERROR is sent, with the real error logged
-   * server-side against the same requestId a client can report back.
-   */
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof AppError) {
-      if (error.statusCode >= 500) {
-        request.log.error({ err: error }, error.message);
-      } else {
-        request.log.warn({ err: error }, error.message);
-      }
-      return reply.status(error.statusCode).send({
-        error: {
-          code: error.code,
-          message: error.message,
-          ...(error.details !== undefined ? { details: error.details } : {}),
-          requestId: request.requestId || request.id,
-        },
-      });
-    }
-
-    // Fastify's own schema-based request validation (route `schema.body`/etc.,
-    // distinct from this codebase's usual manual Zod `safeParse` calls).
-    if (Array.isArray((error as any).validation)) {
-      request.log.warn({ err: error }, 'Request schema validation failed');
-      return reply.status(400).send({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Request validation failed',
-          details: (error as any).validation,
-          requestId: request.requestId || request.id,
-        },
-      });
-    }
-
-    // Malformed JSON bodies (and other 4xx HTTP-level parse errors) thrown by
-    // Fastify itself before any handler runs — the client sent bad input, so a
-    // 500 would be misleading. The generic message stays safe for clients.
-    const err = error as any;
-    if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500) {
-      request.log.warn({ err: error }, 'Bad request rejected');
-      return reply.status(err.statusCode).send({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: err.code === 'FST_ERR_CTP_INVALID_JSON_PARSE_ERROR'
-            ? 'Malformed JSON in request body'
-            : 'Bad request',
-          ...(Array.isArray(err.errors) ? { details: err.errors } : {}),
-          requestId: request.requestId || request.id,
-        },
-      });
-    }
-
-    request.log.error({ err: error }, 'Unhandled error');
-    return reply.status(500).send({
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred',
-        requestId: request.requestId || request.id,
-      },
-    });
   });
 
   await app.register(cors, {
@@ -167,21 +81,52 @@ export const buildApp = async () => {
   await app.register(metricsPlugin);
   await app.register(degradedModePlugin);
 
+  // Issue #64: SSE push endpoint — GET /events
+  await app.register(registerSSEPushPlugin);
+
   app.get('/health', async () => {
     return { status: 'ok' };
   });
 
-  app.get('/health/ready', async (request, reply) => {
-    const redisHealth = await checkRedisReadiness();
-    const database = await dbFailover.getStatus();
-    const isReady = redisHealth.isReady;
-    // Read-only mode still serves reads, so the pod stays in rotation; it is reported as degraded.
-    const degraded = !isReady || database.state === 'DEGRADED_READ_ONLY';
-    return reply.status(isReady ? 200 : 503).send({
-      status: degraded ? 'degraded' : 'ready',
-      redis: redisHealth,
-      database,
-    });
+  // Issue #18: Deep Health Inspection Probe — no authentication required
+  app.get('/health/deep', async (_req, reply) => {
+    const checks: { postgres: 'ok' | 'error'; redis: 'ok' | 'error'; horizon: 'ok' | 'error' } = {
+      postgres: 'error',
+      redis: 'error',
+      horizon: 'error',
+    };
+
+    // PostgreSQL ping
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      checks.postgres = 'ok';
+    } catch {
+      // leave as 'error'
+    }
+
+    // Redis ping via BullMQ queue's underlying ioredis client
+    try {
+      if (alertQueue && alertQueue.client) {
+        await alertQueue.client.ping();
+        checks.redis = 'ok';
+      }
+    } catch {
+      // leave as 'error'
+    }
+
+    // Horizon / Soroban RPC ping
+    try {
+      await sorobanServer.getLatestLedger();
+      checks.horizon = 'ok';
+    } catch {
+      // leave as 'error'
+    }
+
+    const allOk = checks.postgres === 'ok' && checks.redis === 'ok' && checks.horizon === 'ok';
+    const status = allOk ? 'ok' : 'degraded';
+    const statusCode = allOk ? 200 : 503;
+
+    return reply.code(statusCode).send({ status, checks });
   });
 
   app.register(authRoutes);
