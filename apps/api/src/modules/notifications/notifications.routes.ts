@@ -2,12 +2,30 @@
  * Notifications Routes
  */
 
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { notificationsController } from './notifications.controller';
 import { telegramMiniAppController } from './telegram-miniapp.controller';
 import { authenticateHook } from '../../middleware/auth.middleware';
+import { whatsappInteractiveController } from './whatsapp-interactive.controller';
 
 export async function notificationsRoutes(app: FastifyInstance) {
+  // Meta signs the exact request bytes. Capture those bytes in this encapsulated
+  // route plugin before JSON parsing so the webhook can verify X-Hub-Signature-256.
+  app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (request, body, done) => {
+    const raw = body as Buffer;
+    (request as FastifyRequest & { rawBody?: Buffer }).rawBody = raw;
+    try { done(null, JSON.parse(raw.toString('utf8'))); }
+    catch {
+      const error = new Error("Body is not valid JSON but content-type is set to 'application/json'") as Error & { statusCode: number; code: string };
+      error.statusCode = 400;
+      error.code = 'FST_ERR_CTP_INVALID_JSON_BODY';
+      done(error, undefined);
+    }
+  });
+
+  app.get('/notifications/whatsapp/webhook', whatsappInteractiveController.verify.bind(whatsappInteractiveController));
+  app.post('/notifications/whatsapp/webhook', whatsappInteractiveController.receive.bind(whatsappInteractiveController));
+
   // Notification Preferences (MFA protected update)
   app.post(
     '/notifications/preferences',

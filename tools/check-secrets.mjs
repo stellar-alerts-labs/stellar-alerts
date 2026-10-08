@@ -8,7 +8,10 @@ import { pathToFileURL } from 'node:url';
 // lines added by a commit, so existing synthetic fixtures do not block a PR.
 const DETECTORS = [
   ['PEM private key', /-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----/],
-  ['Stellar secret seed', /\bS[A-Z2-7]{55}\b/],
+  // Stellar StrKey secret seeds start with S. The requested detector accepts
+  // the full alphanumeric alphabet after the prefix to catch malformed and
+  // non-canonical copies too; exact length avoids broad false positives.
+  ['Stellar secret key', /\bS[A-Z0-9]{55}\b/],
   ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9_]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/],
   ['AWS access key ID', /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/],
   ['Stripe live key', /\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b/],

@@ -35,3 +35,6 @@ fails the build when:
 
 Add the workspace's `typecheck`/`build` scripts and a matrix entry, then run the
 guard locally with `node .github/verify-workspace-matrix.mjs`.
+## Secret leak checks
+
+`npm run check:secrets -- --staged` runs from the Husky pre-commit hook. CI checks every commit between the PR base (or previous push) and the checked-out head, including commits where a detected value is removed later in the branch. The scanner reports file and line but never prints the matched value. It includes a Stellar secret key rule matching `S[A-Z0-9]{55}`. Historical content is not rescanned as part of each PR; findings are limited to newly introduced lines in the compared commit range.
