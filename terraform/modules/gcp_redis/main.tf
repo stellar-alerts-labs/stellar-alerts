@@ -7,7 +7,7 @@ resource "google_redis_instance" "cache" {
 
   authorized_network = var.network_id
 
-  redis_version     = "REDIS_7_0"
-  display_name      = "${var.environment} Stellar Alerts Redis"
-  connect_mode      = "PRIVATE_SERVICE_ACCESS"
+  redis_version = "REDIS_7_0"
+  display_name  = "${var.environment} Stellar Alerts Redis"
+  connect_mode  = "PRIVATE_SERVICE_ACCESS"
 }

@@ -1,10 +1,10 @@
 variable "target_cloud" {
-  description = "Target cloud provider to provision (aws or gcp)"
+  description = "Target cloud provider to provision (aws, gcp, or do)"
   type        = string
   default     = "aws"
   validation {
-    condition     = contains(["aws", "gcp"], var.target_cloud)
-    error_message = "target_cloud must be either 'aws' or 'gcp'."
+    condition     = contains(["aws", "gcp", "do"], var.target_cloud)
+    error_message = "target_cloud must be one of: aws, gcp, do."
   }
 }
 
@@ -82,4 +82,47 @@ variable "gcp_region" {
   description = "GCP deployment region"
   type        = string
   default     = "us-central1"
+}
+
+# --- DigitalOcean Specific Variables ---
+variable "do_region" {
+  description = "DigitalOcean region slug (e.g. nyc3, ams3, sgp1)"
+  type        = string
+  default     = "nyc3"
+}
+
+variable "do_vpc_ip_range" {
+  description = "IP range for the DigitalOcean VPC"
+  type        = string
+  default     = "10.20.0.0/20"
+}
+
+variable "do_db_cluster_size" {
+  description = "Number of managed Postgres nodes on DigitalOcean (1 for dev, 2-3 for prod)"
+  type        = number
+  default     = 1
+}
+
+variable "do_db_instance_size" {
+  description = "DigitalOcean droplet size slug for managed Postgres nodes"
+  type        = string
+  default     = "db-s-2vcpu-4gb"
+}
+
+variable "do_redis_memory_gb" {
+  description = "Managed Redis memory size in GB on DigitalOcean"
+  type        = number
+  default     = 1
+}
+
+variable "do_node_count" {
+  description = "DOKS worker node count"
+  type        = number
+  default     = 2
+}
+
+variable "do_node_size" {
+  description = "DigitalOcean droplet size slug for DOKS worker nodes"
+  type        = string
+  default     = "s-2vcpu-4gb"
 }

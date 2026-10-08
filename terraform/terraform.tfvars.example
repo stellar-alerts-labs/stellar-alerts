@@ -1,5 +1,5 @@
 # Example Terraform variables configuration for Stellar Alerts
-target_cloud = "aws" # Choose "aws" or "gcp"
+target_cloud = "aws" # Choose "aws", "gcp", or "do"
 environment  = "dev"
 
 # Database & Redis Credentials
@@ -20,3 +20,10 @@ aws_availability_zones  = ["us-east-1a", "us-east-1b"]
 # GCP Configurations
 gcp_project_id = "stellar-alerts-dev"
 gcp_region     = "us-central1"
+
+# DigitalOcean Configurations
+do_region        = "nyc3"
+do_vpc_ip_range  = "10.20.0.0/20"
+do_db_cluster_size = 1
+do_node_count      = 2
+do_node_size       = "s-2vcpu-4gb"

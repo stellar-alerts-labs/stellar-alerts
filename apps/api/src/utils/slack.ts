@@ -1,4 +1,6 @@
 import { AlertJobData } from '../lib/queue';
+import { env } from '../config/env';
+import { fetchWithTimeout } from '../lib/external-request';
 
 export interface SlackBlockKitPayload {
   text?: string;
@@ -81,8 +83,9 @@ export function buildSlackBlockKitPayload(data: AlertJobData): SlackBlockKitPayl
   };
 }
 
-import { env } from '../config/env';
-import { fetchWithTimeout } from '../lib/external-request';
+export function isValidSlackWebhookUrl(url: string): boolean {
+  return url.startsWith('https://hooks.slack.com/');
+}
 
 export async function dispatchSlackAlert(
   webhookUrl: string,
@@ -106,6 +109,12 @@ export async function dispatchSlackAlert(
       options.signal,
       'Slack',
     );
+
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('retry-after');
+      console.warn(`[SlackWorker] Rate limited (429) dispatching to Slack for tx ${data.txHash}; retry-after=${retryAfter ?? 'unknown'}s`);
+      return false;
+    }
 
     if (!res.ok) {
       const errorText = await res.text();

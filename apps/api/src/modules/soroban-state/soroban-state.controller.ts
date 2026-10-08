@@ -1,9 +1,12 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { isValidContractId } from '@stellar-alerts/shared';
 import { sorobanStateService } from './soroban-state.service';
 
 const timelineSchema = z.object({
-  contractId: z.string().min(1),
+  contractId: z.string().refine((value) => isValidContractId(value), {
+    message: 'Invalid Stellar contract ID format or checksum',
+  }),
   ledgerKey: z.string().min(1).optional(),
   limit: z.coerce.number().int().positive().optional().default(100),
 });

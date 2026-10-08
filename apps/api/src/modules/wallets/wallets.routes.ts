@@ -1,12 +1,25 @@
 import { FastifyInstance } from 'fastify';
 import { authenticateHook } from '../../middleware/auth.middleware';
+import { idempotencyHooks } from '../../middleware/idempotency.middleware';
 import { walletsController } from './wallets.controller';
 
 export async function walletsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticateHook);
 
-  app.post('/wallets', walletsController.addWallet.bind(walletsController));
+  // Idempotency only guards mutations: a retried read has no side effect to
+  // deduplicate, so those routes skip the extra database round trip (#334).
+  const idempotent = idempotencyHooks();
+
+  app.post(
+    '/wallets',
+    { preValidation: idempotent.preValidation, onSend: idempotent.onSend, onResponse: idempotent.onResponse },
+    walletsController.addWallet.bind(walletsController)
+  );
   app.get('/wallets', walletsController.getWallets.bind(walletsController));
   app.get('/wallets/:id/ingestion-status', walletsController.getIngestionStatus.bind(walletsController));
-  app.delete('/wallets/:id', walletsController.deleteWallet.bind(walletsController));
+  app.delete(
+    '/wallets/:id',
+    { preValidation: idempotent.preValidation, onSend: idempotent.onSend, onResponse: idempotent.onResponse },
+    walletsController.deleteWallet.bind(walletsController)
+  );
 }

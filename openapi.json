@@ -118,7 +118,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^c[a-z0-9]{24,}$"
           }
         },
         "required": [
@@ -151,6 +151,199 @@
             "minimum": 1,
             "maximum": 365
           },
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "SuppressDeadLetterInput": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "SandboxReplayIdParams": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "replayId"
+        ],
+        "additionalProperties": false
+      },
+      "SandboxReplayInput": {
+        "type": "object",
+        "properties": {
+          "mockStatusCode": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          },
+          "mockResponseBody": {
+            "type": "string"
+          },
+          "mockResponseHeaders": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mockStatusCode"
+        ],
+        "additionalProperties": false
+      },
+      "ListSandboxReplaysQuery": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable, machine-readable error code (e.g. VALIDATION_ERROR, NOT_FOUND, CONFLICT)."
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable, client-safe message. Never contains internal/sensitive detail."
+              },
+              "details": {
+                "description": "Optional structured detail, e.g. field-level validation errors."
+              },
+              "requestId": {
+                "type": "string",
+                "description": "Correlation id — also returned as the x-request-id response header."
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "CreateExportInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "ledger_csv",
+              "ledger_pdf",
+              "tax_csv"
+            ]
+          },
+          "walletId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "periodStart": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              }
+            ]
+          },
+          "periodEnd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              }
+            ]
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "cointracker",
+              "koinly",
+              "irs8949"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "ExportIdParams": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "ListExportsQuery": {
+        "type": "object",
+        "properties": {
           "page": {
             "default": 1,
             "type": "integer",
@@ -170,14 +363,966 @@
         ],
         "additionalProperties": false
       },
-      "SuppressDeadLetterInput": {
+      "DownloadExportQuery": {
         "type": "object",
         "properties": {
-          "note": {
+          "expires": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sig": {
             "type": "string",
-            "maxLength": 2000
+            "minLength": 1,
+            "maxLength": 128
           }
         },
+        "required": [
+          "expires",
+          "sig"
+        ],
+        "additionalProperties": false
+      },
+      "AnalyzeSimulationInput": {
+        "type": "object",
+        "properties": {
+          "sourceAccount": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Z0-9]{56}$"
+          },
+          "network": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "TESTNET",
+              "FUTURENET"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "envelopeXdr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 262144
+          },
+          "operations": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "pay",
+                    "pathPaymentStrictReceive",
+                    "pathPaymentStrictSend",
+                    "accountMerge",
+                    "clawback",
+                    "changeTrust",
+                    "setTrustlineFlags",
+                    "createAccount",
+                    "createContract",
+                    "uploadWasm",
+                    "invokeContract",
+                    "extendFootprintTtl",
+                    "restoreFootprint",
+                    "bumpSequence",
+                    "setOptions",
+                    "manageSellOffer",
+                    "liquidityPoolWithdraw",
+                    "unknown"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "destination": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "asset": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "native",
+                        "credit_alphanumeric",
+                        "liquidity_pool"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 12
+                    },
+                    "issuer": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "poolId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                },
+                "contractId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "function": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "args": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {}
+                },
+                "trustlineAsset": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "native",
+                        "credit_alphanumeric",
+                        "liquidity_pool"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 12
+                    },
+                    "issuer": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "poolId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                "trustlineFlagMask": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "footprint": {
+                "type": "object",
+                "properties": {
+                  "readOnly": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "readWrite": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "archived": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "requiredFootprint": {
+                "type": "object",
+                "properties": {
+                  "readOnly": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "readWrite": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "archived": {
+                    "maxItems": 4096,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "entryType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "contractId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 56
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "readOnly",
+                            "readWrite",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "entryType",
+                        "access"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "ledgerBounds": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "min",
+                      "max"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "auth": {
+                "maxItems": 128,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "credentialsAddress": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "contractId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "function": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "hasTimeBounds": {
+                "type": "boolean"
+              },
+              "feeStroops": {
+                "type": "string",
+                "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+              },
+              "operationCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000
+              }
+            },
+            "additionalProperties": false
+          },
+          "preState": {
+            "default": [],
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accountId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "nativeBalance": {
+                  "type": "string",
+                  "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                },
+                "balances": {
+                  "maxItems": 256,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "asset": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "native",
+                              "credit_alphanumeric",
+                              "liquidity_pool"
+                            ]
+                          },
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 12
+                          },
+                          "issuer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 56
+                          },
+                          "poolId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "balance": {
+                        "type": "string",
+                        "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                      },
+                      "limit": {
+                        "type": "string",
+                        "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                      },
+                      "revocable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "asset",
+                      "balance"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "accountId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "postState": {
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accountId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "nativeBalance": {
+                  "type": "string",
+                  "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                },
+                "balances": {
+                  "maxItems": 256,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "asset": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "native",
+                              "credit_alphanumeric",
+                              "liquidity_pool"
+                            ]
+                          },
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 12
+                          },
+                          "issuer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 56
+                          },
+                          "poolId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "balance": {
+                        "type": "string",
+                        "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                      },
+                      "limit": {
+                        "type": "string",
+                        "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                      },
+                      "revocable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "asset",
+                      "balance"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "accountId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "outcome": {
+            "type": "object",
+            "properties": {
+              "ledger": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "success": {
+                "type": "boolean"
+              },
+              "errors": {
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "custom_error",
+                        "panic",
+                        "host_error",
+                        "invocation_error"
+                      ]
+                    },
+                    "code": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "contractId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "function": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "resultingBalances": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[A-Z0-9]{56}$"
+                    },
+                    "nativeBalance": {
+                      "type": "string",
+                      "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                    },
+                    "balances": {
+                      "maxItems": 256,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "native",
+                                  "credit_alphanumeric",
+                                  "liquidity_pool"
+                                ]
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 12
+                              },
+                              "issuer": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 56
+                              },
+                              "poolId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "balance": {
+                            "type": "string",
+                            "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                          },
+                          "limit": {
+                            "type": "string",
+                            "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+                          },
+                          "revocable": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "asset",
+                          "balance"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "accountId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "events": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "contractId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "type": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "value": {}
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "feeStroops": {
+                "type": "string",
+                "pattern": "^\\d+(?:\\.\\d{1,7})?$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "contracts": {
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "contractId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Z0-9]{56}$"
+                },
+                "wasmHash": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "deployed": {
+                  "type": "boolean"
+                },
+                "codeArchived": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "contractId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "trustRegistry": {
+            "type": "object",
+            "properties": {
+              "byContractId": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "contractId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 56
+                    },
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "wasmHash": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "deployer": {
+                      "type": "string",
+                      "maxLength": 56
+                    },
+                    "verifiedAt": {
+                      "type": "string",
+                      "maxLength": 64
+                    }
+                  },
+                  "required": [
+                    "contractId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "allowlist": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 56
+                }
+              },
+              "trustedDeployers": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 56
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "sourceAccount",
+          "operations",
+          "preState"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationIdParams": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "ListSimulationsQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "pageSize": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "band": {
+            "type": "string",
+            "enum": [
+              "SAFE",
+              "LOW",
+              "MODERATE",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "sourceAccount": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 56
+          }
+        },
+        "required": [
+          "page",
+          "pageSize"
+        ],
         "additionalProperties": false
       }
     }
@@ -203,6 +1348,18 @@
     {
       "name": "dead-letters",
       "description": "Inspection, replay and suppression of failed notification deliveries"
+    },
+    {
+      "name": "webhook-sandbox",
+      "description": "Sandbox replay of dead letters against a mock webhook receiver with response inspection"
+    },
+    {
+      "name": "exports",
+      "description": "Asynchronous CSV/PDF export jobs with progress and signed downloads"
+    },
+    {
+      "name": "simulations",
+      "description": "Pre-execution transaction envelope simulation with explainable threat scoring"
     }
   ]
 }

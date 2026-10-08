@@ -28,3 +28,13 @@ If you discover a potential security vulnerability in Stellar Alerts, please **d
 3. **Response Time:** We acknowledge receipt within 24 hours and aim to provide a resolution within 5 business days.
 
 We appreciate responsible disclosure and will publicly credit security researchers upon resolution.
+
+## CSRF protection
+
+The API protects cookie-authenticated `POST`, `PUT`, `PATCH`, and `DELETE` requests with an origin check. Configure `CSRF_ALLOWED_ORIGINS` as a comma-separated list of trusted browser origins, for example:
+
+```text
+CSRF_ALLOWED_ORIGINS=https://app.example.com
+```
+
+Bearer-token API clients are not subject to this browser-origin check. Requests with cookies must include an allowed `Origin` header, or a `Referer` whose origin is allowed. Keep the setting limited to the deployed web application origins; do not use `*`.

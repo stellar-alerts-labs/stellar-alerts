@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { renderWebhookDispatchMetrics } from '../lib/webhook-metrics';
 
 export interface QueueMetricsSnapshot {
   queueName: string;
@@ -55,6 +56,11 @@ export function generatePrometheusMetrics(snapshot?: Partial<QueueMetricsSnapsho
     '# HELP nodejs_heap_used_bytes Process heap memory used in bytes',
     '# TYPE nodejs_heap_used_bytes gauge',
     `nodejs_heap_used_bytes ${mem.heapUsed}`,
+    '',
+    // Per-phase outbound webhook dispatch histograms (DNS / TCP / TLS / TTFB /
+    // response stream). Appended last so existing consumers of the queue
+    // metrics keep parsing an unchanged prefix.
+    renderWebhookDispatchMetrics(),
     '',
   ].join('\n');
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildSlackBlockKitPayload, dispatchSlackAlert } from '../slack';
+import { buildSlackBlockKitPayload, dispatchSlackAlert, isValidSlackWebhookUrl } from '../slack';
 import { AlertJobData } from '../../lib/queue';
 
 const sampleData: AlertJobData = {
@@ -77,6 +77,29 @@ describe('slack utility', () => {
 
       const result = await dispatchSlackAlert('https://hooks.slack.com/services/err', sampleData);
       expect(result).toBe(false);
+    });
+
+    it('should return false and not throw when Slack rate-limits with HTTP 429', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        headers: new Headers({ 'retry-after': '30' }),
+        text: async () => 'rate_limited',
+      } as unknown as Response);
+
+      const result = await dispatchSlackAlert('https://hooks.slack.com/services/rl', sampleData);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isValidSlackWebhookUrl', () => {
+    it('accepts a genuine Slack webhook URL', () => {
+      expect(isValidSlackWebhookUrl('https://hooks.slack.com/services/T00/B00/XXXX')).toBe(true);
+    });
+
+    it('rejects a non-Slack URL', () => {
+      expect(isValidSlackWebhookUrl('https://evil.example.com/hooks.slack.com')).toBe(false);
+      expect(isValidSlackWebhookUrl('http://hooks.slack.com/services/T00')).toBe(false);
     });
   });
 });

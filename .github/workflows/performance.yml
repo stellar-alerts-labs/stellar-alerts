@@ -63,19 +63,33 @@ jobs:
       # A load test must measure server capacity, not the rate limiter —
       # raise it far above anything this benchmark can generate.
       RATE_LIMIT_MAX: '1000000'
+      # Keep the benchmark focused on request capacity, not observability
+      # overhead: silence per-request info logs, skip the background watcher
+      # (it polls the same disposable DB), and disable OTLP tracing (no
+      # collector in this job; span creation still costs CPU per request).
+      LOG_LEVEL: 'warn'
+      START_WORKER: 'false'
+      OTEL_SDK_DISABLED: 'true'
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Build Shared Package (@stellar-alerts/shared)
+        # The API's runtime import of @stellar-alerts/shared resolves to
+        # packages/shared/dist/index.js (the "main" field in its package.json).
+        # That directory only exists after the TypeScript compiler runs, so we
+        # must build it before starting the server.
+        run: npx tsc -p packages/shared/tsconfig.json
 
       - name: Sync database schema (wait + retry)
         working-directory: apps/api

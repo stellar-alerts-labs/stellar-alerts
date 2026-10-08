@@ -15,7 +15,9 @@ import {
   PaymentTable,
   ActivityHeatmap,
   EmailTemplatePreview,
+  SankeyFlowDiagram,
   type EmailTemplateConfig,
+  type PathPaymentFlow,
 } from '@/components/dashboard';
 import { useBatchReader } from '@/lib/hooks/useBatchReader';
 import { getSocket } from '@/lib/socket';
@@ -35,6 +37,10 @@ export default function DashboardPage() {
   const [crossLedgerAnalytics] = useState<any>(null);
   const [isStreamConnected, setIsStreamConnected] = useState<boolean>(false);
   const [latestDelivery, setLatestDelivery] = useState<DeliveryEventDTO | null>(null);
+  // Multi-hop path payment routes. The ingestion worker does not yet record
+  // path_payment_* offer chains, so this stays empty until a path-flows feed
+  // is available; the Sankey card renders its own empty state meanwhile.
+  const [pathPaymentFlows] = useState<PathPaymentFlow[]>([]);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session) return;
@@ -267,6 +273,11 @@ export default function DashboardPage() {
                 }}
               />
             ),
+          },
+          {
+            id: 'sankey-flows',
+            label: 'Multi-Hop Payment Flows',
+            content: <SankeyFlowDiagram flows={pathPaymentFlows} />,
           },
         ]}
       />

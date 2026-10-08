@@ -17,7 +17,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const [mfaRequired, setMfaRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const checkMFAStatus = async () => {
+  const checkMFAStatus = async (isMounted: () => boolean) => {
+    if (typeof window === 'undefined' || !isMounted()) return;
     try {
       const token = localStorage.getItem('sessionToken');
       const headers: Record<string, string> = {};
@@ -25,18 +26,22 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
       const res = await fetch('http://localhost:3001/auth/mfa/status', { headers });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && isMounted() && typeof window !== 'undefined') {
         setMfaRequired(data.mfaEnabled);
       }
-    } catch (error) {
-      console.error('Failed to check MFA status:', error);
+    } catch {
+      // Ignore network errors during test teardown or unmount
     }
   };
 
   useEffect(() => {
+    let mounted = true;
     if (isOpen) {
-      void checkMFAStatus();
+      void checkMFAStatus(() => mounted);
     }
+    return () => {
+      mounted = false;
+    };
   }, [isOpen]);
 
   useEffect(() => {

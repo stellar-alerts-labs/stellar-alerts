@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken, UserPayload } from '../utils/jwt';
 import { isTokenRevoked } from '../lib/tokenBlocklist';
 import { isFamilyRevoked } from '../lib/session-manager';
+import { AuthenticationError } from '../lib/errors';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -9,14 +10,18 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * The primary authentication gate for nearly every protected route in the
+ * API (auth, wallets, payments, webhooks, dead-letters, notifications).
+ * Throws AuthenticationError (see lib/errors.ts) rather than replying
+ * directly, so every one of those routes' 401s goes through the same
+ * error envelope as everything else — this used to hand-roll its own
+ * `{ error, message, code }` shape independently of the rest of the API.
+ */
 export async function authenticateHook(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return reply.status(401).send({
-      error: 'Unauthorized',
-      message: 'You must be logged in to perform this action.',
-      code: 'AUTH_REQUIRED',
-    });
+    throw new AuthenticationError('You must be logged in to perform this action.', 'AUTH_REQUIRED');
   }
 
   const token = authHeader.split(' ')[1];
@@ -25,11 +30,7 @@ export async function authenticateHook(request: FastifyRequest, reply: FastifyRe
   try {
     decoded = verifyToken<UserPayload>(token);
   } catch (error) {
-    return reply.status(401).send({
-      error: 'Unauthorized',
-      message: 'Invalid or expired session token.',
-      code: 'INVALID_TOKEN',
-    });
+    throw new AuthenticationError('Invalid or expired session token.', 'INVALID_TOKEN');
   }
 
   // Check Redis blocklist — reject if token has been explicitly revoked (logout).
@@ -37,13 +38,10 @@ export async function authenticateHook(request: FastifyRequest, reply: FastifyRe
     try {
       const revoked = await isTokenRevoked(decoded.jti);
       if (revoked) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: 'Session has been revoked. Please log in again.',
-          code: 'TOKEN_REVOKED',
-        });
+        throw new AuthenticationError('Session has been revoked. Please log in again.', 'TOKEN_REVOKED');
       }
     } catch (redisError: any) {
+      if (redisError instanceof AuthenticationError) throw redisError;
       // Fail-open: if Redis is unreachable, do not block the request.
       // Log the error so operators can investigate.
       request.log.error(`[Auth] Redis blocklist check failed: ${redisError.message}`);
@@ -55,13 +53,10 @@ export async function authenticateHook(request: FastifyRequest, reply: FastifyRe
     try {
       const familyRevoked = await isFamilyRevoked(decoded.familyId);
       if (familyRevoked) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: 'Session family has been revoked. Please log in again.',
-          code: 'SESSION_REVOKED',
-        });
+        throw new AuthenticationError('Session family has been revoked. Please log in again.', 'SESSION_REVOKED');
       }
     } catch (famErr: any) {
+      if (famErr instanceof AuthenticationError) throw famErr;
       request.log.error(`[Auth] Family revocation check failed: ${famErr.message}`);
     }
   }

@@ -1,126 +1,64 @@
-import fp from 'fastify-plugin';
-import websocket from '@fastify/websocket';
-import { FastifyInstance } from 'fastify';
-import { redis } from '../lib/redis';
-import { verifyToken, UserPayload } from '../utils/jwt';
-import { REALTIME_CHANNELS, RealtimeEnvelope } from '../lib/realtime';
-import { ClientRegistry, WebSocketMessage } from '../lib/clientRegistry';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-export type { WebSocketMessage } from '../lib/clientRegistry';
+// In-memory set of active SSE connections
+const clients = new Set<FastifyReply>();
 
-declare module 'fastify' {
-  interface FastifyInstance {
-    broadcastToUser: (userId: string, message: WebSocketMessage) => void;
+/**
+ * Registers GET /events SSE endpoint.
+ * Clients connect and receive real-time payment events as SSE messages.
+ * Uses Server-Sent Events (SSE) over native Fastify — no @fastify/websocket required.
+ */
+export async function registerSSEPushPlugin(app: FastifyInstance): Promise<void> {
+  app.get(
+    '/events',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      // Send initial connected event
+      reply.raw.write('event: connected\ndata: {"status":"connected"}\n\n');
+
+      // Register this client
+      clients.add(reply);
+
+      // Clean up on disconnect
+      request.raw.on('close', () => {
+        clients.delete(reply);
+      });
+
+      // Keep the connection open indefinitely — resolved only by client disconnect
+      await new Promise<void>(() => {});
+    },
+  );
+}
+
+/**
+ * Broadcasts a payment event to all connected SSE clients.
+ * Silently removes any client whose connection has broken.
+ */
+export function broadcastPaymentEvent(data: object): void {
+  const message = `event: payment\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of clients) {
+    try {
+      client.raw.write(message);
+    } catch {
+      // Connection is dead — remove it
+      clients.delete(client);
+    }
   }
 }
 
-export default fp(async (server: FastifyInstance) => {
-  // Register the websocket plugin for type augmentation
-  await server.register(websocket);
-
-  const registry = new ClientRegistry();
-
-  // Create Redis subscriber for pub/sub
-  const subscriber = redis.duplicate();
-
-  try {
-    await subscriber.connect();
-    server.log.info('🔌 Redis subscriber connected for WebSocket');
-  } catch (error) {
-    server.log.warn({ err: error }, '⚠️ Redis subscriber connection failed, WebSocket will not work');
-  }
-
-  // Subscribe to persisted-event channels published by the watcher worker
-  // (payments) and the webhook dispatcher (deliveries) — see lib/realtime.ts.
-  const channels = [REALTIME_CHANNELS.PAYMENTS, REALTIME_CHANNELS.DELIVERIES];
-  await subscriber.subscribe(...channels, (err) => {
-    if (err) {
-      server.log.error({ err }, '❌ Failed to subscribe to realtime channels');
-    } else {
-      server.log.info({ channels }, '📡 Subscribed to realtime channels');
-    }
-  });
-
-  // Relay each Redis-published event only to the sockets belonging to the
-  // user it names — this is the tenant-isolation boundary: routing is keyed
-  // off the JWT-verified userId captured at connect time (registry), never
-  // off anything the client sends.
-  subscriber.on('message', (_channel, message) => {
-    try {
-      const envelope = JSON.parse(message) as RealtimeEnvelope;
-      if (!envelope?.userId) return;
-
-      registry.broadcastToUser(envelope.userId, {
-        type: envelope.type,
-        payload: envelope.payload,
-        timestamp: envelope.timestamp,
-      });
-    } catch (error) {
-      server.log.error({ err: error }, '❌ Error processing realtime message');
-    }
-  });
-
-  server.decorate('broadcastToUser', (userId: string, message: WebSocketMessage) => {
-    registry.broadcastToUser(userId, message);
-  });
-
-  // Register WebSocket upgrade endpoint
-  server.get('/ws', { websocket: true } as any, (socket: any, request: any) => {
-    let user = (request as any).user;
-    if (!user) {
-      const authHeader = request.headers?.['authorization'];
-      const token = authHeader?.replace(/^Bearer\s+/i, '') || (request.query as any)?.token;
-      if (token) {
-        try {
-          user = verifyToken(token);
-        } catch {}
-      }
-    }
-    if (!user) {
-      socket.close(4401, 'Unauthorized');
-      return;
-    }
-    const userId = user.id;
-    const entry = registry.register(userId, socket);
-    server.log.info(
-      `🔗 WebSocket client connected for user ${userId.substring(0, 8)}... (total for user: ${registry.clientCountForUser(userId)})`,
-    );
-
-    registry.sendToEntry(entry, {
-      type: 'connection',
-      payload: { status: 'connected' },
-      timestamp: new Date().toISOString(),
-    });
-
-    socket.on('message', (data: import('ws').RawData) => {
-      try {
-        const message = JSON.parse(data.toString());
-        server.log.debug({ message }, '📩 Received WebSocket message');
-      } catch (error: unknown) {
-        server.log.warn({ err: error }, '⚠️ Invalid WebSocket message');
-      }
-    });
-
-    socket.on('close', () => {
-      registry.unregister(userId, entry);
-      server.log.info(`🔌 WebSocket client disconnected for user ${userId.substring(0, 8)}...`);
-    });
-
-    socket.on('error', (error: Error) => {
-      server.log.error({ err: error }, '❌ WebSocket error');
-      registry.unregister(userId, entry);
-    });
-  });
-
-  // Cleanup on server close
-  server.addHook('onClose', async () => {
-    for (const entry of registry.getAllEntries()) {
-      try {
-        (entry.socket as unknown as import('ws').WebSocket).close();
-      } catch {}
-    }
-
-    await subscriber.quit();
-    server.log.info('🔌 WebSocket and Redis subscriber cleaned up');
-  });
-});
+/**
+ * Returns the current count of active SSE connections.
+ * Useful for health checks and metrics.
+ */
+export function getActiveClientCount(): number {
+  return clients.size;
+}

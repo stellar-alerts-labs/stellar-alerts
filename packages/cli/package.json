@@ -8,13 +8,19 @@
   },
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "tsx src/cli.ts",
     "test": "vitest run"
   },
   "dependencies": {
     "@stellar-alerts/shared": "*",
     "commander": "^13.1.0",
-    "chalk": "^5.4.1"
+    "chalk": "^5.4.1",
+    "stellar-sdk": "^13.3.0"
+  },
+  "optionalDependencies": {
+    "@ledgerhq/hw-app-str": "^7.0.0",
+    "@ledgerhq/hw-transport-node-hid": "^6.29.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

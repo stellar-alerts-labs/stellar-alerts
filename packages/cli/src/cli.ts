@@ -4,6 +4,9 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { registerWalletCommands } from './commands/wallet.js';
 import { registerStreamCommands } from './commands/stream.js';
+import { registerProfileCommands } from './commands/profile.js';
+import { registerVerifyLedgerCommands } from './commands/verify-ledger.js';
+import { registerTxSignCommands } from './commands/tx-sign.js';
 
 const program = new Command();
 
@@ -11,11 +14,18 @@ program
   .name('stellar-alerts-cli')
   .description('CLI tool for managing Stellar Alerts wallets and streams')
   .version('1.0.0')
-  .option('-u, --api-url <url>', 'API base URL', process.env.STELLAR_ALERTS_API_URL || 'http://localhost:3001');
+  .option('-u, --api-url <url>', 'API base URL', process.env.STELLAR_ALERTS_API_URL || 'http://localhost:3001')
+  .option(
+    '--profile <name>',
+    'Configuration profile to use for this invocation (overrides active profile)',
+  );
 
 // Register command groups
 registerWalletCommands(program);
 registerStreamCommands(program);
+registerProfileCommands(program);
+registerVerifyLedgerCommands(program);
+registerTxSignCommands(program);
 
 // Health check command
 program

@@ -152,7 +152,17 @@ describe('MultiNodeHorizonClient failover & deduplication', () => {
       }
     );
 
-    const record = { id: 'dup-1', paging_token: '12345', type: 'payment' };
+    const record = {
+      id: 'dup-1',
+      paging_token: '12345',
+      type: 'payment',
+      created_at: '2026-10-05T00:00:00Z',
+      transaction_hash: 'tx-dup-1',
+      amount: '1',
+      asset_type: 'native',
+      from: validPublicKey,
+      to: validPublicKey,
+    };
     await streamHandler1(record);
     await streamHandler2(record);
 

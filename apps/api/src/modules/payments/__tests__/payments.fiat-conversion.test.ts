@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { paymentsController } from '../payments.controller';
 import { paymentsService } from '../payments.service';
+import { AuthenticationError, ValidationError } from '../../../lib/errors';
 
 // Mock the payments service
 vi.mock('../payments.service', () => ({
@@ -80,19 +81,20 @@ describe('PaymentsController - Fiat Currency Conversion', () => {
     // walletId must be a string when present.
     mockRequest = { query: { walletId: 12345 }, user: AUTH_USER };
 
-    await paymentsController.getPaymentsSummary(mockRequest, mockReply);
+    const error = await paymentsController.getPaymentsSummary(mockRequest, mockReply).catch((e) => e);
 
-    expect(mockReply.status).toHaveBeenCalledWith(400);
-    expect(mockReply.send).toHaveBeenCalled();
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error.statusCode).toBe(400);
     expect(paymentsService.getPaymentsSummary).not.toHaveBeenCalled();
   });
 
   it('should return 401 when there is no authenticated user', async () => {
     mockRequest = { query: { walletId: 'wallet-1' }, user: undefined };
 
-    await paymentsController.getPaymentsSummary(mockRequest, mockReply);
+    const error = await paymentsController.getPaymentsSummary(mockRequest, mockReply).catch((e) => e);
 
-    expect(mockReply.status).toHaveBeenCalledWith(401);
+    expect(error).toBeInstanceOf(AuthenticationError);
+    expect(error.statusCode).toBe(401);
     expect(paymentsService.getPaymentsSummary).not.toHaveBeenCalled();
   });
 

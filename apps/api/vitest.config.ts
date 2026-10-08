@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.integration.test.ts'],
     // Safe dummy values so suites that import modules which validate env at
     // import time (e.g. config/env.ts via lib/prisma) don't process.exit(1).
     env: {
@@ -23,13 +23,19 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
+      reporter: ['text', 'text-summary', 'json-summary', 'html', 'lcov'],
       reportsDirectory: './coverage',
+      reportOnFailure: true,
+      all: true,
+      clean: true,
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.test.ts',
+        'src/**/*.spec.ts',
         'src/**/*.d.ts',
+        'src/**/__tests__/**',
         'src/server.ts',
+        'src/mocks/**',
         'src/workers/**',
         'generated/**',
         'prisma/**',

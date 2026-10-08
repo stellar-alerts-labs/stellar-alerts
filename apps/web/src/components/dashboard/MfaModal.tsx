@@ -25,28 +25,35 @@ export const MfaModal: React.FC<MfaModalProps> = ({ isOpen, onClose }) => {
     return headers;
   };
 
-  const checkMFAStatus = async () => {
+  const checkMFAStatus = async (isMounted: () => boolean) => {
+    if (typeof window === 'undefined' || !isMounted()) return;
     setIsLoading(true);
     try {
       const res = await fetch('http://localhost:3001/auth/mfa/status', {
         headers: getHeaders(),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && isMounted() && typeof window !== 'undefined') {
         setMfaEnabled(data.mfaEnabled);
       }
-    } catch (error) {
-      console.error('Failed to check MFA status:', error);
+    } catch {
+      // Ignore network errors during test teardown or unmount
     } finally {
-      setIsLoading(false);
+      if (isMounted() && typeof window !== 'undefined') {
+        setIsLoading(false);
+      }
     }
   };
 
   // Check MFA status on mount
   useEffect(() => {
+    let mounted = true;
     if (isOpen) {
-      void checkMFAStatus();
+      void checkMFAStatus(() => mounted);
     }
+    return () => {
+      mounted = false;
+    };
   }, [isOpen]);
 
   const handleSetupMFA = async () => {

@@ -27,10 +27,14 @@ export type AggregateDeadLetter = {
 }
 
 export type DeadLetterAvgAggregateOutputType = {
+  attemptsMade: number | null
+  maxAttempts: number | null
   retryCount: number | null
 }
 
 export type DeadLetterSumAggregateOutputType = {
+  attemptsMade: number | null
+  maxAttempts: number | null
   retryCount: number | null
 }
 
@@ -43,6 +47,12 @@ export type DeadLetterMinAggregateOutputType = {
   destination: string | null
   error: string | null
   status: string | null
+  failureClass: string | null
+  failureReason: string | null
+  jobId: string | null
+  attemptsMade: number | null
+  maxAttempts: number | null
+  quarantinedAt: Date | null
   retryCount: number | null
   failedAt: Date | null
   createdAt: Date | null
@@ -58,6 +68,12 @@ export type DeadLetterMaxAggregateOutputType = {
   destination: string | null
   error: string | null
   status: string | null
+  failureClass: string | null
+  failureReason: string | null
+  jobId: string | null
+  attemptsMade: number | null
+  maxAttempts: number | null
+  quarantinedAt: Date | null
   retryCount: number | null
   failedAt: Date | null
   createdAt: Date | null
@@ -74,6 +90,12 @@ export type DeadLetterCountAggregateOutputType = {
   payload: number
   error: number
   status: number
+  failureClass: number
+  failureReason: number
+  jobId: number
+  attemptsMade: number
+  maxAttempts: number
+  quarantinedAt: number
   retryCount: number
   failedAt: number
   createdAt: number
@@ -83,10 +105,14 @@ export type DeadLetterCountAggregateOutputType = {
 
 
 export type DeadLetterAvgAggregateInputType = {
+  attemptsMade?: true
+  maxAttempts?: true
   retryCount?: true
 }
 
 export type DeadLetterSumAggregateInputType = {
+  attemptsMade?: true
+  maxAttempts?: true
   retryCount?: true
 }
 
@@ -99,6 +125,12 @@ export type DeadLetterMinAggregateInputType = {
   destination?: true
   error?: true
   status?: true
+  failureClass?: true
+  failureReason?: true
+  jobId?: true
+  attemptsMade?: true
+  maxAttempts?: true
+  quarantinedAt?: true
   retryCount?: true
   failedAt?: true
   createdAt?: true
@@ -114,6 +146,12 @@ export type DeadLetterMaxAggregateInputType = {
   destination?: true
   error?: true
   status?: true
+  failureClass?: true
+  failureReason?: true
+  jobId?: true
+  attemptsMade?: true
+  maxAttempts?: true
+  quarantinedAt?: true
   retryCount?: true
   failedAt?: true
   createdAt?: true
@@ -130,6 +168,12 @@ export type DeadLetterCountAggregateInputType = {
   payload?: true
   error?: true
   status?: true
+  failureClass?: true
+  failureReason?: true
+  jobId?: true
+  attemptsMade?: true
+  maxAttempts?: true
+  quarantinedAt?: true
   retryCount?: true
   failedAt?: true
   createdAt?: true
@@ -233,6 +277,12 @@ export type DeadLetterGroupByOutputType = {
   payload: runtime.JsonValue | null
   error: string
   status: string
+  failureClass: string
+  failureReason: string | null
+  jobId: string | null
+  attemptsMade: number
+  maxAttempts: number | null
+  quarantinedAt: Date | null
   retryCount: number
   failedAt: Date
   createdAt: Date
@@ -272,6 +322,12 @@ export type DeadLetterWhereInput = {
   payload?: Prisma.JsonNullableFilter<"DeadLetter">
   error?: Prisma.StringFilter<"DeadLetter"> | string
   status?: Prisma.StringFilter<"DeadLetter"> | string
+  failureClass?: Prisma.StringFilter<"DeadLetter"> | string
+  failureReason?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  jobId?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  attemptsMade?: Prisma.IntFilter<"DeadLetter"> | number
+  maxAttempts?: Prisma.IntNullableFilter<"DeadLetter"> | number | null
+  quarantinedAt?: Prisma.DateTimeNullableFilter<"DeadLetter"> | Date | string | null
   retryCount?: Prisma.IntFilter<"DeadLetter"> | number
   failedAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
@@ -279,6 +335,7 @@ export type DeadLetterWhereInput = {
   payment?: Prisma.XOR<Prisma.PaymentNullableScalarRelationFilter, Prisma.PaymentWhereInput> | null
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   auditLogs?: Prisma.DeadLetterAuditListRelationFilter
+  sandboxReplays?: Prisma.WebhookSandboxReplayListRelationFilter
 }
 
 export type DeadLetterOrderByWithRelationInput = {
@@ -291,6 +348,12 @@ export type DeadLetterOrderByWithRelationInput = {
   payload?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  failureClass?: Prisma.SortOrder
+  failureReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  jobId?: Prisma.SortOrderInput | Prisma.SortOrder
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrderInput | Prisma.SortOrder
+  quarantinedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   failedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -298,6 +361,7 @@ export type DeadLetterOrderByWithRelationInput = {
   payment?: Prisma.PaymentOrderByWithRelationInput
   user?: Prisma.UserOrderByWithRelationInput
   auditLogs?: Prisma.DeadLetterAuditOrderByRelationAggregateInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayOrderByRelationAggregateInput
 }
 
 export type DeadLetterWhereUniqueInput = Prisma.AtLeast<{
@@ -313,6 +377,12 @@ export type DeadLetterWhereUniqueInput = Prisma.AtLeast<{
   payload?: Prisma.JsonNullableFilter<"DeadLetter">
   error?: Prisma.StringFilter<"DeadLetter"> | string
   status?: Prisma.StringFilter<"DeadLetter"> | string
+  failureClass?: Prisma.StringFilter<"DeadLetter"> | string
+  failureReason?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  jobId?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  attemptsMade?: Prisma.IntFilter<"DeadLetter"> | number
+  maxAttempts?: Prisma.IntNullableFilter<"DeadLetter"> | number | null
+  quarantinedAt?: Prisma.DateTimeNullableFilter<"DeadLetter"> | Date | string | null
   retryCount?: Prisma.IntFilter<"DeadLetter"> | number
   failedAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
@@ -320,6 +390,7 @@ export type DeadLetterWhereUniqueInput = Prisma.AtLeast<{
   payment?: Prisma.XOR<Prisma.PaymentNullableScalarRelationFilter, Prisma.PaymentWhereInput> | null
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   auditLogs?: Prisma.DeadLetterAuditListRelationFilter
+  sandboxReplays?: Prisma.WebhookSandboxReplayListRelationFilter
 }, "id">
 
 export type DeadLetterOrderByWithAggregationInput = {
@@ -332,6 +403,12 @@ export type DeadLetterOrderByWithAggregationInput = {
   payload?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  failureClass?: Prisma.SortOrder
+  failureReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  jobId?: Prisma.SortOrderInput | Prisma.SortOrder
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrderInput | Prisma.SortOrder
+  quarantinedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   failedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -356,6 +433,12 @@ export type DeadLetterScalarWhereWithAggregatesInput = {
   payload?: Prisma.JsonNullableWithAggregatesFilter<"DeadLetter">
   error?: Prisma.StringWithAggregatesFilter<"DeadLetter"> | string
   status?: Prisma.StringWithAggregatesFilter<"DeadLetter"> | string
+  failureClass?: Prisma.StringWithAggregatesFilter<"DeadLetter"> | string
+  failureReason?: Prisma.StringNullableWithAggregatesFilter<"DeadLetter"> | string | null
+  jobId?: Prisma.StringNullableWithAggregatesFilter<"DeadLetter"> | string | null
+  attemptsMade?: Prisma.IntWithAggregatesFilter<"DeadLetter"> | number
+  maxAttempts?: Prisma.IntNullableWithAggregatesFilter<"DeadLetter"> | number | null
+  quarantinedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"DeadLetter"> | Date | string | null
   retryCount?: Prisma.IntWithAggregatesFilter<"DeadLetter"> | number
   failedAt?: Prisma.DateTimeWithAggregatesFilter<"DeadLetter"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"DeadLetter"> | Date | string
@@ -370,6 +453,12 @@ export type DeadLetterCreateInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
@@ -377,6 +466,7 @@ export type DeadLetterCreateInput = {
   payment?: Prisma.PaymentCreateNestedOneWithoutDeadLettersInput
   user?: Prisma.UserCreateNestedOneWithoutDeadLettersInput
   auditLogs?: Prisma.DeadLetterAuditCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterUncheckedCreateInput = {
@@ -389,11 +479,18 @@ export type DeadLetterUncheckedCreateInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterUpdateInput = {
@@ -404,6 +501,12 @@ export type DeadLetterUpdateInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -411,6 +514,7 @@ export type DeadLetterUpdateInput = {
   payment?: Prisma.PaymentUpdateOneWithoutDeadLettersNestedInput
   user?: Prisma.UserUpdateOneWithoutDeadLettersNestedInput
   auditLogs?: Prisma.DeadLetterAuditUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateInput = {
@@ -423,11 +527,18 @@ export type DeadLetterUncheckedUpdateInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterCreateManyInput = {
@@ -440,6 +551,12 @@ export type DeadLetterCreateManyInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
@@ -454,6 +571,12 @@ export type DeadLetterUpdateManyMutationInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -470,6 +593,12 @@ export type DeadLetterUncheckedUpdateManyInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -496,6 +625,12 @@ export type DeadLetterCountOrderByAggregateInput = {
   payload?: Prisma.SortOrder
   error?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  failureClass?: Prisma.SortOrder
+  failureReason?: Prisma.SortOrder
+  jobId?: Prisma.SortOrder
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  quarantinedAt?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   failedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -503,6 +638,8 @@ export type DeadLetterCountOrderByAggregateInput = {
 }
 
 export type DeadLetterAvgOrderByAggregateInput = {
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
 }
 
@@ -515,6 +652,12 @@ export type DeadLetterMaxOrderByAggregateInput = {
   destination?: Prisma.SortOrder
   error?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  failureClass?: Prisma.SortOrder
+  failureReason?: Prisma.SortOrder
+  jobId?: Prisma.SortOrder
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  quarantinedAt?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   failedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -530,6 +673,12 @@ export type DeadLetterMinOrderByAggregateInput = {
   destination?: Prisma.SortOrder
   error?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  failureClass?: Prisma.SortOrder
+  failureReason?: Prisma.SortOrder
+  jobId?: Prisma.SortOrder
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  quarantinedAt?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   failedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -537,6 +686,8 @@ export type DeadLetterMinOrderByAggregateInput = {
 }
 
 export type DeadLetterSumOrderByAggregateInput = {
+  attemptsMade?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
 }
 
@@ -629,6 +780,20 @@ export type DeadLetterUncheckedUpdateManyWithoutPaymentNestedInput = {
   deleteMany?: Prisma.DeadLetterScalarWhereInput | Prisma.DeadLetterScalarWhereInput[]
 }
 
+export type DeadLetterCreateNestedOneWithoutSandboxReplaysInput = {
+  create?: Prisma.XOR<Prisma.DeadLetterCreateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedCreateWithoutSandboxReplaysInput>
+  connectOrCreate?: Prisma.DeadLetterCreateOrConnectWithoutSandboxReplaysInput
+  connect?: Prisma.DeadLetterWhereUniqueInput
+}
+
+export type DeadLetterUpdateOneRequiredWithoutSandboxReplaysNestedInput = {
+  create?: Prisma.XOR<Prisma.DeadLetterCreateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedCreateWithoutSandboxReplaysInput>
+  connectOrCreate?: Prisma.DeadLetterCreateOrConnectWithoutSandboxReplaysInput
+  upsert?: Prisma.DeadLetterUpsertWithoutSandboxReplaysInput
+  connect?: Prisma.DeadLetterWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DeadLetterUpdateToOneWithWhereWithoutSandboxReplaysInput, Prisma.DeadLetterUpdateWithoutSandboxReplaysInput>, Prisma.DeadLetterUncheckedUpdateWithoutSandboxReplaysInput>
+}
+
 export type DeadLetterCreateNestedOneWithoutAuditLogsInput = {
   create?: Prisma.XOR<Prisma.DeadLetterCreateWithoutAuditLogsInput, Prisma.DeadLetterUncheckedCreateWithoutAuditLogsInput>
   connectOrCreate?: Prisma.DeadLetterCreateOrConnectWithoutAuditLogsInput
@@ -651,12 +816,19 @@ export type DeadLetterCreateWithoutUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   payment?: Prisma.PaymentCreateNestedOneWithoutDeadLettersInput
   auditLogs?: Prisma.DeadLetterAuditCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterUncheckedCreateWithoutUserInput = {
@@ -668,11 +840,18 @@ export type DeadLetterUncheckedCreateWithoutUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterCreateOrConnectWithoutUserInput = {
@@ -714,6 +893,12 @@ export type DeadLetterScalarWhereInput = {
   payload?: Prisma.JsonNullableFilter<"DeadLetter">
   error?: Prisma.StringFilter<"DeadLetter"> | string
   status?: Prisma.StringFilter<"DeadLetter"> | string
+  failureClass?: Prisma.StringFilter<"DeadLetter"> | string
+  failureReason?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  jobId?: Prisma.StringNullableFilter<"DeadLetter"> | string | null
+  attemptsMade?: Prisma.IntFilter<"DeadLetter"> | number
+  maxAttempts?: Prisma.IntNullableFilter<"DeadLetter"> | number | null
+  quarantinedAt?: Prisma.DateTimeNullableFilter<"DeadLetter"> | Date | string | null
   retryCount?: Prisma.IntFilter<"DeadLetter"> | number
   failedAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"DeadLetter"> | Date | string
@@ -728,12 +913,19 @@ export type DeadLetterCreateWithoutPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   user?: Prisma.UserCreateNestedOneWithoutDeadLettersInput
   auditLogs?: Prisma.DeadLetterAuditCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterUncheckedCreateWithoutPaymentInput = {
@@ -745,11 +937,18 @@ export type DeadLetterUncheckedCreateWithoutPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedCreateNestedManyWithoutDeadLetterInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterCreateOrConnectWithoutPaymentInput = {
@@ -778,6 +977,114 @@ export type DeadLetterUpdateManyWithWhereWithoutPaymentInput = {
   data: Prisma.XOR<Prisma.DeadLetterUpdateManyMutationInput, Prisma.DeadLetterUncheckedUpdateManyWithoutPaymentInput>
 }
 
+export type DeadLetterCreateWithoutSandboxReplaysInput = {
+  id?: string
+  deliveryKey?: string | null
+  channel: string
+  destination?: string | null
+  payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error: string
+  status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
+  retryCount?: number
+  failedAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  payment?: Prisma.PaymentCreateNestedOneWithoutDeadLettersInput
+  user?: Prisma.UserCreateNestedOneWithoutDeadLettersInput
+  auditLogs?: Prisma.DeadLetterAuditCreateNestedManyWithoutDeadLetterInput
+}
+
+export type DeadLetterUncheckedCreateWithoutSandboxReplaysInput = {
+  id?: string
+  deliveryKey?: string | null
+  paymentId?: string | null
+  userId?: string | null
+  channel: string
+  destination?: string | null
+  payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error: string
+  status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
+  retryCount?: number
+  failedAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  auditLogs?: Prisma.DeadLetterAuditUncheckedCreateNestedManyWithoutDeadLetterInput
+}
+
+export type DeadLetterCreateOrConnectWithoutSandboxReplaysInput = {
+  where: Prisma.DeadLetterWhereUniqueInput
+  create: Prisma.XOR<Prisma.DeadLetterCreateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedCreateWithoutSandboxReplaysInput>
+}
+
+export type DeadLetterUpsertWithoutSandboxReplaysInput = {
+  update: Prisma.XOR<Prisma.DeadLetterUpdateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedUpdateWithoutSandboxReplaysInput>
+  create: Prisma.XOR<Prisma.DeadLetterCreateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedCreateWithoutSandboxReplaysInput>
+  where?: Prisma.DeadLetterWhereInput
+}
+
+export type DeadLetterUpdateToOneWithWhereWithoutSandboxReplaysInput = {
+  where?: Prisma.DeadLetterWhereInput
+  data: Prisma.XOR<Prisma.DeadLetterUpdateWithoutSandboxReplaysInput, Prisma.DeadLetterUncheckedUpdateWithoutSandboxReplaysInput>
+}
+
+export type DeadLetterUpdateWithoutSandboxReplaysInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  deliveryKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channel?: Prisma.StringFieldUpdateOperationsInput | string
+  destination?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  payment?: Prisma.PaymentUpdateOneWithoutDeadLettersNestedInput
+  user?: Prisma.UserUpdateOneWithoutDeadLettersNestedInput
+  auditLogs?: Prisma.DeadLetterAuditUpdateManyWithoutDeadLetterNestedInput
+}
+
+export type DeadLetterUncheckedUpdateWithoutSandboxReplaysInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  deliveryKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channel?: Prisma.StringFieldUpdateOperationsInput | string
+  destination?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditLogs?: Prisma.DeadLetterAuditUncheckedUpdateManyWithoutDeadLetterNestedInput
+}
+
 export type DeadLetterCreateWithoutAuditLogsInput = {
   id?: string
   deliveryKey?: string | null
@@ -786,12 +1093,19 @@ export type DeadLetterCreateWithoutAuditLogsInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   payment?: Prisma.PaymentCreateNestedOneWithoutDeadLettersInput
   user?: Prisma.UserCreateNestedOneWithoutDeadLettersInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterUncheckedCreateWithoutAuditLogsInput = {
@@ -804,10 +1118,17 @@ export type DeadLetterUncheckedCreateWithoutAuditLogsInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedCreateNestedManyWithoutDeadLetterInput
 }
 
 export type DeadLetterCreateOrConnectWithoutAuditLogsInput = {
@@ -834,12 +1155,19 @@ export type DeadLetterUpdateWithoutAuditLogsInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payment?: Prisma.PaymentUpdateOneWithoutDeadLettersNestedInput
   user?: Prisma.UserUpdateOneWithoutDeadLettersNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateWithoutAuditLogsInput = {
@@ -852,10 +1180,17 @@ export type DeadLetterUncheckedUpdateWithoutAuditLogsInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterCreateManyUserInput = {
@@ -867,6 +1202,12 @@ export type DeadLetterCreateManyUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
@@ -881,12 +1222,19 @@ export type DeadLetterUpdateWithoutUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payment?: Prisma.PaymentUpdateOneWithoutDeadLettersNestedInput
   auditLogs?: Prisma.DeadLetterAuditUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateWithoutUserInput = {
@@ -898,11 +1246,18 @@ export type DeadLetterUncheckedUpdateWithoutUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateManyWithoutUserInput = {
@@ -914,6 +1269,12 @@ export type DeadLetterUncheckedUpdateManyWithoutUserInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -929,6 +1290,12 @@ export type DeadLetterCreateManyPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error: string
   status?: string
+  failureClass?: string
+  failureReason?: string | null
+  jobId?: string | null
+  attemptsMade?: number
+  maxAttempts?: number | null
+  quarantinedAt?: Date | string | null
   retryCount?: number
   failedAt?: Date | string
   createdAt?: Date | string
@@ -943,12 +1310,19 @@ export type DeadLetterUpdateWithoutPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneWithoutDeadLettersNestedInput
   auditLogs?: Prisma.DeadLetterAuditUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateWithoutPaymentInput = {
@@ -960,11 +1334,18 @@ export type DeadLetterUncheckedUpdateWithoutPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   auditLogs?: Prisma.DeadLetterAuditUncheckedUpdateManyWithoutDeadLetterNestedInput
+  sandboxReplays?: Prisma.WebhookSandboxReplayUncheckedUpdateManyWithoutDeadLetterNestedInput
 }
 
 export type DeadLetterUncheckedUpdateManyWithoutPaymentInput = {
@@ -976,6 +1357,12 @@ export type DeadLetterUncheckedUpdateManyWithoutPaymentInput = {
   payload?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   error?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  failureClass?: Prisma.StringFieldUpdateOperationsInput | string
+  failureReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  jobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptsMade?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  quarantinedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   failedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -989,10 +1376,12 @@ export type DeadLetterUncheckedUpdateManyWithoutPaymentInput = {
 
 export type DeadLetterCountOutputType = {
   auditLogs: number
+  sandboxReplays: number
 }
 
 export type DeadLetterCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   auditLogs?: boolean | DeadLetterCountOutputTypeCountAuditLogsArgs
+  sandboxReplays?: boolean | DeadLetterCountOutputTypeCountSandboxReplaysArgs
 }
 
 /**
@@ -1012,6 +1401,13 @@ export type DeadLetterCountOutputTypeCountAuditLogsArgs<ExtArgs extends runtime.
   where?: Prisma.DeadLetterAuditWhereInput
 }
 
+/**
+ * DeadLetterCountOutputType without action
+ */
+export type DeadLetterCountOutputTypeCountSandboxReplaysArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.WebhookSandboxReplayWhereInput
+}
+
 
 export type DeadLetterSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1023,6 +1419,12 @@ export type DeadLetterSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   payload?: boolean
   error?: boolean
   status?: boolean
+  failureClass?: boolean
+  failureReason?: boolean
+  jobId?: boolean
+  attemptsMade?: boolean
+  maxAttempts?: boolean
+  quarantinedAt?: boolean
   retryCount?: boolean
   failedAt?: boolean
   createdAt?: boolean
@@ -1030,6 +1432,7 @@ export type DeadLetterSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   payment?: boolean | Prisma.DeadLetter$paymentArgs<ExtArgs>
   user?: boolean | Prisma.DeadLetter$userArgs<ExtArgs>
   auditLogs?: boolean | Prisma.DeadLetter$auditLogsArgs<ExtArgs>
+  sandboxReplays?: boolean | Prisma.DeadLetter$sandboxReplaysArgs<ExtArgs>
   _count?: boolean | Prisma.DeadLetterCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["deadLetter"]>
 
@@ -1043,6 +1446,12 @@ export type DeadLetterSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   payload?: boolean
   error?: boolean
   status?: boolean
+  failureClass?: boolean
+  failureReason?: boolean
+  jobId?: boolean
+  attemptsMade?: boolean
+  maxAttempts?: boolean
+  quarantinedAt?: boolean
   retryCount?: boolean
   failedAt?: boolean
   createdAt?: boolean
@@ -1061,6 +1470,12 @@ export type DeadLetterSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   payload?: boolean
   error?: boolean
   status?: boolean
+  failureClass?: boolean
+  failureReason?: boolean
+  jobId?: boolean
+  attemptsMade?: boolean
+  maxAttempts?: boolean
+  quarantinedAt?: boolean
   retryCount?: boolean
   failedAt?: boolean
   createdAt?: boolean
@@ -1079,17 +1494,24 @@ export type DeadLetterSelectScalar = {
   payload?: boolean
   error?: boolean
   status?: boolean
+  failureClass?: boolean
+  failureReason?: boolean
+  jobId?: boolean
+  attemptsMade?: boolean
+  maxAttempts?: boolean
+  quarantinedAt?: boolean
   retryCount?: boolean
   failedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type DeadLetterOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "deliveryKey" | "paymentId" | "userId" | "channel" | "destination" | "payload" | "error" | "status" | "retryCount" | "failedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deadLetter"]>
+export type DeadLetterOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "deliveryKey" | "paymentId" | "userId" | "channel" | "destination" | "payload" | "error" | "status" | "failureClass" | "failureReason" | "jobId" | "attemptsMade" | "maxAttempts" | "quarantinedAt" | "retryCount" | "failedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deadLetter"]>
 export type DeadLetterInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   payment?: boolean | Prisma.DeadLetter$paymentArgs<ExtArgs>
   user?: boolean | Prisma.DeadLetter$userArgs<ExtArgs>
   auditLogs?: boolean | Prisma.DeadLetter$auditLogsArgs<ExtArgs>
+  sandboxReplays?: boolean | Prisma.DeadLetter$sandboxReplaysArgs<ExtArgs>
   _count?: boolean | Prisma.DeadLetterCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DeadLetterIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1107,6 +1529,7 @@ export type $DeadLetterPayload<ExtArgs extends runtime.Types.Extensions.Internal
     payment: Prisma.$PaymentPayload<ExtArgs> | null
     user: Prisma.$UserPayload<ExtArgs> | null
     auditLogs: Prisma.$DeadLetterAuditPayload<ExtArgs>[]
+    sandboxReplays: Prisma.$WebhookSandboxReplayPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1118,6 +1541,12 @@ export type $DeadLetterPayload<ExtArgs extends runtime.Types.Extensions.Internal
     payload: runtime.JsonValue | null
     error: string
     status: string
+    failureClass: string
+    failureReason: string | null
+    jobId: string | null
+    attemptsMade: number
+    maxAttempts: number | null
+    quarantinedAt: Date | null
     retryCount: number
     failedAt: Date
     createdAt: Date
@@ -1519,6 +1948,7 @@ export interface Prisma__DeadLetterClient<T, Null = never, ExtArgs extends runti
   payment<T extends Prisma.DeadLetter$paymentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DeadLetter$paymentArgs<ExtArgs>>): Prisma.Prisma__PaymentClient<runtime.Types.Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   user<T extends Prisma.DeadLetter$userArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DeadLetter$userArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   auditLogs<T extends Prisma.DeadLetter$auditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DeadLetter$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeadLetterAuditPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sandboxReplays<T extends Prisma.DeadLetter$sandboxReplaysArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DeadLetter$sandboxReplaysArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WebhookSandboxReplayPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1557,6 +1987,12 @@ export interface DeadLetterFieldRefs {
   readonly payload: Prisma.FieldRef<"DeadLetter", 'Json'>
   readonly error: Prisma.FieldRef<"DeadLetter", 'String'>
   readonly status: Prisma.FieldRef<"DeadLetter", 'String'>
+  readonly failureClass: Prisma.FieldRef<"DeadLetter", 'String'>
+  readonly failureReason: Prisma.FieldRef<"DeadLetter", 'String'>
+  readonly jobId: Prisma.FieldRef<"DeadLetter", 'String'>
+  readonly attemptsMade: Prisma.FieldRef<"DeadLetter", 'Int'>
+  readonly maxAttempts: Prisma.FieldRef<"DeadLetter", 'Int'>
+  readonly quarantinedAt: Prisma.FieldRef<"DeadLetter", 'DateTime'>
   readonly retryCount: Prisma.FieldRef<"DeadLetter", 'Int'>
   readonly failedAt: Prisma.FieldRef<"DeadLetter", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"DeadLetter", 'DateTime'>
@@ -2021,6 +2457,30 @@ export type DeadLetter$auditLogsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.DeadLetterAuditScalarFieldEnum | Prisma.DeadLetterAuditScalarFieldEnum[]
+}
+
+/**
+ * DeadLetter.sandboxReplays
+ */
+export type DeadLetter$sandboxReplaysArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the WebhookSandboxReplay
+   */
+  select?: Prisma.WebhookSandboxReplaySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the WebhookSandboxReplay
+   */
+  omit?: Prisma.WebhookSandboxReplayOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WebhookSandboxReplayInclude<ExtArgs> | null
+  where?: Prisma.WebhookSandboxReplayWhereInput
+  orderBy?: Prisma.WebhookSandboxReplayOrderByWithRelationInput | Prisma.WebhookSandboxReplayOrderByWithRelationInput[]
+  cursor?: Prisma.WebhookSandboxReplayWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.WebhookSandboxReplayScalarFieldEnum | Prisma.WebhookSandboxReplayScalarFieldEnum[]
 }
 
 /**

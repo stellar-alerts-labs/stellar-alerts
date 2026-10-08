@@ -6,6 +6,7 @@
     "dev": "next dev --webpack",
     "dev:collab": "node ../../node_modules/y-websocket/bin/server.cjs",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"

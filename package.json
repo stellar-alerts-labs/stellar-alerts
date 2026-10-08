@@ -8,12 +8,15 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
     "dev": "turbo dev",
     "dev:api": "npm run dev --workspace=api",
     "dev:worker": "npm run dev:worker --workspace=api",
     "dev:indexer": "npm run dev:indexer --workspace=api",
     "indexer:benchmark": "npm run indexer:benchmark --workspace=api",
     "dev:reporting": "npm run dev:reporting --workspace=api",
+    "dev:checksum-worker": "npm run dev:checksum-worker --workspace=api",
     "dev:web": "npm run dev --workspace=web",
     "dev:collab": "npm run dev:collab --workspace=web",
     "db:push": "npm run db:push --workspace=api",
@@ -22,16 +25,30 @@
     "test:api": "npm run test --workspace=api",
     "test:e2e": "npm run test:e2e --workspace=api",
     "test:coverage": "npm run test:coverage --workspace=api",
+    "test:scripts": "vitest run --config scripts/vitest.config.ts",
     "test": "npm run test --workspaces --if-present",
+    "test:quality": "vitest run quality/no-new-any.test.ts",
+    "quality:any": "tsx quality/no-new-any.ts",
+    "quality:any:update": "tsx quality/no-new-any.ts --update",
     "generate:types": "tsx scripts/generate-types.ts",
     "generate:types:check": "tsx scripts/generate-types.ts --check",
+    "check:env-examples": "node tools/check-env-examples.mjs",
+    "check:secrets": "node tools/check-secrets.mjs",
+    "test:contributor-checks": "node --test tools/check-env-examples.test.mjs tools/check-secrets.test.mjs",
+    "openapi:check:breaking": "tsx scripts/check-openapi-breaking-changes.ts",
     "benchmark:stream": "tsx scripts/benchmark-stream.ts",
     "security:audit": "osv-scanner scan source -r . --config osv-scanner.toml",
     "verify:migrations": "npx tsx scripts/verify-migrations.ts",
     "verify:migrations:dry-run": "npx tsx scripts/verify-migrations.ts --dry-run",
+    "test:scripts": "vitest run --config scripts/vitest.config.ts",
+    "release:report": "npx tsx scripts/release-report.ts",
+    "release:report:check": "npx tsx scripts/release-report.ts --check",
     "prepare": "husky"
   },
   "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@prisma/client": "^7.9.0"
   },
@@ -39,7 +56,9 @@
     "eslint": "^9.39.5",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
+    "openapi-diff": "^0.24.1",
     "openapi-typescript": "^7.13.0",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.1",
     "turbo": "^2.1.0",
     "typescript": "^5.9.3"

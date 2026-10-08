@@ -4,7 +4,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { OnboardingWizard, OnboardingWizardProps } from './OnboardingWizard';
 
-const VALID_KEY = 'GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOKY3B2WSFMG4BVI';
+// Checksum-valid StrKey: `isValidStellarPublicKey` now performs full
+// version-byte + CRC16-XMODEM validation through @stellar-alerts/shared, so the
+// fixture must be a genuinely valid key.
+const VALID_KEY = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 
 function makeProps(overrides: Partial<OnboardingWizardProps> = {}): OnboardingWizardProps {
   return {

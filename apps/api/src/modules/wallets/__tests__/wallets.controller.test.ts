@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WalletsController } from '../wallets.controller';
 import { walletsService } from '../wallets.service';
+import { ConflictError, NotFoundError, ValidationError } from '../../../lib/errors';
 
 vi.mock('../wallets.service', () => ({
   walletsService: {
@@ -55,13 +56,11 @@ describe('WalletsController', () => {
 
       vi.mocked(walletsService.addWallet).mockRejectedValue(new Error('Wallet already exists'));
 
-      await walletsController.addWallet(mockRequest, mockReply);
+      const error = await walletsController.addWallet(mockRequest, mockReply).catch((e) => e);
 
-      expect(mockReply.status).toHaveBeenCalledWith(409);
-      expect(mockReply.send).toHaveBeenCalledWith({
-        error: 'Conflict',
-        message: 'Wallet address is already registered',
-      });
+      expect(error).toBeInstanceOf(ConflictError);
+      expect(error.statusCode).toBe(409);
+      expect(error.message).toBe('Wallet address is already registered');
     });
 
     it('returns status 400 Bad Request when payload is invalid', async () => {
@@ -72,12 +71,11 @@ describe('WalletsController', () => {
         },
       };
 
-      await walletsController.addWallet(mockRequest, mockReply);
+      const error = await walletsController.addWallet(mockRequest, mockReply).catch((e) => e);
 
-      expect(mockReply.status).toHaveBeenCalledWith(400);
-      expect(mockReply.send).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'Invalid payload' })
-      );
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.statusCode).toBe(400);
+      expect(error.message).toBe('Invalid payload');
     });
   });
 
@@ -97,10 +95,11 @@ describe('WalletsController', () => {
       mockRequest = { user: { id: 'u-1' }, params: { id: 'w-missing' } };
       vi.mocked(walletsService.getIngestionStatus).mockRejectedValue(new Error('Wallet not found'));
 
-      await walletsController.getIngestionStatus(mockRequest, mockReply);
+      const error = await walletsController.getIngestionStatus(mockRequest, mockReply).catch((e) => e);
 
-      expect(mockReply.status).toHaveBeenCalledWith(404);
-      expect(mockReply.send).toHaveBeenCalledWith({ error: 'Not Found', message: 'Wallet not found' });
+      expect(error).toBeInstanceOf(NotFoundError);
+      expect(error.statusCode).toBe(404);
+      expect(error.message).toBe('Wallet not found');
     });
   });
 });

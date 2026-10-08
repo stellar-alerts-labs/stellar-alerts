@@ -1,0 +1,74 @@
+name: Changelog
+
+# Generates a release-note section from merged pull requests and uploads it for
+# review. Deliberately a dry run: nothing is committed, so the release manager
+# decides what lands in CHANGELOG.md (see docs/CHANGELOG_AUTOMATION.md).
+#
+# The only credential it needs is the automatic GITHUB_TOKEN, which is passed
+# through the environment. The generator never prints it, never puts it in a URL
+# and never puts it in a command line (or in the artifact it uploads).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Section heading to generate, for example 1.4.0'
+        required: true
+        default: 'Unreleased'
+      since:
+        description: 'Only include pull requests merged at or after this ISO-8601 timestamp'
+        required: false
+        default: ''
+      include_internal:
+        description: 'Also list refactors, chores, CI and tests'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    name: Generate changelog (dry run)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate the release-note section
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          SINCE: ${{ inputs.since }}
+          INCLUDE_INTERNAL: ${{ inputs.include_internal }}
+        run: |
+          args=(--repo "$GITHUB_REPOSITORY" --version "$VERSION" --limit 300 --out changelog-dry-run.md)
+          if [ -n "$SINCE" ]; then
+            args+=(--since "$SINCE")
+          fi
+          if [ "$INCLUDE_INTERNAL" = "true" ]; then
+            args+=(--include-internal)
+          fi
+          npx tsx scripts/generate-changelog.ts "${args[@]}"
+
+      - name: Upload the section for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-dry-run
+          path: changelog-dry-run.md
+          if-no-files-found: error

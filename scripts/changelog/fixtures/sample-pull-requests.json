@@ -1,0 +1,68 @@
+{
+  "_comment": "Sample merged-pull-request metadata for an offline changelog dry run (issue #289). Shaped like the GitHub REST API so the same normaliser handles it. Used by scripts/changelog/dry-run.test.ts and safe to run by hand: npx tsx scripts/generate-changelog.ts --from scripts/changelog/fixtures/sample-pull-requests.json --version 1.4.0",
+  "pull_requests": [
+    {
+      "number": 401,
+      "title": "feat(api): watch anchor deposit transactions",
+      "user": { "login": "alice" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/401",
+      "merged_at": "2026-09-02T09:12:00Z",
+      "labels": [{ "name": "Stellar Wave" }, { "name": "enhancement" }],
+      "body": "Adds an anchor watcher worker and its alert rule."
+    },
+    {
+      "number": 402,
+      "title": "fix(web): keep the dashboard live when the socket drops",
+      "user": { "login": "bob" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/402",
+      "merged_at": "2026-09-03T11:40:00Z",
+      "labels": [{ "name": "bug" }],
+      "body": "Reconnects with backoff instead of showing a stale table."
+    },
+    {
+      "number": 405,
+      "title": "feat(api)!: require the X-Signature header on every webhook",
+      "user": { "login": "carol" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/405",
+      "merged_at": "2026-09-05T08:00:00Z",
+      "labels": [{ "name": "security" }],
+      "body": "BREAKING CHANGE: unsigned webhook requests are now rejected with 401."
+    },
+    {
+      "number": 403,
+      "title": "perf(api): batch soroban topic index reads",
+      "user": { "login": "dave" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/403",
+      "merged_at": "2026-09-06T15:25:00Z",
+      "labels": [],
+      "body": "One query per page instead of one per event."
+    },
+    {
+      "number": 404,
+      "title": "docs: document the delivery lifecycle states",
+      "user": { "login": "erin" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/404",
+      "merged_at": "2026-09-07T10:05:00Z",
+      "labels": [{ "name": "documentation" }],
+      "body": "Adds docs/DELIVERY_LIFECYCLE.md examples."
+    },
+    {
+      "number": 407,
+      "title": "refactor(api): split the watcher supervisor",
+      "user": { "login": "frank" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/407",
+      "merged_at": "2026-09-08T12:30:00Z",
+      "labels": [],
+      "body": "No behaviour change; smaller modules and clearer tests."
+    },
+    {
+      "number": 406,
+      "title": "chore(deps): bump axios from 1.7.2 to 1.7.9",
+      "user": { "login": "dependabot[bot]" },
+      "html_url": "https://github.com/stellar-alerts-labs/stellar-alerts/pull/406",
+      "merged_at": "2026-09-08T12:31:00Z",
+      "labels": [{ "name": "dependencies" }],
+      "body": "Bumps axios."
+    }
+  ]
+}

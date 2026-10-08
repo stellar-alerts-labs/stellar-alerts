@@ -1,10 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PaymentTable } from '../dashboard/PaymentTable';
 import { ActivityHeatmap } from '../dashboard/ActivityHeatmap';
 import { SummaryStats } from '../dashboard/SummaryStats';
-import { DashboardGrid } from '../dashboard/DashboardGrid';
 
 describe('Visual Regression & Responsive Dashboard States (#332)', () => {
   describe('Desktop Viewport (1280px)', () => {

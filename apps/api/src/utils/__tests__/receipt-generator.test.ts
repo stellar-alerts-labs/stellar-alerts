@@ -5,6 +5,7 @@ import {
   TransactionReceiptInput,
 } from '../receipt-generator';
 import { paymentsController } from '../../modules/payments/payments.controller';
+import { AuthenticationError, AuthorizationError, NotFoundError } from '../../lib/errors';
 
 vi.mock('../../lib/prisma', () => ({
   prisma: {
@@ -83,10 +84,10 @@ describe('Issue #262: Downloadable Transaction Receipts', () => {
         send: vi.fn(),
       };
 
-      await paymentsController.getReceipt(req, reply);
+      const error = await paymentsController.getReceipt(req, reply).catch((e) => e);
 
-      expect(reply.status).toHaveBeenCalledWith(401);
-      expect(reply.send).toHaveBeenCalledWith(expect.objectContaining({ error: 'Unauthorized' }));
+      expect(error).toBeInstanceOf(AuthenticationError);
+      expect(error.statusCode).toBe(401);
     });
 
     it('returns 404 Not Found if transaction does not exist', async () => {
@@ -98,10 +99,11 @@ describe('Issue #262: Downloadable Transaction Receipts', () => {
         send: vi.fn(),
       };
 
-      await paymentsController.getReceipt(req, reply);
+      const error = await paymentsController.getReceipt(req, reply).catch((e) => e);
 
-      expect(reply.status).toHaveBeenCalledWith(404);
-      expect(reply.send).toHaveBeenCalledWith(expect.objectContaining({ error: 'Payment transaction not found' }));
+      expect(error).toBeInstanceOf(NotFoundError);
+      expect(error.statusCode).toBe(404);
+      expect(error.message).toBe('Payment transaction not found');
     });
 
     it('returns 403 Forbidden if requesting user does not own the wallet', async () => {
@@ -117,10 +119,10 @@ describe('Issue #262: Downloadable Transaction Receipts', () => {
         send: vi.fn(),
       };
 
-      await paymentsController.getReceipt(req, reply);
+      const error = await paymentsController.getReceipt(req, reply).catch((e) => e);
 
-      expect(reply.status).toHaveBeenCalledWith(403);
-      expect(reply.send).toHaveBeenCalledWith(expect.objectContaining({ error: 'Forbidden' }));
+      expect(error).toBeInstanceOf(AuthorizationError);
+      expect(error.statusCode).toBe(403);
     });
 
     it('returns 200 OK with application/pdf header when user owns the wallet', async () => {

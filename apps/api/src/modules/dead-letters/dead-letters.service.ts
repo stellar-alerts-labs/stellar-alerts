@@ -1,14 +1,17 @@
 import { prisma } from '../../lib/prisma';
 import { buildDeliveryKey } from '../../lib/delivery';
 import { processAlertDispatch, type AlertJobData } from '../../lib/queue';
+import { CursorError } from '../../utils/pagination';
+import { toAlertJobData } from './dead-letters.envelope';
 
 export interface DeadLetterListParams {
   channel?: string;
   status?: 'pending' | 'retried' | 'suppressed';
   q?: string;
   maxAgeDays?: number;
-  page?: number;
-  pageSize?: number;
+  /** Opaque cursor from a previous page's `pagination.nextCursor`. */
+  cursor?: string;
+  limit?: number;
 }
 
 export interface ReplayResult {
@@ -16,38 +19,9 @@ export interface ReplayResult {
   message: string;
 }
 
-/**
- * Extracts the canonical `AlertJobData` that processAlertDispatch needs from a
- * dead letter's stored payload. Queue-channel dead letters persist the raw job
- * data; channel dead letters (telegram/email/webhook) persist the webhook
- * payload envelope with the payment fields under `data`.
- */
-function toAlertJobData(payload: unknown): AlertJobData | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const value = payload as Record<string, any>;
-
-  const candidate = value.walletId && value.txHash ? value : value.data ?? null;
-  if (!candidate || typeof candidate !== 'object') return null;
-
-  if (typeof candidate.paymentId !== 'string') return null;
-  return {
-    paymentId: candidate.paymentId,
-    txHash: candidate.txHash ?? 'unknown',
-    walletId: candidate.walletId ?? '',
-    amount: typeof candidate.amount === 'string' ? candidate.amount : String(candidate.amount ?? '0'),
-    asset: candidate.asset ?? 'XLM',
-    assetIssuer: candidate.assetIssuer ?? null,
-    fromAddress: candidate.fromAddress ?? '',
-    receivedAt: candidate.receivedAt ?? new Date().toISOString(),
-    requestId: undefined,
-  };
-}
-
 export class DeadLettersService {
   async list(userId: string, params: DeadLetterListParams = {}) {
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 20;
-
+    const limit = params.limit ?? 20;
     const where: Record<string, any> = { userId };
 
     if (params.channel) {
@@ -67,32 +41,60 @@ export class DeadLettersService {
       ];
     }
 
-    const [items, total] = await Promise.all([
-      prisma.deadLetter.findMany({
-        where,
-        orderBy: { failedAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          deliveryKey: true,
-          paymentId: true,
-          channel: true,
-          destination: true,
-          error: true,
-          status: true,
-          retryCount: true,
-          failedAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      prisma.deadLetter.count({ where }),
-    ]);
+    // Cursor condition — dead-letters are ordered by failedAt DESC, id DESC.
+    // The cursor encodes { failedAt, id } of the last row on the previous page.
+    if (params.cursor) {
+      const { failedAt, id } = decodeDeadLetterCursor(params.cursor);
+      const cursorCondition = {
+        OR: [
+          { failedAt: { lt: failedAt } },
+          { failedAt, id: { lt: id } },
+        ],
+      };
+      // Merge with any existing failedAt age filter
+      if (where.failedAt) {
+        where.AND = [{ failedAt: where.failedAt }, cursorCondition];
+        delete where.failedAt;
+      } else {
+        Object.assign(where, cursorCondition);
+      }
+    }
+
+    const rows = await prisma.deadLetter.findMany({
+      where,
+      orderBy: [{ failedAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: {
+        id: true,
+        deliveryKey: true,
+        paymentId: true,
+        channel: true,
+        destination: true,
+        error: true,
+        status: true,
+        failureClass: true,
+        failureReason: true,
+        jobId: true,
+        attemptsMade: true,
+        maxAttempts: true,
+        quarantinedAt: true,
+        retryCount: true,
+        failedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const hasNextPage = rows.length > limit;
+    const items = hasNextPage ? rows.slice(0, limit) : rows;
+    const nextCursor =
+      hasNextPage && items.length > 0
+        ? encodeDeadLetterCursor(items[items.length - 1])
+        : undefined;
 
     return {
       items,
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: { limit, nextCursor, hasNextPage },
     };
   }
 
@@ -208,3 +210,59 @@ export class DeadLettersService {
 }
 
 export const deadLettersService = new DeadLettersService();
+
+// ---------------------------------------------------------------------------
+// Dead-letter cursor helpers
+// Dead-letters use `failedAt` (not `createdAt`) as the primary sort key.
+// ---------------------------------------------------------------------------
+
+interface DeadLetterCursorPayload {
+  failedAt: string;
+  id: string;
+}
+
+/**
+ * Encodes the last dead-letter on a page into an opaque base64url cursor.
+ */
+export function encodeDeadLetterCursor(item: { id: string; failedAt: Date }): string {
+  const payload: DeadLetterCursorPayload = {
+    failedAt: item.failedAt.toISOString(),
+    id: item.id,
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Decodes an opaque dead-letter cursor.
+ * Throws {@link CursorError} if the cursor is malformed.
+ */
+export function decodeDeadLetterCursor(cursor: string): { failedAt: Date; id: string } {
+  let raw: string;
+  try {
+    raw = Buffer.from(cursor, 'base64url').toString('utf8');
+  } catch {
+    throw new CursorError();
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new CursorError();
+  }
+
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    typeof (payload as any).failedAt !== 'string' ||
+    typeof (payload as any).id !== 'string' ||
+    isNaN(Date.parse((payload as any).failedAt))
+  ) {
+    throw new CursorError();
+  }
+
+  return {
+    failedAt: new Date((payload as DeadLetterCursorPayload).failedAt),
+    id: (payload as DeadLetterCursorPayload).id,
+  };
+}

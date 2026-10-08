@@ -151,7 +151,7 @@ describe('Full End-to-End Automated Integration Test Suite (Offline Horizon Mock
     expect(registeredWallet.label).toBe('Main Treasury Account');
 
     const userWallets = await walletsService.getWallets(authResult.user.id);
-    expect(userWallets).toHaveLength(1);
+    expect(userWallets.items).toHaveLength(1);
   });
 
   it('Stage 4: Blockchain Payment Ingestion & Decoding Pipeline', async () => {

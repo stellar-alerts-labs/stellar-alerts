@@ -1,13 +1,17 @@
 import * as StellarSdk from 'stellar-sdk';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 import { env } from '../config/env';
+import { stellarNetwork } from '../config/network';
 import { withDeadline } from './external-request';
+import { isHorizonOperationRecord, type HorizonOperationRecord } from '../types/horizon';
+import type { SorobanRpcEvent } from '../types/soroban-event';
 
 // Configure global Horizon AxiosClient default timeout
 if ((StellarSdk.Horizon as any)?.AxiosClient?.defaults) {
   (StellarSdk.Horizon as any).AxiosClient.defaults.timeout = env.HORIZON_REQUEST_TIMEOUT_MS;
 }
 
-const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+const server = new StellarSdk.Horizon.Server(stellarNetwork.horizonEndpoints[0]);
 
 export const STROOPS_PER_UNIT = 10_000_000;
 
@@ -38,14 +42,20 @@ export interface SacTransfer {
  * Native XLM payments resolve to { assetCode: 'XLM', assetIssuer: null } while
  * credit_alphanum4 / credit_alphanum12 records carry their own code + issuer.
  */
-export function decodeHorizonAsset(record: any): DecodedStellarAsset {
-  if (record?.asset_type === 'native' || !record?.asset_type) {
+export function decodeHorizonAsset(record: HorizonOperationRecord): DecodedStellarAsset {
+  const rec = record as {
+    asset_type?: string;
+    asset_code?: string;
+    asset_issuer?: string;
+  };
+
+  if (rec.asset_type === 'native' || !rec.asset_type) {
     return { assetCode: 'XLM', assetIssuer: null };
   }
 
   return {
-    assetCode: record.asset_code || 'Unknown',
-    assetIssuer: record.asset_issuer || null,
+    assetCode: rec.asset_code || 'Unknown',
+    assetIssuer: rec.asset_issuer || null,
   };
 }
 
@@ -153,19 +163,19 @@ function extractTopicValue(topicEntry: any): string | null {
  * transfer with the decimal-adjusted amount. Supports both canonical RPC
  * events (topic: [symbol, from, to] + i128 data) and simplified payloads.
  */
-export function parseSacTransferEvent(event: any, decimals: number = 7): SacTransfer | null {
+export function parseSacTransferEvent(event: SorobanRpcEvent, decimals: number = 7): SacTransfer | null {
   if (!event) return null;
 
   const topics = Array.isArray(event.topic) ? event.topic : [];
   const action = extractTopicValue(topics[0]) ?? (typeof event.topic === 'string' ? event.topic : '');
 
-  const value = event.value ?? event.data ?? {};
-  const from = (topics.length > 1 ? decodeScAddress(topics[1]) : null) ?? value.from ?? '';
-  const to = (topics.length > 2 ? decodeScAddress(topics[2]) : null) ?? value.to ?? '';
+  const rawValue = (event.value ?? event.data ?? {}) as Record<string, unknown>;
+  const from = (topics.length > 1 ? decodeScAddress(topics[1]) : null) ?? (rawValue['from'] as string | undefined) ?? '';
+  const to = (topics.length > 2 ? decodeScAddress(topics[2]) : null) ?? (rawValue['to'] as string | undefined) ?? '';
 
-  let rawAmount = decodeScAmount(value.amount);
-  if (rawAmount === null && !value.amount && !value.from && !value.to) {
-    rawAmount = decodeScAmount(value);
+  let rawAmount = decodeScAmount(rawValue['amount']);
+  if (rawAmount === null && !rawValue['amount'] && !rawValue['from'] && !rawValue['to']) {
+    rawAmount = decodeScAmount(rawValue);
   }
 
   if (!action || action !== 'transfer' || rawAmount === null) {
@@ -301,9 +311,7 @@ export function countMultisigSignatures(
 }
 
 export const DEFAULT_HORIZON_ENDPOINTS = [
-  process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org',
-  process.env.HORIZON_URL_NODE2 || 'https://horizon-testnet.publicnode.org',
-  process.env.HORIZON_URL_NODE3 || 'https://horizon-testnet.lobstr.co',
+  ...stellarNetwork.horizonEndpoints,
 ];
 
 export class MultiNodeHorizonClient {
@@ -315,7 +323,7 @@ export class MultiNodeHorizonClient {
     this.servers = endpoints.map((url) => new StellarSdk.Horizon.Server(url));
   }
 
-  async getPaymentsSince(publicKey: string, cursor: string, limit = 50): Promise<any[]> {
+  async getPaymentsSince(publicKey: string, cursor: string, limit = 50): Promise<HorizonOperationRecord[]> {
     const result = await this.getPaymentsSinceResult(publicKey, cursor, limit);
     return result.records;
   }
@@ -333,7 +341,7 @@ export class MultiNodeHorizonClient {
     limit = 50,
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<{ records: any[]; allNodesFailed: boolean; lastError: string | null }> {
-    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
       console.warn(`[MultiNodeHorizon] Skipping invalid public key checksum: "${publicKey}"`);
       return { records: [], allNodesFailed: false, lastError: null };
     }
@@ -344,22 +352,17 @@ export class MultiNodeHorizonClient {
     for (let i = 0; i < this.servers.length; i++) {
       const server = this.servers[i];
       try {
-        const payments = await withDeadline(
-          () =>
-            server
-              .payments()
-              .forAccount(publicKey)
-              .cursor(cursor)
-              .order('asc')
-              .limit(limit)
-              .call(),
-          timeoutMs,
-          options.signal,
-          `Horizon node ${this.endpoints[i]}`,
-        );
-        return { records: payments.records, allNodesFailed: false, lastError: null };
-      } catch (error: any) {
-        lastError = error?.message || String(error);
+        const payments = await server
+          .payments()
+          .forAccount(publicKey)
+          .cursor(cursor)
+          .order('asc')
+          .limit(limit)
+          .call();
+        return { records: asHorizonOperationRecords(payments.records), allNodesFailed: false, lastError: null };
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        lastError = errMsg;
         console.warn(
           `[MultiNodeHorizon] Horizon node ${this.endpoints[i]} failed: ${lastError}. Trying fallback node...`,
         );
@@ -371,8 +374,8 @@ export class MultiNodeHorizonClient {
   streamPaymentsMultiNode(
     publicKey: string,
     cursor: string,
-    onMessage: (record: any, nodeUrl: string) => Promise<void> | void,
-    onError?: (error: any, nodeUrl: string) => void
+    onMessage: (record: HorizonOperationRecord, nodeUrl: string) => Promise<void> | void,
+    onError?: (error: unknown, nodeUrl: string) => void,
   ): () => void {
     const seenPagingTokens = new Set<string>();
     const activeCloseFns: Array<() => void> = [];
@@ -389,8 +392,9 @@ export class MultiNodeHorizonClient {
             .forAccount(publicKey)
             .cursor(cursor)
             .stream({
-              onmessage: async (record: any) => {
-                const token = record.paging_token || record.id || record.transaction_hash;
+              onmessage: async (record: unknown) => {
+                const typedRecord = isHorizonOperationRecord(record) ? record : null;
+                const token = typedRecord?.paging_token || (typeof record === 'object' && record && 'id' in record ? String((record as Record<string, unknown>).id ?? '') : '') || (typeof record === 'object' && record && 'transaction_hash' in record ? String((record as Record<string, unknown>).transaction_hash ?? '') : '');
                 if (token && seenPagingTokens.has(token)) {
                   return; // Deduplicate across concurrent multi-node SSE streams
                 }
@@ -401,9 +405,12 @@ export class MultiNodeHorizonClient {
                     if (first) seenPagingTokens.delete(first);
                   }
                 }
-                await onMessage(record, nodeUrl);
+                if (!typedRecord) {
+                  return;
+                }
+                await onMessage(typedRecord, nodeUrl);
               },
-              onerror: (error: any) => {
+              onerror: (error: unknown) => {
                 if (onError) onError(error, nodeUrl);
                 // Reconnect failover worker connection for this specific node
                 setTimeout(() => {
@@ -416,7 +423,7 @@ export class MultiNodeHorizonClient {
             isClosed = true;
             if (closeStream) closeStream();
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           if (onError) onError(err, nodeUrl);
         }
       };
@@ -432,6 +439,18 @@ export class MultiNodeHorizonClient {
 
 export const multiNodeClient = new MultiNodeHorizonClient();
 
+export interface SetOptionsOperationSummary {
+  type: 'set_options';
+  signer_key?: string;
+  signer_weight?: number;
+  master_weight?: number;
+  low_threshold?: number;
+  med_threshold?: number;
+  high_threshold?: number;
+  transaction_hash?: string;
+  created_at?: string;
+}
+
 export const stellar = {
   server,
   multiNode: multiNodeClient,
@@ -442,8 +461,12 @@ export const stellar = {
   async getAccountSigners(
     publicKey: string,
     options: { timeoutMs?: number; signal?: AbortSignal } = {},
-  ): Promise<{ signers: MultisigSigner[]; thresholds: MultisigThresholds } | null> {
-    if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+  ): Promise<{
+    signers: MultisigSigner[];
+    thresholds: MultisigThresholds;
+    masterWeight: number;
+  } | null> {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
       console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return null;
     }
@@ -456,6 +479,9 @@ export const stellar = {
         options.signal,
         'Horizon',
       );
+      const masterSigner = account.signers.find(
+        (s) => s.key === (account.account_id || (account as any).id),
+      );
       return {
         signers: account.signers.map((s) => ({ key: s.key, weight: s.weight })),
         thresholds: {
@@ -463,29 +489,30 @@ export const stellar = {
           medium: account.thresholds.med_threshold,
           high: account.thresholds.high_threshold,
         },
+        masterWeight: masterSigner ? Number(masterSigner.weight) : 0,
       };
     } catch (error: any) {
       console.error(`[Stellar] Error fetching signers for account ${publicKey}:`, error?.message || error);
       return null;
     }
   },
-  // Helper to fetch recent payments for a given account
-  async getRecentPayments(
+
+  async getRecentSetOptionsOperations(
     publicKey: string,
-    limit: number = 10,
-    options: { timeoutMs?: number; signal?: AbortSignal } = {},
-  ) {
+    options: { timeoutMs?: number; signal?: AbortSignal; limit?: number } = {},
+  ): Promise<SetOptionsOperationSummary[]> {
     if (!publicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
-      console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
       return [];
     }
 
     const timeoutMs = options.timeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
+    const limit = options.limit ?? 10;
+
     try {
-      const payments = await withDeadline(
+      const operations = await withDeadline(
         () =>
           server
-            .payments()
+            .operations()
             .forAccount(publicKey)
             .order('desc')
             .limit(limit)
@@ -494,9 +521,49 @@ export const stellar = {
         options.signal,
         'Horizon',
       );
-      
-      return payments.records;
+
+      return operations.records
+        .filter((record: any) => record?.type === 'set_options')
+        .map((record: any) => ({
+          type: 'set_options',
+          signer_key: record.signer_key ?? record.signerKey ?? undefined,
+          signer_weight: record.signer_weight ?? record.signerWeight ?? undefined,
+          master_weight: record.master_weight ?? record.masterWeight ?? undefined,
+          low_threshold: record.low_threshold ?? record.lowThreshold ?? undefined,
+          med_threshold: record.med_threshold ?? record.medThreshold ?? undefined,
+          high_threshold: record.high_threshold ?? record.highThreshold ?? undefined,
+          transaction_hash: record.transaction_hash ?? record.transactionHash ?? undefined,
+          created_at: record.created_at ?? undefined,
+        }));
     } catch (error: any) {
+      console.warn(
+        `[Stellar] Error fetching set_options operations for ${publicKey}:`,
+        error?.message || error,
+      );
+      return [];
+    }
+  },
+  // Helper to fetch recent payments for a given account
+  async getRecentPayments(
+    publicKey: string,
+    limit: number = 10,
+    options: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ) {
+    if (!publicKey || !isValidEd25519PublicKey(publicKey)) {
+      console.warn(`[Stellar] Skipping invalid public key format or checksum: "${publicKey}"`);
+      return [];
+    }
+
+    const timeoutMs = options.timeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
+    try {
+      const payments = await server.payments()
+        .forAccount(publicKey)
+        .order('desc')
+        .limit(limit)
+        .call();
+
+      return asHorizonOperationRecords(payments.records);
+    } catch (error: unknown) {
       logPaymentsError(publicKey, error);
       return [];
     }
@@ -516,6 +583,6 @@ export const stellar = {
   // Paging token of the most recent payment, used to seed a fresh cursor
   async getLatestPagingToken(publicKey: string): Promise<string> {
     const records = await this.getRecentPayments(publicKey, 1);
-    return (records[0] as any)?.paging_token || '0';
+    return records[0]?.paging_token || '0';
   }
 };

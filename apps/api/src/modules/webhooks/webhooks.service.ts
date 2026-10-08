@@ -1,9 +1,8 @@
 import crypto from 'crypto';
 
 import { prisma } from '../../lib/prisma';
-import { KeyRotationManager } from '../../utils/key-rotation-manager';
-import { cryptoVault } from '../../utils/crypto-vault';
-import { validateUrlForSsrf, ssrfSafeFetch } from '../../utils/ssrf';
+import { generateWebhookSignature } from '../../utils/webhook-signer';
+import { encryptToString, decryptFromString } from '../../utils/crypto-vault';
 
 export interface WebhookTestResult {
   success: boolean;
@@ -66,13 +65,9 @@ export class WebhooksService {
 
   async addWebhook(userId: string, url: string, payloadTemplate?: string) {
     console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
-
-    // SSRF-safe destination validation (#312)
-    await validateUrlForSsrf(url);
-
-    const secret = crypto.randomBytes(32).toString('hex');
-    const encryptedSecret = cryptoVault.encrypt(secret);
-    const [version, iv, authTag, ciphertext] = encryptedSecret.split(':');
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    // Encrypt the secret before persisting — only the vault-encrypted form is stored
+    const secret = encryptToString(rawSecret);
 
     const webhook = await prisma.webhook.create({
       data: {
@@ -150,6 +145,49 @@ export class WebhooksService {
     });
   }
 
+  /**
+   * Returns a cursor-paginated list of delivery logs for a specific webhook.
+   * Only returns logs for webhooks owned by `userId` — ownership is verified
+   * before the log query so a user can never read another user's logs by
+   * guessing a webhookId.
+   *
+   * Stable ordering: createdAt DESC, id DESC.
+   */
+  async getWebhookLogs(webhookId: string, userId: string, limit: number = 20, cursor?: string) {
+    // Verify ownership
+    const webhook = await prisma.webhook.findFirst({
+      where: { id: webhookId, userId },
+      select: { id: true },
+    });
+    if (!webhook) {
+      throw new Error('Webhook not found');
+    }
+
+    const where: Record<string, any> = { webhookId };
+
+    if (cursor) {
+      const cursorWhere = buildCursorWhere(cursor);
+      Object.assign(where, cursorWhere);
+    }
+
+    const rows = await prisma.webhookLog.findMany({
+      where,
+      orderBy: CURSOR_ORDER_BY,
+      take: limit + 1,
+      select: {
+        id: true,
+        webhookId: true,
+        statusCode: true,
+        responseBody: true,
+        error: true,
+        sentAt: true,
+        createdAt: true,
+      },
+    });
+
+    return buildCursorPage(rows, limit);
+  }
+
   async removeWebhook(id: string, userId: string) {
     const deleted = await prisma.webhook.deleteMany({
       where: { id, userId },
@@ -177,28 +215,24 @@ export class WebhooksService {
     ].join(':');
     const secret = cryptoVault.decrypt(encrypted);
 
-    const payload = JSON.stringify({
+    let rawPayload: Record<string, any> = {
       event: 'webhook.ping',
       timestamp: new Date().toISOString(),
       data: {
         webhookId: webhook.id,
         message: 'Test ping dispatched from Stellar Alerts',
       },
-    });
-
-    if (!this.keyRotationManager.getKeyState(webhook.id)) {
-      this.keyRotationManager.setKeyState(webhook.id, { activeSecret: secret });
-    }
-    const signatures = this.keyRotationManager.sign(payload, webhook.id);
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Stellar-Signature': signatures.primary.headerValue,
-      'X-Stellar-Alerts-Nonce': signatures.primary.nonce,
     };
-    if (signatures.secondary) {
-      headers['X-Stellar-Signature-Secondary'] = signatures.secondary.headerValue;
+
+    if (webhook.payloadTemplate) {
+      rawPayload = dynamicPayloadTransformer.transform(rawPayload, webhook.payloadTemplate);
     }
+
+    const payload = JSON.stringify(rawPayload);
+
+    // Decrypt the stored vault secret before signing
+    const rawSecret = decryptFromString(webhook.secret);
+    const signature = generateWebhookSignature(payload, rawSecret);
 
     try {
       const response = await ssrfSafeFetch(webhook.url, {

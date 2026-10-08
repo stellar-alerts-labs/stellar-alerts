@@ -28,9 +28,14 @@ export interface AlertRuleRecord {
   id: string;
   userId: string;
   walletId: string | null;
+  name?: string | null;
   assets: string[];
   minAmount: number | string | null;
+  maxAmount?: number | string | null;
+  memo?: string | null;
+  channels?: string[];
   conditions: FilterRuleGroup | null;
+  version?: number;
   isActive: boolean;
 }
 
@@ -50,6 +55,19 @@ export function meetsMinimumAmount(rule: AlertRuleRecord, amount: number | strin
   return Number(amount) >= Number(rule.minAmount);
 }
 
+/** A null/undefined maxAmount means "no maximum threshold". Boundary is inclusive (<=). */
+export function meetsMaximumAmount(rule: AlertRuleRecord, amount: number | string): boolean {
+  if (rule.maxAmount === null || rule.maxAmount === undefined) return true;
+  return Number(amount) <= Number(rule.maxAmount);
+}
+
+/** A null/undefined or empty memo condition matches any memo. Case-insensitive substring match. */
+export function ruleAppliesToMemo(rule: AlertRuleRecord, memo?: string | null): boolean {
+  if (!rule.memo || rule.memo.trim() === '') return true;
+  if (!memo) return false;
+  return memo.toLowerCase().includes(rule.memo.toLowerCase());
+}
+
 /**
  * Evaluates a single AlertRule against a normalized payment event. Inactive
  * rules never match, regardless of their other conditions.
@@ -59,6 +77,8 @@ export function matchesAlertRule(rule: AlertRuleRecord, event: NormalizedPayment
   if (!ruleAppliesToWallet(rule, event.walletId)) return false;
   if (!ruleAppliesToAsset(rule, event.asset)) return false;
   if (!meetsMinimumAmount(rule, event.amount)) return false;
+  if (!meetsMaximumAmount(rule, event.amount)) return false;
+  if (!ruleAppliesToMemo(rule, event.memo)) return false;
 
   if (rule.conditions) {
     const context: PaymentContext = {

@@ -193,6 +193,14 @@ function createClient(): Redis {
 export const redis = createClient();
 
 /**
+ * Returns the shared Redis singleton client instance.
+ * Use this when a module needs to import the client by a named function.
+ */
+export function getRedisClient(): Redis {
+  return redis;
+}
+
+/**
  * Gets current Redis lifecycle status.
  */
 export function getRedisStatus(): RedisLifecycleStatus {
@@ -213,6 +221,14 @@ export function isRedisDegraded(): boolean {
 export async function checkRedisReadiness(timeoutMs = 1500): Promise<RedisHealthStatus> {
   const start = Date.now();
   try {
+    // The client is created with lazyConnect: true, so a fresh process has
+    // never opened its socket. Trigger the connection explicitly before the
+    // first probe, otherwise the very first readiness check would ping a
+    // disconnected client and report not-ready against a healthy Redis.
+    if (redis.status === 'wait') {
+      await redis.connect();
+    }
+
     const pingPromise = redis.ping();
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Redis ping timeout')), timeoutMs),

@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.10"
     }
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.34"
+    }
   }
 }
 
@@ -66,12 +70,68 @@ module "aws_eks" {
 }
 
 # ==============================================================================
-# GCP Multi-Cloud Infrastructure (when target_cloud = "gcp")
+# DigitalOcean Multi-Cloud Infrastructure (when target_cloud = "do")
 # ==============================================================================
 
-provider "google" {
-  project = var.gcp_project_id
-  region  = var.gcp_region
+provider "digitalocean" {}
+
+module "do_vpc" {
+  count  = var.target_cloud == "do" ? 1 : 0
+  source = "./modules/do_vpc"
+
+  environment  = var.environment
+  region       = var.do_region
+  vpc_ip_range = var.do_vpc_ip_range
+}
+
+module "do_database" {
+  count  = var.target_cloud == "do" ? 1 : 0
+  source = "./modules/do_database"
+
+  environment        = var.environment
+  region             = var.do_region
+  vpc_uuid           = module.do_vpc[0].vpc_id
+  db_name            = var.db_name
+  db_username        = var.db_username
+  db_password        = var.db_password
+  cluster_size       = var.do_db_cluster_size
+  instance_size_slug = var.do_db_instance_size
+
+  trusted_sources = [
+    {
+      type  = "k8s"
+      value = module.do_kubernetes[0].cluster_id
+    }
+  ]
+}
+
+module "do_redis" {
+  count  = var.target_cloud == "do" ? 1 : 0
+  source = "./modules/do_redis"
+
+  environment    = var.environment
+  region         = var.do_region
+  vpc_uuid       = module.do_vpc[0].vpc_id
+  memory_size_gb = var.do_redis_memory_gb
+
+  trusted_sources = [
+    {
+      type  = "k8s"
+      value = module.do_kubernetes[0].cluster_id
+    }
+  ]
+}
+
+module "do_kubernetes" {
+  count  = var.target_cloud == "do" ? 1 : 0
+  source = "./modules/do_kubernetes"
+
+  environment      = var.environment
+  region           = var.do_region
+  vpc_uuid         = module.do_vpc[0].vpc_id
+  node_count       = var.do_node_count
+  node_size_slug   = var.do_node_size
+  ha_control_plane = var.environment == "prod"
 }
 
 module "gcp_vpc" {

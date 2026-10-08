@@ -28,10 +28,14 @@ export type AggregateAlertRule = {
 
 export type AlertRuleAvgAggregateOutputType = {
   minAmount: runtime.Decimal | null
+  maxAmount: runtime.Decimal | null
+  version: number | null
 }
 
 export type AlertRuleSumAggregateOutputType = {
   minAmount: runtime.Decimal | null
+  maxAmount: runtime.Decimal | null
+  version: number | null
 }
 
 export type AlertRuleMinAggregateOutputType = {
@@ -40,6 +44,9 @@ export type AlertRuleMinAggregateOutputType = {
   walletId: string | null
   name: string | null
   minAmount: runtime.Decimal | null
+  maxAmount: runtime.Decimal | null
+  memo: string | null
+  version: number | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -51,6 +58,9 @@ export type AlertRuleMaxAggregateOutputType = {
   walletId: string | null
   name: string | null
   minAmount: runtime.Decimal | null
+  maxAmount: runtime.Decimal | null
+  memo: string | null
+  version: number | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -63,7 +73,11 @@ export type AlertRuleCountAggregateOutputType = {
   name: number
   assets: number
   minAmount: number
+  maxAmount: number
+  memo: number
+  channels: number
   conditions: number
+  version: number
   isActive: number
   createdAt: number
   updatedAt: number
@@ -73,10 +87,14 @@ export type AlertRuleCountAggregateOutputType = {
 
 export type AlertRuleAvgAggregateInputType = {
   minAmount?: true
+  maxAmount?: true
+  version?: true
 }
 
 export type AlertRuleSumAggregateInputType = {
   minAmount?: true
+  maxAmount?: true
+  version?: true
 }
 
 export type AlertRuleMinAggregateInputType = {
@@ -85,6 +103,9 @@ export type AlertRuleMinAggregateInputType = {
   walletId?: true
   name?: true
   minAmount?: true
+  maxAmount?: true
+  memo?: true
+  version?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -96,6 +117,9 @@ export type AlertRuleMaxAggregateInputType = {
   walletId?: true
   name?: true
   minAmount?: true
+  maxAmount?: true
+  memo?: true
+  version?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -108,7 +132,11 @@ export type AlertRuleCountAggregateInputType = {
   name?: true
   assets?: true
   minAmount?: true
+  maxAmount?: true
+  memo?: true
+  channels?: true
   conditions?: true
+  version?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -208,7 +236,11 @@ export type AlertRuleGroupByOutputType = {
   name: string | null
   assets: string[]
   minAmount: runtime.Decimal | null
+  maxAmount: runtime.Decimal | null
+  memo: string | null
+  channels: string[]
   conditions: runtime.JsonValue | null
+  version: number
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -244,7 +276,11 @@ export type AlertRuleWhereInput = {
   name?: Prisma.StringNullableFilter<"AlertRule"> | string | null
   assets?: Prisma.StringNullableListFilter<"AlertRule">
   minAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.StringNullableFilter<"AlertRule"> | string | null
+  channels?: Prisma.StringNullableListFilter<"AlertRule">
   conditions?: Prisma.JsonNullableFilter<"AlertRule">
+  version?: Prisma.IntFilter<"AlertRule"> | number
   isActive?: Prisma.BoolFilter<"AlertRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
@@ -259,7 +295,11 @@ export type AlertRuleOrderByWithRelationInput = {
   name?: Prisma.SortOrderInput | Prisma.SortOrder
   assets?: Prisma.SortOrder
   minAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  memo?: Prisma.SortOrderInput | Prisma.SortOrder
+  channels?: Prisma.SortOrder
   conditions?: Prisma.SortOrderInput | Prisma.SortOrder
+  version?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -277,7 +317,11 @@ export type AlertRuleWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringNullableFilter<"AlertRule"> | string | null
   assets?: Prisma.StringNullableListFilter<"AlertRule">
   minAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.StringNullableFilter<"AlertRule"> | string | null
+  channels?: Prisma.StringNullableListFilter<"AlertRule">
   conditions?: Prisma.JsonNullableFilter<"AlertRule">
+  version?: Prisma.IntFilter<"AlertRule"> | number
   isActive?: Prisma.BoolFilter<"AlertRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
@@ -292,7 +336,11 @@ export type AlertRuleOrderByWithAggregationInput = {
   name?: Prisma.SortOrderInput | Prisma.SortOrder
   assets?: Prisma.SortOrder
   minAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  memo?: Prisma.SortOrderInput | Prisma.SortOrder
+  channels?: Prisma.SortOrder
   conditions?: Prisma.SortOrderInput | Prisma.SortOrder
+  version?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -313,7 +361,11 @@ export type AlertRuleScalarWhereWithAggregatesInput = {
   name?: Prisma.StringNullableWithAggregatesFilter<"AlertRule"> | string | null
   assets?: Prisma.StringNullableListFilter<"AlertRule">
   minAmount?: Prisma.DecimalNullableWithAggregatesFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.DecimalNullableWithAggregatesFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.StringNullableWithAggregatesFilter<"AlertRule"> | string | null
+  channels?: Prisma.StringNullableListFilter<"AlertRule">
   conditions?: Prisma.JsonNullableWithAggregatesFilter<"AlertRule">
+  version?: Prisma.IntWithAggregatesFilter<"AlertRule"> | number
   isActive?: Prisma.BoolWithAggregatesFilter<"AlertRule"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AlertRule"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"AlertRule"> | Date | string
@@ -324,7 +376,11 @@ export type AlertRuleCreateInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -339,7 +395,11 @@ export type AlertRuleUncheckedCreateInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -350,7 +410,11 @@ export type AlertRuleUpdateInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -365,7 +429,11 @@ export type AlertRuleUncheckedUpdateInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -378,7 +446,11 @@ export type AlertRuleCreateManyInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -389,7 +461,11 @@ export type AlertRuleUpdateManyMutationInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -402,7 +478,11 @@ export type AlertRuleUncheckedUpdateManyInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -418,14 +498,6 @@ export type AlertRuleOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type StringNullableListFilter<$PrismaModel = never> = {
-  equals?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
-  has?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
-  hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
-  hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
-  isEmpty?: boolean
-}
-
 export type AlertRuleCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -433,7 +505,11 @@ export type AlertRuleCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   assets?: Prisma.SortOrder
   minAmount?: Prisma.SortOrder
+  maxAmount?: Prisma.SortOrder
+  memo?: Prisma.SortOrder
+  channels?: Prisma.SortOrder
   conditions?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -441,6 +517,8 @@ export type AlertRuleCountOrderByAggregateInput = {
 
 export type AlertRuleAvgOrderByAggregateInput = {
   minAmount?: Prisma.SortOrder
+  maxAmount?: Prisma.SortOrder
+  version?: Prisma.SortOrder
 }
 
 export type AlertRuleMaxOrderByAggregateInput = {
@@ -449,6 +527,9 @@ export type AlertRuleMaxOrderByAggregateInput = {
   walletId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   minAmount?: Prisma.SortOrder
+  maxAmount?: Prisma.SortOrder
+  memo?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -460,6 +541,9 @@ export type AlertRuleMinOrderByAggregateInput = {
   walletId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   minAmount?: Prisma.SortOrder
+  maxAmount?: Prisma.SortOrder
+  memo?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -467,6 +551,8 @@ export type AlertRuleMinOrderByAggregateInput = {
 
 export type AlertRuleSumOrderByAggregateInput = {
   minAmount?: Prisma.SortOrder
+  maxAmount?: Prisma.SortOrder
+  version?: Prisma.SortOrder
 }
 
 export type AlertRuleCreateNestedManyWithoutUserInput = {
@@ -557,17 +643,18 @@ export type AlertRuleCreateassetsInput = {
   set: string[]
 }
 
+export type AlertRuleCreatechannelsInput = {
+  set: string[]
+}
+
 export type AlertRuleUpdateassetsInput = {
   set?: string[]
   push?: string | string[]
 }
 
-export type NullableDecimalFieldUpdateOperationsInput = {
-  set?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
-  increment?: runtime.Decimal | runtime.DecimalJsLike | number | string
-  decrement?: runtime.Decimal | runtime.DecimalJsLike | number | string
-  multiply?: runtime.Decimal | runtime.DecimalJsLike | number | string
-  divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
+export type AlertRuleUpdatechannelsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 export type AlertRuleCreateWithoutUserInput = {
@@ -575,7 +662,11 @@ export type AlertRuleCreateWithoutUserInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -588,7 +679,11 @@ export type AlertRuleUncheckedCreateWithoutUserInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -630,7 +725,11 @@ export type AlertRuleScalarWhereInput = {
   name?: Prisma.StringNullableFilter<"AlertRule"> | string | null
   assets?: Prisma.StringNullableListFilter<"AlertRule">
   minAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.DecimalNullableFilter<"AlertRule"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.StringNullableFilter<"AlertRule"> | string | null
+  channels?: Prisma.StringNullableListFilter<"AlertRule">
   conditions?: Prisma.JsonNullableFilter<"AlertRule">
+  version?: Prisma.IntFilter<"AlertRule"> | number
   isActive?: Prisma.BoolFilter<"AlertRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AlertRule"> | Date | string
@@ -641,7 +740,11 @@ export type AlertRuleCreateWithoutWalletInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -654,7 +757,11 @@ export type AlertRuleUncheckedCreateWithoutWalletInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -692,7 +799,11 @@ export type AlertRuleCreateManyUserInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -703,7 +814,11 @@ export type AlertRuleUpdateWithoutUserInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -716,7 +831,11 @@ export type AlertRuleUncheckedUpdateWithoutUserInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -728,7 +847,11 @@ export type AlertRuleUncheckedUpdateManyWithoutUserInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -740,7 +863,11 @@ export type AlertRuleCreateManyWalletInput = {
   name?: string | null
   assets?: Prisma.AlertRuleCreateassetsInput | string[]
   minAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: string | null
+  channels?: Prisma.AlertRuleCreatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: number
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -751,7 +878,11 @@ export type AlertRuleUpdateWithoutWalletInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -764,7 +895,11 @@ export type AlertRuleUncheckedUpdateWithoutWalletInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -776,7 +911,11 @@ export type AlertRuleUncheckedUpdateManyWithoutWalletInput = {
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assets?: Prisma.AlertRuleUpdateassetsInput | string[]
   minAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  maxAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  memo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  channels?: Prisma.AlertRuleUpdatechannelsInput | string[]
   conditions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -791,7 +930,11 @@ export type AlertRuleSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   name?: boolean
   assets?: boolean
   minAmount?: boolean
+  maxAmount?: boolean
+  memo?: boolean
+  channels?: boolean
   conditions?: boolean
+  version?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -806,7 +949,11 @@ export type AlertRuleSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   name?: boolean
   assets?: boolean
   minAmount?: boolean
+  maxAmount?: boolean
+  memo?: boolean
+  channels?: boolean
   conditions?: boolean
+  version?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -821,7 +968,11 @@ export type AlertRuleSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   name?: boolean
   assets?: boolean
   minAmount?: boolean
+  maxAmount?: boolean
+  memo?: boolean
+  channels?: boolean
   conditions?: boolean
+  version?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -836,13 +987,17 @@ export type AlertRuleSelectScalar = {
   name?: boolean
   assets?: boolean
   minAmount?: boolean
+  maxAmount?: boolean
+  memo?: boolean
+  channels?: boolean
   conditions?: boolean
+  version?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AlertRuleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "walletId" | "name" | "assets" | "minAmount" | "conditions" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["alertRule"]>
+export type AlertRuleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "walletId" | "name" | "assets" | "minAmount" | "maxAmount" | "memo" | "channels" | "conditions" | "version" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["alertRule"]>
 export type AlertRuleInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   wallet?: boolean | Prisma.AlertRule$walletArgs<ExtArgs>
@@ -869,7 +1024,11 @@ export type $AlertRulePayload<ExtArgs extends runtime.Types.Extensions.InternalA
     name: string | null
     assets: string[]
     minAmount: runtime.Decimal | null
+    maxAmount: runtime.Decimal | null
+    memo: string | null
+    channels: string[]
     conditions: runtime.JsonValue | null
+    version: number
     isActive: boolean
     createdAt: Date
     updatedAt: Date
@@ -1304,7 +1463,11 @@ export interface AlertRuleFieldRefs {
   readonly name: Prisma.FieldRef<"AlertRule", 'String'>
   readonly assets: Prisma.FieldRef<"AlertRule", 'String[]'>
   readonly minAmount: Prisma.FieldRef<"AlertRule", 'Decimal'>
+  readonly maxAmount: Prisma.FieldRef<"AlertRule", 'Decimal'>
+  readonly memo: Prisma.FieldRef<"AlertRule", 'String'>
+  readonly channels: Prisma.FieldRef<"AlertRule", 'String[]'>
   readonly conditions: Prisma.FieldRef<"AlertRule", 'Json'>
+  readonly version: Prisma.FieldRef<"AlertRule", 'Int'>
   readonly isActive: Prisma.FieldRef<"AlertRule", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"AlertRule", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"AlertRule", 'DateTime'>

@@ -77,7 +77,7 @@ stellar-alerts/
 │       └── src/
 │           ├── app/              # Next.js routes (/page.tsx, /verify)
 │           └── components/
-│               └── dashboard/    # SummaryStats, WalletList, PaymentTable, NotificationModal
+│               └── dashboard/    # SummaryStats, WalletList, PaymentTable, NotificationModal, SankeyFlowDiagram
 ├── contracts/
 │   └── alert_registry/           # Soroban Rust Wasm Smart Contract
 │       ├── Cargo.toml
@@ -86,10 +86,18 @@ stellar-alerts/
 │   └── shared/                   # Monorepo shared package (@stellar-alerts/shared)
 │       └── src/index.ts          # Shared DTO interfaces & StrKey validator
 ├── docs/
+│   ├── adr/                      # Architecture Decision Records (see docs/adr/README.md)
 │   └── drips-wave-issues.json    # 42 Drips Wave issues backlog export
 ├── docker-compose.yml            # Local PostgreSQL 16 & Redis 7 stack
 └── turbo.json                    # Turborepo task pipeline configuration
 ```
+
+The design decisions behind ingestion, queueing, and notification delivery are
+recorded in [`docs/adr/`](docs/adr/README.md):
+
+- [ADR 0001 — Horizon paging-token cursors with bounded backfill](docs/adr/0001-horizon-cursor-ingestion.md)
+- [ADR 0002 — BullMQ on Redis for the payment-alert queue and DLQ](docs/adr/0002-bullmq-payment-alert-queue.md)
+- [ADR 0003 — Content-addressed delivery keys and idempotency](docs/adr/0003-notification-delivery-idempotency.md)
 
 ---
 
@@ -106,7 +114,14 @@ stellar-alerts/
 | `/wallets/:id` | DELETE | Yes | Remove a wallet by ID |
 | `/payments` | GET | Yes | Fetch payment transaction history |
 | `/payments/summary`| GET | Yes | Aggregate payment stats (total payments, volume) |
+| `/exports` | POST | Yes | Start an asynchronous CSV/PDF export job (`202 Accepted`) — see [docs/exports.md](docs/exports.md) |
+| `/exports` | GET | Yes | List the current user's export jobs |
+| `/exports/:id` | GET | Yes | Export status and progress; includes a short-lived signed download URL once completed |
+| `/exports/:id/download` | GET | Signed URL | Stream a completed export file (`expires` + `sig` query params) |
 | `/wasm-analyzer/analyze` | POST | Yes | Upload a Soroban contract WASM binary (`multipart/form-data`, field `file`) for static security analysis — see [§6.1](#61-wasm-analyzer-api) |
+| `/simulations/analyze` | POST | Yes | Pre-execution threat analysis of a Stellar/Soroban envelope; returns an explainable 0-100 score with indicator breakdown (`201 Created`) — see [docs/simulation.md](docs/simulation.md) |
+| `/simulations` | GET | Yes | Paginated history of the current user's persisted simulations; optional `band`/`sourceAccount` filters |
+| `/simulations/:id` | GET | Yes | One stored simulation report (`Cache-Control: no-store`) |
 
 ---
 
@@ -119,6 +134,10 @@ The ingestion worker ([watcher.worker.ts](file:///c:/Users/user/OneDrive/Documen
 3. **Soroban RPC Ingestion**: Queries `getEvents` for Soroban contract event logs.
 4. **Idempotent Persistence**: Checks `prisma.payment.findUnique({ where: { txHash } })` to guarantee idempotent database insertion.
 5. **BullMQ Queue Enqueueing**: Publishes alert payload to `payment-alerts` queue with exponential retry backoff (5 attempts).
+
+### Worker poison-job handling
+
+The queue classifies failures as `retryable` or `permanent`. Retryable failures continue with exponential backoff until `WORKER_MAX_ATTEMPTS` (default `5`, bounded to `20`); permanent failures, including malformed alert payloads, are quarantined after the first failure. Both paths write a `DeadLetter` record and a `payment-alerts-dlq` entry. The record includes `jobId`, `failureClass`, `failureReason`, `attemptsMade`, and `maxAttempts`, making the reason visible to operators through the existing dead-letter API. Existing channel-level dead letters and replay/suppression behavior remain compatible.
 
 ---
 
@@ -179,3 +198,42 @@ so contract binaries can be screened before they're indexed.
   ```
   A malformed binary still returns `200` with `analysis.valid: false` and `analysis.parseError` set — parsing failure is itself a stable, structured finding, not a server error.
 - **Audit logging**: every request (accepted, rejected, or flagged) writes a `SecurityAuditLog` row (`eventType: "WASM_ANALYSIS_UPLOAD"`) capturing the requesting user, upload metadata, SHA-256 digest, and finding codes, so uploads are reviewable after the fact. A logging failure is caught and logged server-side; it never fails the API response.
+
+### 6.2 Pre-Execution Simulation Engine
+
+`POST /simulations/analyze` analyzes a Stellar/Soroban transaction envelope
+**before** it is signed and returns an explainable 0-100 threat score with a
+per-category indicator breakdown. Full documentation, request shape, indicator
+catalogue, threshold reference, and rollout notes are in
+[docs/simulation.md](docs/simulation.md).
+
+- **Layering**: the engine (`apps/api/src/services/simulation/`) is pure
+  TypeScript with **no** Prisma, `config/env`, or network dependency — every
+  input arrives through `SimulationRequest` and every threshold through
+  `SimulationEngineOptions`. The HTTP layer
+  (`apps/api/src/modules/simulation/`) resolves `env`, persists, and audits. This
+  split is what makes the rule set exhaustively testable and reusable from workers.
+- **Not a sandbox**: the engine does not execute the envelope or contact a Soroban
+  RPC node. Reports carry `meta.simulated`, and an analysis without a host
+  simulation is scored as an explicit lower bound via `NO_SIMULATION_RESULT`
+  rather than being presented as complete.
+- **Exact arithmetic**: all amount math is `bigint` stroop conversion via a
+  decimal-string parser. Amounts are validated strings (not JS numbers, which
+  cannot represent 7-decimal Stellar amounts exactly) and negatives are rejected
+  at the parser, since a negative parsed amount could net against a real outflow
+  and mask a drain.
+- **Explainable scoring**: `score = min(100, Σ weight)` over indicators
+  deduplicated by `code`, so volume shows up as *evidence* rather than as score
+  and one rule firing per operation cannot escalate a benign envelope. The
+  per-category breakdown is derived from the same set, making it reconcilable
+  against the headline number.
+- **Auth**: session JWT required; history is owner-scoped in the query clause (not
+  filtered afterwards) so ids cannot be probed. A submitted `envelopeXdr` is
+  SHA-256 hashed into `envelopeHash` and never stored verbatim.
+- **Rate limit**: 20 requests/minute per client on top of the global limiter.
+- **Persistence**: one `TransactionSimulation` row per analysis. `score`, `band`,
+  and `blockExecution` are indexed columns; the complete report (including the
+  threshold set in force) is stored as JSONB so a past assessment stays
+  explainable after thresholds are retuned. `HIGH`/`CRITICAL` results are
+  escalated into `SecurityAuditLog` as `TRANSACTION_SIMULATION_RISK`; that write
+  is best-effort and never fails the request.

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { apiClient } from '../lib/api.js';
+import { ApiClient } from '../lib/api.js';
+import { resolveAuth } from '../lib/auth.js';
 
 export function registerWalletCommands(program: Command): void {
   const wallet = program
@@ -12,15 +13,14 @@ export function registerWalletCommands(program: Command): void {
     .description('Add a new wallet to watch')
     .argument('<publicKey>', 'Stellar public key (starts with G, 56 chars)')
     .option('-l, --label <label>', 'Optional label for the wallet')
-    .option('-t, --token <token>', 'API authentication token')
+    .option('-t, --token <token>', 'API authentication token (overrides profile)')
     .action(async (publicKey: string, options: { label?: string; token?: string }) => {
       try {
-        if (options.token) {
-          apiClient['apiKey'] = options.token;
-        }
+        const auth = resolveAuth(options.token, program.opts().apiUrl);
+        const client = new ApiClient(auth.apiUrl, auth.token);
 
         console.log(chalk.blue('🔄 Adding wallet...'));
-        const wallet = await apiClient.addWallet(publicKey, options.label);
+        const wallet = await client.addWallet(publicKey, options.label);
 
         console.log(chalk.green('✅ Wallet added successfully!'));
         console.log(`   ID: ${chalk.cyan(wallet.id)}`);
@@ -38,14 +38,13 @@ export function registerWalletCommands(program: Command): void {
   wallet
     .command('list')
     .description('List all watched wallets')
-    .option('-t, --token <token>', 'API authentication token')
+    .option('-t, --token <token>', 'API authentication token (overrides profile)')
     .action(async (options: { token?: string }) => {
       try {
-        if (options.token) {
-          apiClient['apiKey'] = options.token;
-        }
+        const auth = resolveAuth(options.token, program.opts().apiUrl);
+        const client = new ApiClient(auth.apiUrl, auth.token);
 
-        const wallets = await apiClient.getWallets();
+        const wallets = await client.getWallets();
 
         if (wallets.length === 0) {
           console.log(chalk.yellow('📭 No wallets found. Add one with: stellar-alerts-cli wallet add <publicKey>'));
@@ -86,15 +85,14 @@ export function registerWalletCommands(program: Command): void {
     .alias('rm')
     .description('Remove a watched wallet')
     .argument('<id>', 'Wallet ID to remove')
-    .option('-t, --token <token>', 'API authentication token')
+    .option('-t, --token <token>', 'API authentication token (overrides profile)')
     .action(async (id: string, options: { token?: string }) => {
       try {
-        if (options.token) {
-          apiClient['apiKey'] = options.token;
-        }
+        const auth = resolveAuth(options.token, program.opts().apiUrl);
+        const client = new ApiClient(auth.apiUrl, auth.token);
 
         console.log(chalk.blue('🔄 Removing wallet...'));
-        await apiClient.deleteWallet(id);
+        await client.deleteWallet(id);
         console.log(chalk.green(`✅ Wallet ${chalk.cyan(id)} removed successfully!`));
       } catch (error) {
         console.error(chalk.red(`❌ Error: ${(error as Error).message}`));

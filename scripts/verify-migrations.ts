@@ -37,7 +37,7 @@ interface MigrationResult {
 /**
  * Get the list of migrations in order
  */
-function getMigrations(): string[] {
+export function getMigrations(): string[] {
   return readdirSync(MIGRATIONS_DIR)
     .filter(dir => {
       const migrationPath = join(MIGRATIONS_DIR, dir);
@@ -47,6 +47,26 @@ function getMigrations(): string[] {
       );
     })
     .sort();
+}
+
+export { MIGRATIONS_DIR };
+
+/**
+ * Extracts every (table, column) pair a migration adds a NOT NULL
+ * constraint to via `ALTER TABLE ... ALTER COLUMN ... SET NOT NULL`. Used
+ * by scripts/verify-migrations-shadow.ts to seed exactly the row shape
+ * (an existing NULL in that column) that would make this migration fail
+ * in production, turning the static warning below into an empirical check
+ * against a real database.
+ */
+export function findAddedNotNullColumns(sqlContent: string): { table: string; column: string }[] {
+  const results: { table: string; column: string }[] = [];
+  const regex = /ALTER\s+TABLE\s+"?(\w+)"?\s+ALTER\s+COLUMN\s+"?(\w+)"?\s+SET\s+NOT\s+NULL/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(sqlContent))) {
+    results.push({ table: match[1], column: match[2] });
+  }
+  return results;
 }
 
 /**
@@ -329,7 +349,12 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error('❌ Script failed:', error);
-  process.exit(1);
-});
+// Guarded so this file can be imported (getMigrations, findAddedNotNullColumns)
+// by scripts/verify-migrations-shadow.ts without re-running this script's own
+// CLI entrypoint as a side effect of the import.
+if (require.main === module) {
+  main().catch(error => {
+    console.error('❌ Script failed:', error);
+    process.exit(1);
+  });
+}

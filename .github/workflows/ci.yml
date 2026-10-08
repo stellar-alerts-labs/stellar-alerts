@@ -11,7 +11,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # One contract, every workspace: typecheck + build for apps/api, apps/web,
+  # packages/shared and packages/cli on the single supported Node version
+  # pinned by .nvmrc. The guard in `validate` keeps this matrix in sync with
+  # the root package.json workspaces so a new workspace cannot silently skip CI.
+  workspace-matrix:
+    name: Typecheck & Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Shared
+            workspace: packages/shared
+          - name: CLI
+            workspace: packages/cli
+          - name: API
+            workspace: apps/api
+          - name: Web
+            workspace: apps/web
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        if: matrix.workspace == 'apps/api'
+        run: npx prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+
+      - name: Build workspace dependency (@stellar-alerts/shared)
+        if: matrix.workspace != 'packages/shared'
+        run: npm run build --workspace=packages/shared
+
+      - name: Typecheck ${{ matrix.name }}
+        run: npm run typecheck --workspace=${{ matrix.workspace }}
+
+      - name: Build ${{ matrix.name }}
+        run: npm run build --workspace=${{ matrix.workspace }}
+        env:
+          NEXTAUTH_SECRET: "ci-build-dummy-secret-key-123456"
+          NEXT_PUBLIC_API_URL: "http://localhost:3001"
+
   validate:
+    # Kept as-is so any branch-protection required status check name survives;
+    # typecheck/build now live in the `workspace-matrix` job above.
     name: Build, Lint & Test
     runs-on: ubuntu-latest
 
@@ -38,16 +94,45 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
+
+      - name: Verify CI workspace matrix covers every workspace
+        run: node .github/verify-workspace-matrix.mjs
+
+      # Fail fast on the dependency-level gates (issue #339) before the slower
+      # Prisma/typecheck/build steps: `test:scripts` covers the release tooling
+      # and `release:report:check` enforces the license allow/deny policy, so a
+      # new copyleft or unlicensed dependency is caught on the PR that adds it.
+      # The OSV vulnerability half of the gate runs in the tag-triggered
+      # `.github/workflows/release.yml`, where the scan report is available.
+      - name: Run Ops Script Unit Tests
+        run: npm run test:scripts
+
+      - name: Enforce dependency license policy
+        run: npm run release:report:check
+
+      # Fail fast on the dependency-level gates (issue #339) before the slower
+      # Prisma/typecheck/build steps: `test:scripts` covers the release tooling
+      # and `release:report:check` enforces the license allow/deny policy, so a
+      # new copyleft or unlicensed dependency is caught on the PR that adds it.
+      # The OSV vulnerability half of the gate runs in the tag-triggered
+      # `.github/workflows/release.yml`, where the scan report is available.
+      - name: Run Ops Script Unit Tests
+        run: npm run test:scripts
+
+      - name: Enforce dependency license policy
+        run: npm run release:report:check
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -55,8 +140,15 @@ jobs:
         env:
           DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
 
+      - name: Build Shared Package (@stellar-alerts/shared)
+        run: npx tsc -p packages/shared/tsconfig.json
+
       - name: Verify generated OpenAPI types are up to date
         run: npm run generate:types:check
+# scripts/**/*.test.ts: changelog generation (see docs/CHANGELOG_AUTOMATION.md)
+      # and migration verification. Node only, so no services are needed.
+      - name: Run Repository Script Tests
+        run: npm run test:scripts
 
       - name: Build Shared Package (@stellar-alerts/shared)
         run: npx tsc -p packages/shared/tsconfig.json
@@ -73,12 +165,22 @@ jobs:
           DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
 
       - name: Run API Unit Tests
-        run: npm run test:api
+        run: npm run test:unit --workspace=api
         env:
           DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
           REDIS_URL: "redis://localhost:6379"
           JWT_SECRET: "ci-unit-test-secret-key-min-32-chars!!"
           MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          NODE_ENV: "test"
+
+      - name: Run API Integration Tests
+        run: npm run test:integration --workspace=api
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+          REDIS_URL: "redis://localhost:6379"
+          JWT_SECRET: "ci-integration-test-secret-key-min-32-chars!!"
+          MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          TELEGRAM_BOT_TOKEN: "test-telegram-token"
           NODE_ENV: "test"
 
       - name: Run Web Lint
@@ -93,28 +195,88 @@ jobs:
           NEXTAUTH_SECRET: "ci-build-dummy-secret-key-123456"
           NEXT_PUBLIC_API_URL: "http://localhost:3001"
 
+  integration:
+    name: Integration Fixtures (Postgres + Redis)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: stellar_alerts_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d stellar_alerts_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/stellar_alerts_test"
+
+      - name: Build Shared Package (@stellar-alerts/shared)
+        run: npx tsc -p packages/shared/tsconfig.json
+
+      - name: Run Integration Fixture Tests
+        working-directory: apps/api
+        run: npm run test:fixtures
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/stellar_alerts_test"
+          TEST_DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/stellar_alerts_test"
+          TEST_REDIS_URL: "redis://localhost:6379"
+          REDIS_URL: "redis://localhost:6379"
+          NODE_ENV: "test"
+
   chaos:
     name: Chaos Engineering Fault Injection Suite
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npx prisma generate
         working-directory: apps/api
         env:
           DATABASE_URL: "postgresql://user:password@localhost:5432/stellar_alerts?schema=public"
+
+      - name: Check Prisma migration and generated-client drift
+        run: npx tsx scripts/check-prisma-drift.ts
 
       - name: Build Shared Package (@stellar-alerts/shared)
         run: npx tsc -p packages/shared/tsconfig.json

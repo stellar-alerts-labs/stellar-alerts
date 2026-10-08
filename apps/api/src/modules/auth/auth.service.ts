@@ -77,7 +77,11 @@ export class AuthService {
         console.warn(`[AuthService] Redis magic token cache skipped: ${err?.message}`);
       }
     }
-    console.log(`[AuthService] ✉️ Magic link generated: http://localhost:3000/verify?token=${token}`);
+    // Never log the raw magic token (secret) and avoid per-request stdout
+    // on the k6 hot path; debug builds can still opt in via LOG_LEVEL=debug.
+    if (process.env.LOG_LEVEL === 'debug') {
+      console.debug(`[AuthService] Magic link generated for: ${email}`);
+    }
     return token;
   }
 
@@ -121,7 +125,9 @@ export class AuthService {
 
       const session = await this.issueSession(user.id, user.email);
 
-      console.log(`[AuthService] Magic link verified for: ${decoded.email}`);
+      if (process.env.LOG_LEVEL === 'debug') {
+        console.debug(`[AuthService] Magic link verified for: ${decoded.email}`);
+      }
       return {
         token: session.accessToken,
         accessToken: session.accessToken,

@@ -32,6 +32,7 @@ vi.mock('../../lib/prisma', () => {
     prismaRead: mockPrisma,
     replicaPrisma: mockPrisma,
     getReadClient: () => mockPrisma,
+    setReadTarget: vi.fn(),
   };
 });
 

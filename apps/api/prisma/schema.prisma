@@ -14,6 +14,7 @@ model User {
   mfaEnabled  Boolean                  @default(false)
   createdAt   DateTime                 @default(now())
   wallets     Wallet[]
+  exportJobs  ExportJob[]
   webhooks    Webhook[]
   notifyPrefs NotificationPreference?
   sorobanSubscriptions SorobanContractSubscription[]
@@ -21,11 +22,14 @@ model User {
   anchorWatches         AnchorTransactionWatch[]
   dexSwapWatches        DexSwapWatch[]
   alertRules            AlertRule[]
-  deliveryAttempts NotificationDeliveryAttempt[]
-  deadLetters        DeadLetter[]
+  deliveryAttempts       NotificationDeliveryAttempt[]
+  deadLetters            DeadLetter[]
+  webhookSandboxReplays  WebhookSandboxReplay[]
   mfaRecoveryCodes   MfaRecoveryCode[]
   notificationDeliveries NotificationDelivery[]
   refreshSessions        RefreshSession[]
+  telegramSyncCodes      TelegramSyncCode[]
+  simulations            TransactionSimulation[]
 }
 
 model Wallet {
@@ -38,6 +42,8 @@ model Wallet {
   payments   Payment[]
   cursor     IngestionCursor?
   alertRules AlertRule[]
+
+  @@index([userId, createdAt])
 }
 
 model IngestionCursor {
@@ -72,6 +78,7 @@ model Payment {
   deliveryAttempts NotificationDeliveryAttempt[]
   deadLetters       DeadLetter[]
   deliveries        NotificationDelivery[]
+  checksum          PaymentChecksum?
 
   @@index([txHash])
   @@index([receivedAt])
@@ -80,17 +87,95 @@ model Payment {
   @@index([walletId, receivedAt])
 }
 
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  eventType   String
+  aggregateId String
+  payload     Json
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  lockedAt    DateTime?
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, availableAt])
+  @@index([aggregateId])
+  @@index([createdAt])
+}
+
 model NotificationPreference {
-  id              String  @id @default(cuid())
-  userId          String  @unique
-  user            User    @relation(fields: [userId], references: [id])
-  telegramChatId  String?
-  telegramEnabled Boolean @default(false)
-  emailEnabled    Boolean @default(true)
-  whatsappNumber  String?
-  whatsappEnabled Boolean @default(false)
-  language        String  @default("EN")
-  filterRules     Json?   // Stores filter rule group as JSON
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id])
+  telegramChatId    String?
+  telegramEnabled   Boolean @default(false)
+  emailEnabled      Boolean @default(true)
+  whatsappNumber    String?
+  whatsappEnabled   Boolean @default(false)
+  discordWebhookUrl String?
+  discordEnabled    Boolean @default(false)
+  slackWebhookUrl   String?
+  slackEnabled      Boolean @default(false)
+  pushChannelAddress String?
+  pushEnabled       Boolean @default(false)
+  receiptPreference String  @default("instant")
+  assetFilters      String[] @default([])
+  minAmount         Decimal?
+  enabledChannels   String[] @default([])
+  language          String  @default("EN")
+  filterRules       Json?   // Stores filter rule group as JSON
+}
+
+model DeliveryLog {
+  id        String   @id @default(cuid())
+  paymentId String
+  channel   String
+  status    String
+  error     String?
+  attempt   Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([paymentId, channel])
+  @@index([paymentId])
+}
+
+// Append-only hash-pointer audit chain over ingested Payment rows (see
+// docs/payment-checksum-chain.md and services/checksumChain.service.ts).
+// Each row's chainHash commits to the previous row's chainHash plus this
+// row's own payloadHash, so altering or deleting any historical Payment or
+// PaymentChecksum row breaks every chainHash computed after it — detectable
+// by walking the chain and recomputing (verifyChain()). Rows are never
+// updated or deleted after insert, only appended.
+model PaymentChecksum {
+  id           String   @id @default(cuid())
+  paymentId    String   @unique
+  payment      Payment  @relation(fields: [paymentId], references: [id])
+  // Append order (NOT Payment.receivedAt, which is on-chain time set by the
+  // Stellar network and can arrive out of order relative to when we
+  // ingested it). The chain follows ingestion order, since that's the only
+  // order this service can itself guarantee monotonicity for.
+  sequence     Int      @default(autoincrement())
+  payloadHash  String
+  previousHash String
+  chainHash    String
+  createdAt    DateTime @default(now())
+
+  @@index([sequence])
+  @@index([createdAt])
+}
+
+// One row per UTC calendar day, committing to every PaymentChecksum
+// appended that day via a Merkle tree over their payloadHashes (see
+// services/checksumChain.service.ts computeDailyMerkleRoot()).
+model DailyChecksumRoot {
+  id         String   @id @default(cuid())
+  date       String   @unique // UTC day, "YYYY-MM-DD"
+  merkleRoot String
+  leafCount  Int
+  computedAt DateTime @default(now())
 }
 
 // A persisted, user-authored rule that gates payment alert dispatch. Distinct
@@ -109,14 +194,20 @@ model AlertRule {
   // Asset codes this rule matches; empty array means "any asset".
   assets     String[]  @default([])
   minAmount  Decimal?
+  maxAmount  Decimal?
+  memo       String?
+  channels   String[]  @default([])
   // Optional FilterRuleGroup JSON for AND/OR-grouped conditions beyond asset/minAmount.
   conditions Json?
+  version    Int       @default(1)
   isActive   Boolean   @default(true)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([userId])
   @@index([walletId])
+  @@index([userId, isActive])
+  @@index([walletId, isActive])
 }
 
 // Idempotency record: one row per payment that matched at least one active
@@ -127,6 +218,25 @@ model AlertRuleDispatchLog {
   paymentId      String   @unique
   matchedRuleIds Json
   createdAt      DateTime @default(now())
+}
+
+// One-time expiring sync codes for Telegram account linking (#260).
+// Provides replay protection and confirmation tracking without exposing bot tokens.
+model TelegramSyncCode {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletAddress String?
+  code          String    @unique
+  chatId        String?
+  isUsed        Boolean   @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  confirmedAt   DateTime?
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
 }
 
 model WhatsAppDeliveryLog {
@@ -180,6 +290,83 @@ model WebhookCircuitBreaker {
   openedAt         DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// ── Asynchronous Export Jobs (#321) ─────────────────────────────────────────
+//
+// Large CSV/PDF exports are generated by the export worker instead of inside
+// the request. The generated file lives on local disk under
+// EXPORT_STORAGE_DIR (`fileName` is a server-chosen basename, never user
+// input) and is only downloadable by the owner through a short-lived signed
+// URL until `expiresAt`, after which the cleanup pass deletes the file and
+// marks the job `expired`.
+// `status`: queued | running | completed | failed | expired.
+model ExportJob {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String    // ledger_csv | ledger_pdf | tax_csv
+  params       Json
+  status       String    @default("queued")
+  progress     Int       @default(0) // 0-100
+  rowsTotal    Int?
+  rowsProcessed Int      @default(0)
+  fileName     String?
+  downloadName String?
+  contentType  String?
+  fileSize     Int?
+  error        String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+// ── Pre-Execution Simulation Results ─────────────────────────────────────────
+//
+// One row per POST /simulations/analyze call: the threat assessment produced by
+// the pre-execution engine (apps/api/src/services/simulation) for a Stellar /
+// Soroban transaction envelope, retained as an audit trail.
+//
+// `score` (0-100) and `band` are stored as first-class columns so operators can
+// query "show me every CRITICAL simulation in the last 24h" without a JSONB
+// scan; the full breakdown lives in `report` (JSON) exactly as the engine
+// produced it, including per-indicator evidence and the threshold set in force
+// at the time — a stored report must stay explainable even after the thresholds
+// are retuned.
+//
+// `sourceAccount` is a public Stellar key, never a secret. `envelopeHash` is a
+// SHA-256 of the submitted envelope XDR so repeat submissions of the identical
+// envelope are detectable without storing the envelope itself.
+model TransactionSimulation {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAccount String
+  network       String   @default("PUBLIC")
+  label         String?
+  // SHA-256 (hex) of the submitted envelope XDR, when one was supplied.
+  envelopeHash  String?
+  // 0-100 threat score and its band (SAFE | LOW | MODERATE | HIGH | CRITICAL).
+  score         Int
+  band          String
+  // True when the score reached the configured block threshold.
+  blockExecution Boolean @default(false)
+  // Indicator codes that fired, most severe first. Redundant with `report`
+  // but cheap to filter on.
+  indicatorCodes String[]
+  // Complete engine output: drain analysis, footprint diff, contract
+  // interactions, indicators, risk assessment, and meta.
+  report         Json
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([band, createdAt])
+  @@index([sourceAccount, createdAt])
 }
 
 model SorobanEventSnapshot {
@@ -510,6 +697,7 @@ model NotificationDeliveryAttempt {
   @@index([status])
   @@index([paymentId])
   @@index([createdAt])
+  @@index([deliveryKey, status])
 }
 
 // ── Dead-letter inspection & replay (#273) ───────────────────────────────────
@@ -531,17 +719,64 @@ model DeadLetter {
   payload      Json?
   error        String
   status       String   @default("pending") // pending | retried | suppressed
+  failureClass String   @default("permanent") // retryable | permanent
+  failureReason String?
+  jobId        String?
+  attemptsMade Int      @default(0)
+  maxAttempts  Int?
+  quarantinedAt DateTime?
   retryCount   Int      @default(0)
   failedAt     DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   auditLogs    DeadLetterAudit[]
+  sandboxReplays WebhookSandboxReplay[]
 
   @@index([deliveryKey])
   @@index([channel])
   @@index([status])
   @@index([userId])
   @@index([failedAt])
+  @@index([jobId])
+  @@index([failureClass])
+}
+
+// ── Webhook dead-letter sandbox replay (#456) ───────────────────────────────
+//
+// Every POST /dead-letters/:id/replay-sandbox invocation persists one row:
+// the exact request a webhook receiver would have observed (signed headers,
+// resolved payload envelope, body) and the sandbox receiver's mock response
+// (status, headers, body, delay), plus end-to-end timing breakdown. Requests
+// never leave the API process — the receiver is in-memory — so replays are
+// safe to run against any dead letter without risking double-delivery.
+model WebhookSandboxReplay {
+  id              String   @id @default(cuid())
+  deadLetterId    String
+  deadLetter      DeadLetter @relation(fields: [deadLetterId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // sandbox-replay | webhook-ping — what kind of synthetic request was captured
+  replayType      String   @default("sandbox-replay")
+  // Full dispatch envelope that a receiver would have seen (event, data fields)
+  requestEnvelope Json?
+  requestHeaders  Json
+  // Exact bytes of the JSON request body sent to the receiver
+  requestBody     String
+  // Mock receiver response
+  responseStatus  Int
+  responseHeaders Json
+  responseBody    String
+  responseDelayMs Int      @default(0)
+  // Timing breakdown (ms) captured by the in-process receiver
+  durationMs      Int
+  // Sandbox verdict for quick filtering
+  status          String   @default("completed") // completed | failed
+  error           String?
+  createdAt       DateTime @default(now())
+
+  @@index([deadLetterId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model DeadLetterAudit {

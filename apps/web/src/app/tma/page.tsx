@@ -5,6 +5,7 @@ import type { WalletDTO } from '@stellar-alerts/shared';
 import { isValidStellarPublicKey } from '@stellar-alerts/shared';
 import { getRawInitData, signalReady } from './telegram-client';
 import { parseTelegramAuthResponse, shortKey, type TmaAuthResult } from './tma.helpers';
+import AlertTriagePanel from './alert-triage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -28,6 +29,7 @@ export default function TelegramMiniApp() {
   const [busy, setBusy] = useState(false);
   const [telegramAlerts, setTelegramAlerts] = useState(true);
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+  const [initData, setInitData] = useState<string | null>(null);
 
   const authHeaders = useCallback(
     (token: string): Record<string, string> => ({ Authorization: `Bearer ${token}` }),
@@ -85,6 +87,7 @@ export default function TelegramMiniApp() {
         }
         return;
       }
+      if (!cancelled) setInitData(initData);
 
       try {
         const res = await fetch(`${API_BASE}/auth/telegram`, {
@@ -244,6 +247,8 @@ export default function TelegramMiniApp() {
               </ul>
             )}
           </section>
+
+          {initData && <AlertTriagePanel apiBase={API_BASE} initData={initData} />}
 
           <section className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 flex items-center justify-between gap-3">
             <div>

@@ -1,22 +1,25 @@
 /**
  * Notifications Controller
  * 
- * Handles HTTP requests for notification preferences.
+ * Handles HTTP requests for notification preferences, freelancer setup flow,
+ * and Telegram account linking with one-time sync codes.
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { notificationsService } from './notifications.service';
+import { telegramSyncService } from './telegram-sync.service';
+import { AuthenticationError, AuthorizationError, ProviderError, ValidationError } from '../../lib/errors';
 
 export class NotificationsController {
   /**
-   * Update notification preferences
+   * Update notification preferences (MFA protected).
    */
   async updatePreferences(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      throw new AuthenticationError('User not authenticated');
     }
 
-    const body = request.body as any;
+    const body = (request.body as any) || {};
     const { mfaToken, ...preferences } = body;
 
     try {
@@ -32,56 +35,140 @@ export class NotificationsController {
       });
     } catch (error: any) {
       if (error.message === 'MFA token required') {
-        return reply.status(403).send({
-          error: 'MFA token required',
-          message: 'Multi-factor authentication is enabled. Please provide a valid TOTP token.',
-        });
+        throw new AuthorizationError(
+          'Multi-factor authentication is enabled. Please provide a valid TOTP token.',
+          'MFA_TOKEN_REQUIRED',
+        );
       }
 
       if (error.message === 'Invalid MFA token') {
-        return reply.status(403).send({
-          error: 'Invalid MFA token',
-          message: 'The provided TOTP token is invalid or expired.',
-        });
+        throw new AuthorizationError('The provided TOTP token is invalid or expired.', 'INVALID_MFA_TOKEN');
       }
 
       if (
         error.message.startsWith('Invalid WhatsApp number') ||
         error.message.startsWith('A valid WhatsApp number is required')
       ) {
-        return reply.status(400).send({
-          error: 'Invalid WhatsApp preferences',
-          message: error.message,
-        });
+        throw new ValidationError(error.message, undefined, 'INVALID_WHATSAPP_PREFERENCES');
       }
 
-      return reply.status(500).send({
-        error: 'Failed to update preferences',
-        message: error.message,
-      });
+      throw error;
     }
   }
 
   /**
-   * Get notification preferences
+   * Get notification preferences for the authenticated user.
    */
   async getPreferences(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      throw new AuthenticationError('User not authenticated');
     }
 
-    try {
-      const preferences = await notificationsService.getPreferences(request.user.id);
-      return reply.send({
-        success: true,
-        preferences: preferences || {},
-      });
-    } catch (error: any) {
-      return reply.status(500).send({
-        error: 'Failed to get preferences',
-        message: error.message,
-      });
+    const preferences = await notificationsService.getPreferences(request.user.id);
+    return reply.send({
+      success: true,
+      preferences: preferences || {},
+    });
+  }
+
+  /**
+   * Update freelancer channel setup preferences (#259).
+   */
+  async updateFreelancerPreferences(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      throw new AuthenticationError('User not authenticated');
     }
+
+    const body = (request.body as any) || {};
+    const { mfaToken, ...preferences } = body;
+
+    await notificationsService.updatePreferences(
+      request.user.id,
+      preferences,
+      mfaToken
+    );
+
+    const updated = await notificationsService.getPreferences(request.user.id);
+
+    return reply.send({
+      success: true,
+      message: 'Freelancer notification preferences configured successfully',
+      preferences: updated,
+    });
+  }
+
+  /**
+   * Get freelancer channel setup preferences (#259).
+   */
+  async getFreelancerPreferences(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    const preferences = await notificationsService.getPreferences(request.user.id);
+    return reply.send({
+      success: true,
+      preferences: preferences || {},
+    });
+  }
+
+  /**
+   * Generate an expiring one-time sync code for Telegram account linking (#260).
+   */
+  async generateTelegramSyncCode(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    const body = (request.body as { walletAddress?: string }) || {};
+    const result = await telegramSyncService.generateSyncCode(request.user.id, body.walletAddress);
+
+    return reply.send({
+      success: true,
+      ...result,
+    });
+  }
+
+  /**
+   * Confirm Telegram linking via a one-time sync code (#260).
+   * Verifies expiry and applies replay protection.
+   */
+  async confirmTelegramSync(request: FastifyRequest, reply: FastifyReply) {
+    const body = request.body as { code: string; telegramChatId: string };
+    if (!body?.code || !body?.telegramChatId) {
+      throw new ValidationError('code and telegramChatId are required');
+    }
+
+    const result = await telegramSyncService.confirmSync(body.code, body.telegramChatId);
+    return reply.send(result);
+  }
+
+  /**
+   * Get confirmation status of a Telegram sync code (#260).
+   */
+  async getTelegramSyncStatus(request: FastifyRequest, reply: FastifyReply) {
+    const params = request.params as { code: string };
+    if (!params?.code) {
+      throw new ValidationError('Sync code parameter is required');
+    }
+
+    const result = await telegramSyncService.getSyncStatus(params.code);
+    return reply.send({
+      success: true,
+      ...result,
+    });
+  }
+
+  /**
+   * Unlink a user's Telegram account (#260).
+   */
+  async unlinkTelegram(request: FastifyRequest, reply: FastifyReply) {
+    if (!request.user) {
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    const result = await telegramSyncService.unlinkTelegram(request.user.id);
+    return reply.send(result);
   }
 
   /**
@@ -90,31 +177,25 @@ export class NotificationsController {
    */
   async sendTestPing(request: FastifyRequest, reply: FastifyReply) {
     if (!request.user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      throw new AuthenticationError('User not authenticated');
     }
 
-    const body = request.body as { channel?: string };
+    const body = request.body as { channel?: 'telegram' | 'push' };
     const channel = body?.channel;
 
-    if (channel !== 'telegram') {
-      return reply.status(400).send({
-        error: 'Invalid channel',
-        message: 'channel must be "telegram"',
-      });
+    if (channel !== 'telegram' && channel !== 'push') {
+      throw new ValidationError('channel must be "telegram"', undefined, 'INVALID_CHANNEL');
     }
 
     try {
       const result = await notificationsService.sendTestPing(request.user.id, channel);
-      return reply.status(result.success ? 200 : 502).send({
-        success: result.success,
-        message: result.message,
-      });
+      if (!result.success) {
+        throw new ProviderError(result.message, 'TEST_PING_PROVIDER_FAILURE');
+      }
+      return reply.send({ success: true, message: result.message });
     } catch (error: any) {
-      return reply.status(400).send({
-        success: false,
-        error: 'Failed to send test ping',
-        message: error.message,
-      });
+      if (error instanceof ProviderError) throw error;
+      throw new ValidationError(error.message, undefined, 'TEST_PING_FAILED');
     }
   }
 }
