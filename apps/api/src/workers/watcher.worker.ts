@@ -99,6 +99,16 @@ export async function processPaymentRecord(
           span.end();
           return;
         }
+      } catch (err: any) {
+        console.warn(`[WatcherWorker] Error resolving SAC metadata for ${sacTransfer.contractId}:`, err?.message);
+      }
+    }
+
+    amount = formatTokenAmount(sacTransfer.rawAmount, decimals);
+    asset = symbol;
+    assetIssuer = sacTransfer.assetIssuer;
+    fromAddress = sacTransfer.from;
+  }
 
         amount = sacTransfer.amount;
         asset = sacTransfer.assetCode ?? sacTransfer.contractId ?? "Unknown";
