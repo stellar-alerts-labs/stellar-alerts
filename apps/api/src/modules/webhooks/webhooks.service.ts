@@ -1,7 +1,8 @@
 import crypto from 'crypto';
+
 import { prisma } from '../../lib/prisma';
 import { generateWebhookSignature } from '../../utils/webhook-signer';
-import { validateHandlebarsTemplate } from '../../utils/payload-template';
+import { encryptToString, decryptFromString } from '../../utils/crypto-vault';
 
 export interface WebhookTestResult {
   success: boolean;
@@ -23,10 +24,12 @@ export interface WebhookHealthScorecard {
 const WEBHOOK_TEST_TIMEOUT_MS = 10_000;
 
 export class WebhooksService {
+  private keyRotationManager = new KeyRotationManager();
+
   /**
    * Computes the 7-day delivery success rate and latency health scorecard for a webhook.
    */
-  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date; sentAt?: Date }>): WebhookHealthScorecard {
+  public calculateHealthScorecard(logs: Array<{ statusCode: number | null; createdAt?: Date | null; sentAt?: Date | null }>): WebhookHealthScorecard {
     if (!logs || logs.length === 0) {
       return {
         healthPercentage: 100.0,
@@ -62,21 +65,18 @@ export class WebhooksService {
 
   async addWebhook(userId: string, url: string, payloadTemplate?: string) {
     console.log(`[WebhooksService] Registering webhook ${url} for user ${userId}`);
-
-    if (payloadTemplate) {
-      const validation = validateHandlebarsTemplate(payloadTemplate);
-      if (!validation.ok) {
-        throw new Error(`Invalid payload template: ${validation.error}`);
-      }
-    }
-
-    const secret = crypto.randomBytes(32).toString('hex');
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    // Encrypt the secret before persisting — only the vault-encrypted form is stored
+    const secret = encryptToString(rawSecret);
 
     const webhook = await prisma.webhook.create({
       data: {
         userId,
         url,
-        secret,
+        secretCiphertext: ciphertext,
+        secretIv: iv,
+        secretAuthTag: authTag,
+        keyVersion: parseInt(version, 10),
         payloadTemplate,
       },
       select: {
@@ -88,8 +88,11 @@ export class WebhooksService {
       },
     });
 
+    this.keyRotationManager.setKeyState(webhook.id, { activeSecret: secret });
+
     return {
       ...webhook,
+      secret: encryptedSecret,
       healthPercentage: 100.0,
       averageLatencyMs: 0,
       status: 'HEALTHY' as WebhookHealthStatus,
@@ -142,6 +145,49 @@ export class WebhooksService {
     });
   }
 
+  /**
+   * Returns a cursor-paginated list of delivery logs for a specific webhook.
+   * Only returns logs for webhooks owned by `userId` — ownership is verified
+   * before the log query so a user can never read another user's logs by
+   * guessing a webhookId.
+   *
+   * Stable ordering: createdAt DESC, id DESC.
+   */
+  async getWebhookLogs(webhookId: string, userId: string, limit: number = 20, cursor?: string) {
+    // Verify ownership
+    const webhook = await prisma.webhook.findFirst({
+      where: { id: webhookId, userId },
+      select: { id: true },
+    });
+    if (!webhook) {
+      throw new Error('Webhook not found');
+    }
+
+    const where: Record<string, any> = { webhookId };
+
+    if (cursor) {
+      const cursorWhere = buildCursorWhere(cursor);
+      Object.assign(where, cursorWhere);
+    }
+
+    const rows = await prisma.webhookLog.findMany({
+      where,
+      orderBy: CURSOR_ORDER_BY,
+      take: limit + 1,
+      select: {
+        id: true,
+        webhookId: true,
+        statusCode: true,
+        responseBody: true,
+        error: true,
+        sentAt: true,
+        createdAt: true,
+      },
+    });
+
+    return buildCursorPage(rows, limit);
+  }
+
   async removeWebhook(id: string, userId: string) {
     const deleted = await prisma.webhook.deleteMany({
       where: { id, userId },
@@ -161,25 +207,37 @@ export class WebhooksService {
       throw new Error('Webhook not found');
     }
 
-    const payload = JSON.stringify({
+    const encrypted = [
+      String(webhook.keyVersion),
+      webhook.secretIv,
+      webhook.secretAuthTag,
+      webhook.secretCiphertext,
+    ].join(':');
+    const secret = cryptoVault.decrypt(encrypted);
+
+    let rawPayload: Record<string, any> = {
       event: 'webhook.ping',
       timestamp: new Date().toISOString(),
       data: {
         webhookId: webhook.id,
         message: 'Test ping dispatched from Stellar Alerts',
       },
-    });
+    };
 
-    const signature = await signWebhookPayload(payload, { secret: webhook.secret });
+    if (webhook.payloadTemplate) {
+      rawPayload = dynamicPayloadTransformer.transform(rawPayload, webhook.payloadTemplate);
+    }
+
+    const payload = JSON.stringify(rawPayload);
+
+    // Decrypt the stored vault secret before signing
+    const rawSecret = decryptFromString(webhook.secret);
+    const signature = generateWebhookSignature(payload, rawSecret);
 
     try {
-      const response = await fetch(webhook.url, {
+      const response = await ssrfSafeFetch(webhook.url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Stellar-Signature': signature.headerValue,
-          'X-Stellar-Alerts-Nonce': signature.nonce,
-        },
+        headers,
         body: payload,
         signal: AbortSignal.timeout(WEBHOOK_TEST_TIMEOUT_MS),
       });
@@ -191,16 +249,14 @@ export class WebhooksService {
           ? 'Ping payload delivered successfully.'
           : `Endpoint responded with status ${response.status}.`,
       };
-    } catch (error: any) {
-      console.error(`[WebhooksService] Failed to deliver test ping to ${webhook.url}:`, error.message);
+    } catch (error) {
       return {
         success: false,
         status: null,
-        message: `Failed to reach endpoint: ${error.message}`,
+        message: `Failed to reach endpoint: ${(error as Error).message}`,
       };
     }
   }
 }
 
 export const webhooksService = new WebhooksService();
-

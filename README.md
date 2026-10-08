@@ -1,5 +1,11 @@
 # Stellar Alerts ⚡
 
+## Worker failure quarantine
+
+Payment alert jobs use a bounded retry policy. Transient infrastructure and provider failures are retried up to `WORKER_MAX_ATTEMPTS` (default `5`, maximum `20`) with exponential backoff. Invalid or otherwise permanent jobs are quarantined immediately and are not retried.
+
+Quarantined jobs are copied to the `payment-alerts-dlq` queue and persisted as `DeadLetter` records with the job ID, failure class, failure reason, attempts made, and configured attempt cap. The dead-letter API exposes this metadata for operator inspection and preserves the existing replay and suppression workflow. The default cap is backward-compatible with the previous five-attempt behavior; set `WORKER_MAX_ATTEMPTS` during rollout if a different cap is required.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5.10-green.svg)](https://fastify.dev/)
@@ -10,7 +16,7 @@
 
 **Real-Time Stellar Payment Tracker, Soroban Event Ingestion & Non-Custodial Alert Engine**
 
-Stellar Alerts monitors registered Stellar public wallets in real time for incoming transactions on the Stellar network (Testnet / Mainnet). It records payment history in PostgreSQL and dispatches multi-channel alerts (Telegram, Email, Webhooks) without ever requesting or storing secret keys.
+Stellar Alerts monitors registered Stellar public wallets in real time for incoming transactions on the Stellar network (Testnet / Mainnet). It records payment history in PostgreSQL and dispatches multi-channel alerts (Telegram, WhatsApp, Email, Webhooks) without ever requesting or storing secret keys.
 
 ---
 
@@ -21,10 +27,20 @@ Stellar Alerts monitors registered Stellar public wallets in real time for incom
 - 🔒 **100% Non-Custodial Security**: Only public key addresses (`G...`) are stored. Secret keys are never touched or requested.
 - 🔑 **StrKey Checksum Validation**: Enforces Base32 CRC16-XMODEM public key checksum validation at the API boundary and watcher loop.
 - 📨 **BullMQ Redis Alert Queue**: Asynchronous message queue with exponential retries for off-chain alert dispatches.
+- 🧮 **Persisted Alert-Rule Evaluator**: Evaluates a user's stored `AlertRule` records (per-wallet or account-wide, asset allow-lists, minimum amount thresholds, and AND/OR condition grouping) against each normalized payment event, enqueuing a notification job only when a rule matches and never twice for the same payment.
+- 🩹 **Hardened Cursor Recovery**: Detects ingestion ledger gaps and Horizon provider outages, recovers with a bounded backfill instead of an unbounded replay, and exposes per-wallet ingestion health via `GET /wallets/:id/ingestion-status`.
 - 🛡️ **HMAC SHA256 Webhook Signer**: Generates cryptographically verifiable `X-Stellar-Alerts-Signature` headers for webhook payloads.
 - 🪄 **1-Click Passwordless Auth**: Secure Magic Link email authentication (`/verify?token=...`) with zero password overhead.
-- 📊 **Modular React Dashboard**: Monitored wallets, summary statistics, and real-time payment history powered by Next.js and Tailwind CSS.
+- 🦋 **Wallet (DID) Sign-In**: Sign in with your Stellar Freighter wallet via `did:pkh:stellar` challenges — single-use, expiring, and fully non-custodial (see `/auth/did/*`).
+- 🔁 **Idempotent Delivery**: Webhook/Telegram/Email dispatches deduplicate via `notificationDeliveryAttempt`, preventing duplicate alerts on retries.
+- 🗄️ **Dead-Letter Queue & Inspector**: Terminal delivery failures are persisted (`DeadLetter`), audited, and can be replayed idempotently or suppressed from the API and web UI (`/dead-letters`).
+- 📊 **Modular React Dashboard**: Monitored wallets, summary statistics, and real-time payment history powered by Next.js and Tailwind CSS, organized into feature routes (`/dashboard`, `/inspectors`, `/settings`, `/onboarding`, `/docs`).
+- 🧙 **Resumable Onboarding Wizard**: A three-step freelancer setup flow (wallet connection → Telegram linking → notification preferences) with a test-ping check before activation; progress persists to `localStorage` so a refresh resumes exactly where the user left off.
 - 🧪 **Automated Vitest Test Suite**: Unit testing framework with 100% passing test coverage (`npm run test:api`).
+- 🔄 **GraphQL Subscriptions**: Real-time event streaming via GraphQL with Apollo Server and Redis Pub/Sub for filtered transaction and contract events over WebSockets.
+- 📡 **gRPC Streaming Interface**: Enterprise-grade streaming server with Proto3 definitions for ledger events, wallet alert subscriptions, and low-latency bidirectional notification feeds.
+- 🖥️ **Interactive TUI Dashboard**: React Ink terminal interface for real-time monitoring of ingested transactions, queue depths, delivery latency, and worker status.
+- 🤖 **Headless Daemon Mode**: Background alert processing with automated service generation for systemd (Linux) and launchd (macOS).
 
 ---
 
@@ -33,7 +49,7 @@ Stellar Alerts monitors registered Stellar public wallets in real time for incom
 ```
 Stellar Network (Horizon SSE + Soroban RPC) → Ingestion Worker → PostgreSQL → Fastify REST API → Next.js Web App
                                                     │
-                                                    └──> BullMQ (Redis) → Telegram / Email / Webhook Alerts
+                                                    └──> BullMQ (Redis) → Telegram / WhatsApp / Email / Webhook Alerts
 ```
 
 For complete technical specifications, database schemas, and data flow details, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
@@ -41,6 +57,8 @@ For complete technical specifications, database schemas, and data flow details, 
 ---
 
 ## 🚀 Quick Start for Reviewers & Developers
+
+> **Note:** For a comprehensive setup guide including environment variables, wallet connection, and the freelancer alert quick start flow, please refer to **[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)**.
 
 ### 1. Installation & Monorepo Setup
 ```bash
@@ -70,6 +88,8 @@ Or launch components individually:
 npm run dev:api     # Fastify REST API on http://localhost:3001
 npm run dev:worker  # Stellar Horizon & Soroban Ingestion Worker
 npm run dev:web     # Next.js Dashboard on http://localhost:3000
+npm run cli:tui     # Interactive terminal dashboard
+npm run daemon:start # Start headless daemon mode
 ```
 
 ### 5. Test Live Stellar Payment Ingestion
@@ -78,16 +98,35 @@ Fund a fresh keypair on Stellar Testnet via Friendbot and verify automated inges
 npx tsx --env-file=apps/api/.env apps/api/scripts/seed-and-trigger-payment.ts
 ```
 
+### Stellar Network Profiles
+
+The API uses the `testnet` profile by default. Set `STELLAR_NETWORK_PROFILE=mainnet` to switch Horizon, Soroban RPC, and transaction network passphrase together. This prevents a Horizon/Soroban network mismatch.
+
+For a private network or proxy, use `STELLAR_NETWORK_PROFILE=custom` and provide all of the following:
+
+```dotenv
+STELLAR_CUSTOM_HORIZON_URL=https://horizon.example.com
+STELLAR_CUSTOM_HORIZON_URLS=https://horizon-2.example.com
+STELLAR_CUSTOM_SOROBAN_RPC_URL=https://rpc.example.com
+STELLAR_CUSTOM_NETWORK_PASSPHRASE=Custom Network
+STELLAR_CUSTOM_ALLOWED_HOSTS=horizon.example.com,horizon-2.example.com,rpc.example.com
+```
+
+Custom endpoints must be HTTPS and their hostnames must be listed in `STELLAR_CUSTOM_ALLOWED_HOSTS`. The previous `HORIZON_URL*`, `SOROBAN_RPC_URL`, and `STELLAR_NETWORK_PASSPHRASE` variables are accepted as compatibility aliases only when `custom` is selected. Existing deployments therefore remain on testnet until they opt into a profile; review the selected profile before moving funds or signing transactions.
+
 ---
 
 ## 🏆 Grant Qualification & Documentation
 
 - **Drips Wave Audit & Readiness Report**: See **[drips_wave_readiness_audit.md](file:///C:/Users/user/.gemini/antigravity-ide/brain/12528373-9966-4327-97c9-8c7388be13f6/drips_wave_readiness_audit.md)** for full reviewer scoring & roadmap.
+- **Local Setup & Freelancer Quick Start**: See **[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)**.
 - **Grant Submission Qualification Matrix**: See **[SUBMISSION.md](SUBMISSION.md)**.
 - **System Design & API Specs**: See **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 - **Contribution Guidelines**: See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+- **Code of Conduct**: See **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**.
 - **Development Roadmap**: See **[ROADMAP.md](ROADMAP.md)**.
 - **Soroban Smart Contract**: See **[contracts/alert_registry/README.md](contracts/alert_registry/README.md)**.
+- **Slack Slash Commands (`/stellar`)**: See **[docs/SLACK_SLASH_COMMANDS.md](docs/SLACK_SLASH_COMMANDS.md)**.
 
 ---
 
@@ -96,6 +135,12 @@ npx tsx --env-file=apps/api/.env apps/api/scripts/seed-and-trigger-payment.ts
 Join our official Telegram community to ask questions, chat with maintainers, discuss Drips Wave sprint tasks, and stay updated on new releases:
 
 👉 **[Join Stellar Alerts on Telegram](https://t.me/+uElHrnWMb180MWM0)**
+
+---
+
+## 🤝 Code of Conduct
+
+We are committed to fostering an open and welcoming community. All contributors and participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md), which outlines our standards, reporting channels, and enforcement responsibilities.
 
 ---
 

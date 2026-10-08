@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # The API process exposes the queue gauges plus the outbound webhook dispatch
+  # histograms (see apps/api/src/plugins/metrics.ts).
+  - job_name: stellar-alerts-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:3001']
+        labels:
+          service: stellar-alerts-api
+
+  # The webhook dispatcher runs in its own process, so it needs its own scrape
+  # target. Enable it by setting WORKER_METRICS_PORT (see docs/WEBHOOK_DISPATCH_TELEMETRY.md).
+  - job_name: stellar-alerts-webhook-dispatcher
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:9101']
+        labels:
+          service: stellar-alerts-webhook-dispatcher

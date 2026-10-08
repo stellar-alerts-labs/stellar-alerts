@@ -1,5 +1,6 @@
 import * as StellarSdk from 'stellar-sdk';
 import crypto from 'crypto';
+import { isValidEd25519PublicKey } from '@stellar-alerts/shared';
 
 export interface ParsedDID {
   method: string;
@@ -12,6 +13,10 @@ export interface DIDChallenge {
   challenge: string;
   expiresAt: Date;
 }
+
+// 5 minute challenge validity, matching `generateDIDChallenge` and the Redis
+// TTL the challenge is persisted under in `auth.service.ts` (#270).
+export const DID_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Parses W3C Decentralized Identifier string (did:pkh / did:key).
@@ -78,6 +83,24 @@ export function generateDIDChallenge(did: string): DIDChallenge {
 }
 
 /**
+ * Returns true when the challenge's embedded issuance timestamp is older than
+ * the challenge TTL. Defense-in-depth on top of the Redis challenge store: a
+ * challenge is only ever valid for `DID_CHALLENGE_TTL_MS` milliseconds,
+ * regardless of client clock skew or a stale Redis entry.
+ */
+export function isDIDChallengeExpired(
+  challenge: string,
+  ttlMs: number = DID_CHALLENGE_TTL_MS,
+): boolean {
+  if (typeof challenge !== 'string') return true;
+  const lastColon = challenge.lastIndexOf(':');
+  if (lastColon === -1) return true;
+  const issuedAt = Number(challenge.slice(lastColon + 1));
+  if (!Number.isFinite(issuedAt)) return true;
+  return Date.now() - issuedAt > ttlMs;
+}
+
+/**
  * Verifies a signed DID challenge payload against the public address extracted from the DID identity.
  * Supports Stellar Keypair Ed25519 signature verification (Freighter/Albedo).
  */
@@ -87,7 +110,7 @@ export function verifyDIDSignature(did: string, challenge: string, signature: st
   const parsed = parseDID(did);
 
   // If Stellar public key (G...), verify Ed25519 signature
-  if (parsed.network === 'stellar' || (parsed.address && parsed.address.startsWith('G') && parsed.address.length === 56)) {
+  if (parsed.network === 'stellar' || isValidEd25519PublicKey(parsed.address)) {
     try {
       const keypair = StellarSdk.Keypair.fromPublicKey(parsed.address);
       const messageBuffer = Buffer.from(challenge, 'utf-8');

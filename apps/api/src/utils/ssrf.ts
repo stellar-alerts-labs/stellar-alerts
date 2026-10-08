@@ -1,0 +1,433 @@
+import dns from 'dns';
+import net from 'net';
+
+export class SsrfValidationError extends Error {
+  public readonly code: string;
+  public readonly targetUrl: string;
+
+  constructor(message: string, targetUrl: string, code = 'SSRF_VALIDATION_FAILED') {
+    super(`[SSRF Guard] ${message} (URL: ${targetUrl})`);
+    this.name = 'SsrfValidationError';
+    this.code = code;
+    this.targetUrl = targetUrl;
+  }
+}
+
+/**
+ * IPv4 numeric representations and CIDR matching
+ */
+function ip4ToLong(ip: string): number {
+  return ip.split('.').reduce((acc, octet) => ((acc << 8) + parseInt(octet, 10)) >>> 0, 0);
+}
+
+function inIpv4Cidr(ip: string, cidr: string): boolean {
+  const [range, prefixStr] = cidr.split('/');
+  const prefix = parseInt(prefixStr, 10);
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  const ipLong = ip4ToLong(ip);
+  const rangeLong = ip4ToLong(range);
+  return (ipLong & mask) === (rangeLong & mask);
+}
+
+/**
+ * Reserved & private IPv4 ranges:
+ * - 0.0.0.0/8 (Current network)
+ * - 10.0.0.0/8 (RFC 1918 Private)
+ * - 100.64.0.0/10 (Carrier grade NAT)
+ * - 127.0.0.0/8 (Loopback)
+ * - 169.254.0.0/16 (Link-local / Cloud metadata)
+ * - 172.16.0.0/12 (RFC 1918 Private)
+ * - 192.0.0.0/24 (IETF Protocol)
+ * - 192.0.2.0/24 (TEST-NET-1)
+ * - 192.168.0.0/16 (RFC 1918 Private)
+ * - 198.18.0.0/15 (Benchmarking)
+ * - 198.51.100.0/24 (TEST-NET-2)
+ * - 203.0.113.0/24 (TEST-NET-3)
+ * - 224.0.0.0/4 (Multicast)
+ * - 240.0.0.0/4 (Reserved)
+ * - 255.255.255.255/32 (Broadcast)
+ */
+const PRIVATE_IPV4_CIDRS = [
+  '0.0.0.0/8',
+  '10.0.0.0/8',
+  '100.64.0.0/10',
+  '127.0.0.0/8',
+  '169.254.0.0/16',
+  '172.16.0.0/12',
+  '192.0.0.0/24',
+  '192.0.2.0/24',
+  '192.168.0.0/16',
+  '198.18.0.0/15',
+  '198.51.100.0/24',
+  '203.0.113.0/24',
+  '224.0.0.0/4',
+  '240.0.0.0/4',
+  '255.255.255.255/32',
+];
+
+/**
+ * Checks if an IPv4 address is in a private, loopback, or cloud metadata range.
+ */
+export function isPrivateIpv4(ip: string): boolean {
+  for (const cidr of PRIVATE_IPV4_CIDRS) {
+    if (inIpv4Cidr(ip, cidr)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Checks if an IPv6 address is private, loopback, link-local, or mapped private IPv4.
+ */
+export function isPrivateIpv6(ip: string): boolean {
+  const normalized = ip.toLowerCase().trim();
+
+  // Loopback / Unspecified
+  if (normalized === '::1' || normalized === '::') {
+    return true;
+  }
+
+  // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1 or ::ffff:7f00:1)
+  if (normalized.startsWith('::ffff:')) {
+    const v4Part = normalized.slice(7);
+    if (net.isIPv4(v4Part)) {
+      return isPrivateIpv4(v4Part);
+    }
+  }
+
+  // Unique local addresses (fc00::/7)
+  if (normalized.startsWith('fc') || normalized.startsWith('fd')) {
+    return true;
+  }
+
+  // Link-local addresses (fe80::/10)
+  if (
+    normalized.startsWith('fe8') ||
+    normalized.startsWith('fe9') ||
+    normalized.startsWith('fea') ||
+    normalized.startsWith('feb')
+  ) {
+    return true;
+  }
+
+  // Multicast (ff00::/8)
+  if (normalized.startsWith('ff')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if an IP (v4 or v6) is private or internal.
+ */
+export function isPrivateIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    return isPrivateIpv4(ip);
+  }
+  if (net.isIPv6(ip)) {
+    return isPrivateIpv6(ip);
+  }
+  return true; // Unknown IP formats are treated as unsafe
+}
+
+export interface SsrfValidationOptions {
+  allowHttp?: boolean;
+  allowedPorts?: number[];
+  dnsLookupFn?: (hostname: string) => Promise<string[]>;
+}
+
+export const DEFAULT_MAX_REDIRECTS = 3;
+export const DEFAULT_MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+export const DEFAULT_MAX_RESPONSE_BODY_BYTES = 64 * 1024;
+
+function getPublicResolvedIps(resolvedIps: string[]): string[] {
+  return [...new Set(resolvedIps.filter((ip) => !isPrivateIp(ip)))];
+}
+
+function buildUrlForResolvedIp(targetUrl: string, resolvedIp: string): string {
+  const parsedUrl = new URL(targetUrl);
+  const isIpv6 = net.isIPv6(resolvedIp);
+  const host = isIpv6 ? `[${resolvedIp}]` : resolvedIp;
+  const port = parsedUrl.port || (parsedUrl.protocol === 'https:' ? '443' : '80');
+
+  const rewritten = new URL(targetUrl);
+  rewritten.hostname = host;
+  rewritten.port = port;
+
+  return rewritten.toString();
+}
+
+const DEFAULT_ALLOWED_PORTS = [80, 443, 8080, 8443];
+
+function getBodyByteLength(body: BodyInit | null | undefined): number {
+  if (body === null || body === undefined) {
+    return 0;
+  }
+
+  if (typeof body === 'string') {
+    return Buffer.byteLength(body, 'utf8');
+  }
+
+  if (body instanceof URLSearchParams) {
+    return Buffer.byteLength(body.toString(), 'utf8');
+  }
+
+  if (body instanceof ArrayBuffer) {
+    return body.byteLength;
+  }
+
+  if (ArrayBuffer.isView(body)) {
+    return body.byteLength;
+  }
+
+  if (body instanceof Blob) {
+    return body.size;
+  }
+
+  if (body instanceof FormData) {
+    let size = 0;
+    for (const entry of body.values()) {
+      if (typeof entry === 'string') {
+        size += Buffer.byteLength(entry, 'utf8');
+      } else if (entry instanceof Blob) {
+        size += entry.size;
+      }
+    }
+    return size;
+  }
+
+  return 0;
+}
+
+function assertBodySizeLimit(
+  body: BodyInit | null | undefined,
+  maxBytes: number,
+  label: string,
+  targetUrl: string,
+): void {
+  const size = getBodyByteLength(body);
+  if (size > maxBytes) {
+    throw new SsrfValidationError(
+      `${label} exceeds the maximum size (${size} bytes > ${maxBytes} bytes)`,
+      targetUrl,
+      `${label.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '')}_TOO_LARGE`,
+    );
+  }
+}
+
+/**
+ * Default DNS resolver that resolves both IPv4 and IPv6 addresses.
+ */
+async function defaultDnsLookup(hostname: string): Promise<string[]> {
+  const addresses: string[] = [];
+  try {
+    const results = await dns.promises.lookup(hostname, { all: true });
+    for (const res of results) {
+      addresses.push(res.address);
+    }
+  } catch (err: any) {
+    throw new SsrfValidationError(`DNS resolution failed for host "${hostname}": ${err.message}`, hostname, 'DNS_LOOKUP_FAILED');
+  }
+  return addresses;
+}
+
+/**
+ * Validates a destination URL against SSRF rules:
+ * 1. Checks scheme (HTTP/HTTPS only; HTTPS required in production unless allowHttp is set).
+ * 2. Blocks embedded credentials (user:pass@host).
+ * 3. Enforces allowed ports.
+ * 4. Resolves DNS and blocks private, link-local, loopback, and cloud metadata IP ranges.
+ */
+export async function validateUrlForSsrf(
+  targetUrl: string,
+  options: SsrfValidationOptions = {},
+): Promise<{ url: URL; resolvedIps: string[] }> {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(targetUrl);
+  } catch (err) {
+    throw new SsrfValidationError('Invalid URL format', targetUrl, 'INVALID_URL');
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowHttp = options.allowHttp ?? (!isProduction && process.env.NODE_ENV !== 'production');
+
+  // 1. Protocol validation
+  const protocol = parsedUrl.protocol.toLowerCase();
+  if (protocol !== 'http:' && protocol !== 'https:') {
+    throw new SsrfValidationError(`Forbidden protocol "${protocol}". Only HTTP/HTTPS is allowed`, targetUrl, 'INVALID_PROTOCOL');
+  }
+
+  if (protocol === 'http:' && !allowHttp && isProduction) {
+    throw new SsrfValidationError('Plain HTTP is not allowed in production; destination must use HTTPS', targetUrl, 'HTTPS_REQUIRED');
+  }
+
+  // 2. Disallow credentials embedded in URL
+  if (parsedUrl.username || parsedUrl.password) {
+    throw new SsrfValidationError('URLs with embedded credentials are not allowed', targetUrl, 'CREDENTIALS_NOT_ALLOWED');
+  }
+
+  // 3. Hostname check and IP resolution
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const rawHost = hostname.replace(/^\[|\]$/g, '');
+
+  // Block localhost and internal domain names
+  if (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  ) {
+    throw new SsrfValidationError(`Destination host "${hostname}" is a private or local domain`, targetUrl, 'LOCAL_HOST_FORBIDDEN');
+  }
+
+  // 4. Port validation
+  const port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : protocol === 'https:' ? 443 : 80;
+  const allowedPorts = options.allowedPorts ?? DEFAULT_ALLOWED_PORTS;
+  if (!allowedPorts.includes(port)) {
+    throw new SsrfValidationError(`Port ${port} is not in the allowed ports list (${allowedPorts.join(', ')})`, targetUrl, 'PORT_NOT_ALLOWED');
+  }
+
+  let resolvedIps: string[] = [];
+
+  if (net.isIP(rawHost)) {
+    resolvedIps = [rawHost];
+  } else {
+    const lookupFn = options.dnsLookupFn ?? defaultDnsLookup;
+    resolvedIps = await lookupFn(hostname);
+  }
+
+  if (resolvedIps.length === 0) {
+    throw new SsrfValidationError(`No IP addresses found for hostname "${hostname}"`, targetUrl, 'NO_IP_RESOLVED');
+  }
+
+  const publicResolvedIps = getPublicResolvedIps(resolvedIps);
+
+  if (publicResolvedIps.length === 0) {
+    const blockedIp = resolvedIps[0] ?? rawHost;
+    throw new SsrfValidationError(
+      `Destination resolves to restricted or private IP address (${blockedIp})`,
+      targetUrl,
+      'PRIVATE_IP_BLOCKED',
+    );
+  }
+
+  return { url: parsedUrl, resolvedIps: publicResolvedIps };
+}
+
+/**
+ * SSRF-Safe HTTP Fetch client that:
+ * 1. Validates destination URL against SSRF policy before dispatch.
+ * 2. Disallows automatic unvalidated redirects (prevents redirect abuse to internal networks).
+ * 3. Supports controlled redirect following by re-validating each hop against the SSRF policy.
+ */
+export async function ssrfSafeFetch(
+  inputUrl: string,
+  init: RequestInit & {
+    maxRedirects?: number;
+    maxRequestBytes?: number;
+    maxResponseBytes?: number;
+    ssrfOptions?: SsrfValidationOptions;
+  } = {},
+): Promise<Response> {
+  const maxRedirects = init.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  const maxRequestBytes = init.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES;
+  const maxResponseBytes = init.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BODY_BYTES;
+  let currentUrl = inputUrl;
+  let redirectsCount = 0;
+
+  while (true) {
+    assertBodySizeLimit(init.body, maxRequestBytes, 'Request body', currentUrl);
+
+    const validation = await validateUrlForSsrf(currentUrl, init.ssrfOptions);
+    const candidateUrls = validation.resolvedIps.map((ip) => buildUrlForResolvedIp(currentUrl, ip));
+
+    let lastError: unknown;
+    let handledRedirect = false;
+
+    for (const candidateUrl of candidateUrls) {
+      try {
+        const response = await fetch(candidateUrl, {
+          ...init,
+          redirect: 'manual',
+        });
+
+        const contentLength = response.headers.get('content-length');
+        if (contentLength) {
+          const parsedLength = Number.parseInt(contentLength, 10);
+          if (!Number.isNaN(parsedLength) && parsedLength > maxResponseBytes) {
+            throw new SsrfValidationError(
+              `Response exceeded the maximum allowed size (${parsedLength} bytes > ${maxResponseBytes} bytes)`,
+              currentUrl,
+              'RESPONSE_TOO_LARGE',
+            );
+          }
+        }
+
+        const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+
+        if (isRedirect) {
+          if (redirectsCount >= maxRedirects) {
+            throw new SsrfValidationError(`Too many redirects (exceeded limit of ${maxRedirects})`, currentUrl, 'MAX_REDIRECTS_EXCEEDED');
+          }
+
+          const location = response.headers.get('location');
+          if (!location) {
+            throw new SsrfValidationError('Redirect response missing Location header', currentUrl, 'MISSING_REDIRECT_LOCATION');
+          }
+
+          const nextUrl = new URL(location, currentUrl).toString();
+          currentUrl = nextUrl;
+          redirectsCount++;
+          handledRedirect = true;
+          break;
+        }
+
+        const clonedResponse = response.clone();
+        const responseBodyText = await clonedResponse.text();
+        const responseBodyBytes = Buffer.byteLength(responseBodyText, 'utf8');
+        if (responseBodyBytes > maxResponseBytes) {
+          throw new SsrfValidationError(
+            `Response body exceeded the maximum allowed size (${responseBodyBytes} bytes > ${maxResponseBytes} bytes)`,
+            currentUrl,
+            'RESPONSE_TOO_LARGE',
+          );
+        }
+
+        return response;
+      } catch (error) {
+        if (error instanceof SsrfValidationError) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+
+    if (isRedirect) {
+      if (redirectsCount >= maxRedirects) {
+        throw new SsrfValidationError(`Too many redirects (exceeded limit of ${maxRedirects})`, currentUrl, 'MAX_REDIRECTS_EXCEEDED');
+      }
+
+      const location = response.headers.get('location');
+      if (!location) {
+        throw new SsrfValidationError('Redirect response missing Location header', currentUrl, 'MISSING_REDIRECT_LOCATION');
+      }
+    }
+
+    if (handledRedirect) {
+      continue;
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    break;
+  }
+
+  return new Response(null, { status: 204 });
+}

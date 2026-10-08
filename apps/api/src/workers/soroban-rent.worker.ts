@@ -9,13 +9,14 @@ import {
   shouldRenew,
 } from '../lib/soroban';
 import { registerSupervisorHeartbeat } from './supervisor';
+import { stellarNetwork } from '../config/network';
 
 // Configuration
 const POLL_INTERVAL_MS = parseInt(env.SOROBAN_RENT_WORKER_INTERVAL_MS || '60000', 10);
 const RENEWAL_THRESHOLD = parseInt(env.SOROBAN_RENT_RENEWAL_THRESHOLD || '5000', 10);
 const TARGET_TTL = parseInt(env.SOROBAN_RENT_TARGET_TTL || '10000', 10);
 const SECRET_KEY = env.SOROBAN_RENT_WORKER_SECRET;
-const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET;
+const NETWORK_PASSPHRASE = stellarNetwork.networkPassphrase;
 
 let isProcessing = false;
 

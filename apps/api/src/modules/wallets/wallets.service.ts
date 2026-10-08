@@ -1,4 +1,11 @@
 import { prisma, prismaRead } from '../../lib/prisma';
+import { verifyZkProof } from '../../utils/zkp-verifier';
+import {
+  buildCursorWhere,
+  buildCursorPage,
+  CURSOR_ORDER_BY,
+  CursorError,
+} from '../../utils/pagination';
 
 export class WalletsService {
   async addWallet(userId: string, publicKey: string, label?: string, zkProof?: any, publicSignals?: string[]) {
@@ -25,21 +32,73 @@ export class WalletsService {
       targetUserId = anonUser.id;
     }
 
-    const wallet = await prisma.wallet.create({
-      data: {
-        userId: targetUserId,
-        publicKey,
-        label,
-      },
-    });
-    return wallet;
+    try {
+      const wallet = await prisma.wallet.create({
+        data: {
+          userId: targetUserId,
+          publicKey,
+          label,
+        },
+      });
+      return wallet;
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new Error('Wallet already exists');
+      }
+      throw error;
+    }
   }
 
-  async getWallets(userId: string) {
-    return prismaRead.wallet.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
+  /**
+   * Returns a cursor-paginated list of wallets for the user.
+   * Stable ordering: createdAt DESC, id DESC.
+   */
+  async getWallets(userId: string, limit: number = 20, cursor?: string) {
+    const where: Record<string, any> = { userId };
+
+    if (cursor) {
+      const cursorWhere = buildCursorWhere(cursor);
+      Object.assign(where, cursorWhere);
+    }
+
+    const rows = await prismaRead.wallet.findMany({
+      where,
+      orderBy: CURSOR_ORDER_BY,
+      take: limit + 1,
     });
+
+    return buildCursorPage(rows, limit);
+  }
+
+  /**
+   * Operator-visible ingestion health for a wallet's Horizon/Soroban cursor
+   * (see lib/cursor-recovery.ts): current paging token, health status
+   * (active / gap_detected), consecutive provider failures, and the most
+   * recent error and gap, if any.
+   */
+  async getIngestionStatus(userId: string, walletId: string) {
+    const wallet = await prisma.wallet.findUnique({
+      where: { id: walletId },
+      include: { cursor: true },
+    });
+
+    if (!wallet || wallet.userId !== userId) {
+      throw new Error('Wallet not found');
+    }
+
+    const cursor = wallet.cursor;
+    return {
+      walletId: wallet.id,
+      publicKey: wallet.publicKey,
+      pagingToken: cursor?.pagingToken ?? null,
+      status: cursor?.status ?? 'active',
+      consecutiveFailures: cursor?.consecutiveFailures ?? 0,
+      lastError: cursor?.lastError ?? null,
+      lastSuccessAt: cursor?.lastSuccessAt ?? null,
+      lastSyncedAt: cursor?.lastSyncedAt ?? null,
+      gapDetectedAt: cursor?.gapDetectedAt ?? null,
+      lastGapLedgerDelta: cursor?.lastGapLedgerDelta ?? null,
+    };
   }
 
   async removeWallet(id: string) {

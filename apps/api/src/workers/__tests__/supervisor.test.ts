@@ -12,9 +12,16 @@ class FakeChild extends EventEmitter {
 }
 
 const forkMock = vi.fn();
+const { loggerError } = vi.hoisted(() => ({ loggerError: vi.fn() }));
 
 vi.mock('child_process', () => ({
   fork: (...args: any[]) => forkMock(...args),
+}));
+
+// supervisor.ts reports worker exits through the shared structured logger, so
+// the assertions below drive that logger rather than console.
+vi.mock('../../lib/logger', () => ({
+  createLogger: () => ({ info: vi.fn(), error: loggerError, warn: vi.fn(), debug: vi.fn() }),
 }));
 
 import { WorkerSupervisor } from '../supervisor';
@@ -25,6 +32,7 @@ describe('WorkerSupervisor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     children = [];
+    loggerError.mockClear();
     forkMock.mockReset();
     forkMock.mockImplementation(() => {
       const child = new FakeChild();
@@ -78,7 +86,6 @@ describe('WorkerSupervisor', () => {
   });
 
   it('logs the exit status and restart counter, then respawns on crash', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supervisor = new WorkerSupervisor();
     supervisor.spawn('watcher', 'watcher.worker');
     const crashedChild = children[0];
@@ -87,7 +94,7 @@ describe('WorkerSupervisor', () => {
     // process with a non-zero code and no signal.
     crashedChild.emit('exit', 1, null);
 
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(loggerError).toHaveBeenCalledWith(
       expect.stringContaining('exited — code=1 signal=null')
     );
 
@@ -95,12 +102,9 @@ describe('WorkerSupervisor', () => {
 
     expect(forkMock).toHaveBeenCalledTimes(2);
     expect(supervisor.getRestartCount('watcher')).toBe(1);
-
-    errorSpy.mockRestore();
   });
 
   it('increments the restart counter across repeated crashes', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
     const supervisor = new WorkerSupervisor();
     supervisor.spawn('watcher', 'watcher.worker');
 

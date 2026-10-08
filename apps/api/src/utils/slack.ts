@@ -1,4 +1,6 @@
 import { AlertJobData } from '../lib/queue';
+import { env } from '../config/env';
+import { fetchWithTimeout } from '../lib/external-request';
 
 export interface SlackBlockKitPayload {
   text?: string;
@@ -81,21 +83,38 @@ export function buildSlackBlockKitPayload(data: AlertJobData): SlackBlockKitPayl
   };
 }
 
+export function isValidSlackWebhookUrl(url: string): boolean {
+  return url.startsWith('https://hooks.slack.com/');
+}
+
 export async function dispatchSlackAlert(
   webhookUrl: string,
-  data: AlertJobData
+  data: AlertJobData,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<boolean> {
   const payload = buildSlackBlockKitPayload(data);
+  const timeoutMs = options.timeoutMs ?? env.NOTIFICATION_PROVIDER_TIMEOUT_MS;
 
   try {
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const res = await fetchWithTimeout(
+      webhookUrl,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
-    });
+      timeoutMs,
+      options.signal,
+      'Slack',
+    );
+
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('retry-after');
+      console.warn(`[SlackWorker] Rate limited (429) dispatching to Slack for tx ${data.txHash}; retry-after=${retryAfter ?? 'unknown'}s`);
+      return false;
+    }
 
     if (!res.ok) {
       const errorText = await res.text();

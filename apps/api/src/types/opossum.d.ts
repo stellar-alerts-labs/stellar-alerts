@@ -37,6 +37,7 @@ declare module "opossum" {
     isClosed(): boolean;
     isOpen(): boolean;
     isHalfOpen(): boolean;
+    on(event: string, listener: (...args: any[]) => void): this;
   }
 
   export = CircuitBreaker;

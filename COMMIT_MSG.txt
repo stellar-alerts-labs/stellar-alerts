@@ -1,0 +1,67 @@
+feat: implement offline PWA mode with background sync and IndexedDB
+
+Implements comprehensive Progressive Web App (PWA) support for Stellar Alerts with offline functionality.
+
+Service Worker Implementation:
+- Network-first strategy for API endpoints and HTML documents
+- Cache-first strategy for static assets (CSS, JS, fonts, images)
+- Automatic cache cleanup and versioning on SW update
+- Service worker lifecycle management with update detection
+
+IndexedDB Persistence Layer:
+- Pending alert storage with sync status tracking
+- Watcher CRUD operation tracking (create, update, delete)
+- Sync event logging with timestamps and error messages
+- API response caching with optional TTL support
+- Database statistics and monitoring capabilities
+
+Background Sync API Integration:
+- Automatic synchronization on connection restoration
+- Manual sync triggering via React hook
+- Retry logic with configurable max attempts (default: 3)
+- Browser notification support for sync events
+- Graceful fallback for unsupported browsers
+
+PWA Configuration:
+- Web manifest.json with app metadata and icons
+- Service worker registration with scope management
+- Offline fallback page with user-friendly UI
+- Auto-reconnect detection and status polling
+- Cache control headers for optimal performance
+
+React Hooks and Components:
+- useServiceWorker hook for lifecycle management
+- useNetworkStatus hook for connection monitoring
+- OfflineRecoveryBanner component for user notifications
+- Enhanced Providers component with PWA support
+
+Testing Coverage:
+- Unit tests for IndexedDB layer (CRUD, caching, stats)
+- Background Sync API tests (registration, retry logic)
+- Service Worker hook tests (lifecycle, updates, sync)
+- Mock implementations for isolated testing
+
+Documentation:
+- Comprehensive PWA_DOCUMENTATION.md with examples
+- Complete API reference for all PWA functions
+- Browser compatibility guide (Chrome 40+, Firefox 44+, Edge 17+)
+- Troubleshooting and performance optimization guide
+
+Files Added:
+- apps/web/public/manifest.json - PWA manifest
+- apps/web/public/sw.js - Service worker implementation
+- apps/web/public/offline.html - Offline fallback page
+- apps/web/src/lib/indexeddb.ts - IndexedDB layer
+- apps/web/src/lib/indexeddb.test.ts - IndexedDB tests
+- apps/web/src/lib/backgroundSync.ts - Background sync handler
+- apps/web/src/lib/backgroundSync.test.ts - Background sync tests
+- apps/web/src/hooks/useServiceWorker.ts - SW registration hook
+- apps/web/src/hooks/useServiceWorker.test.ts - Hook tests
+- apps/web/PWA_DOCUMENTATION.md - Complete documentation
+- apps/web/next.config.ts - Updated with PWA configuration
+
+Backward Compatibility:
+- All features are optional and non-breaking
+- App works fully online without service worker
+- Graceful degradation on unsupported browsers
+- No new dependencies required

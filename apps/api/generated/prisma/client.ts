@@ -60,10 +60,50 @@ export type IngestionCursor = Prisma.IngestionCursorModel
  */
 export type Payment = Prisma.PaymentModel
 /**
+ * Model OutboxEvent
+ * 
+ */
+export type OutboxEvent = Prisma.OutboxEventModel
+/**
  * Model NotificationPreference
  * 
  */
 export type NotificationPreference = Prisma.NotificationPreferenceModel
+/**
+ * Model DeliveryLog
+ * 
+ */
+export type DeliveryLog = Prisma.DeliveryLogModel
+/**
+ * Model PaymentChecksum
+ * 
+ */
+export type PaymentChecksum = Prisma.PaymentChecksumModel
+/**
+ * Model DailyChecksumRoot
+ * 
+ */
+export type DailyChecksumRoot = Prisma.DailyChecksumRootModel
+/**
+ * Model AlertRule
+ * 
+ */
+export type AlertRule = Prisma.AlertRuleModel
+/**
+ * Model AlertRuleDispatchLog
+ * 
+ */
+export type AlertRuleDispatchLog = Prisma.AlertRuleDispatchLogModel
+/**
+ * Model TelegramSyncCode
+ * 
+ */
+export type TelegramSyncCode = Prisma.TelegramSyncCodeModel
+/**
+ * Model WhatsAppDeliveryLog
+ * 
+ */
+export type WhatsAppDeliveryLog = Prisma.WhatsAppDeliveryLogModel
 /**
  * Model Webhook
  * 
@@ -80,15 +120,40 @@ export type WebhookLog = Prisma.WebhookLogModel
  */
 export type WebhookCircuitBreaker = Prisma.WebhookCircuitBreakerModel
 /**
+ * Model ExportJob
+ * 
+ */
+export type ExportJob = Prisma.ExportJobModel
+/**
+ * Model TransactionSimulation
+ * 
+ */
+export type TransactionSimulation = Prisma.TransactionSimulationModel
+/**
  * Model SorobanEventSnapshot
  * 
  */
 export type SorobanEventSnapshot = Prisma.SorobanEventSnapshotModel
 /**
+ * Model SorobanStateAudit
+ * 
+ */
+export type SorobanStateAudit = Prisma.SorobanStateAuditModel
+/**
  * Model SorobanContractSubscription
  * 
  */
 export type SorobanContractSubscription = Prisma.SorobanContractSubscriptionModel
+/**
+ * Model SacTokenMintBurnEvent
+ * 
+ */
+export type SacTokenMintBurnEvent = Prisma.SacTokenMintBurnEventModel
+/**
+ * Model SacTokenSupply
+ * 
+ */
+export type SacTokenSupply = Prisma.SacTokenSupplyModel
 /**
  * Model MultisigTreasury
  * 
@@ -115,6 +180,16 @@ export type AnchorTransactionWatch = Prisma.AnchorTransactionWatchModel
  */
 export type DexSwapWatch = Prisma.DexSwapWatchModel
 /**
+ * Model SorobanTopicIndex
+ * 
+ */
+export type SorobanTopicIndex = Prisma.SorobanTopicIndexModel
+/**
+ * Model SorobanTopicIndexCursor
+ * 
+ */
+export type SorobanTopicIndexCursor = Prisma.SorobanTopicIndexCursorModel
+/**
  * Model DexSwapEvent
  * 
  */
@@ -124,3 +199,43 @@ export type DexSwapEvent = Prisma.DexSwapEventModel
  * 
  */
 export type SecurityAuditLog = Prisma.SecurityAuditLogModel
+/**
+ * Model NotificationDelivery
+ * 
+ */
+export type NotificationDelivery = Prisma.NotificationDeliveryModel
+/**
+ * Model NotificationDeliveryAttempt
+ * 
+ */
+export type NotificationDeliveryAttempt = Prisma.NotificationDeliveryAttemptModel
+/**
+ * Model DeadLetter
+ * 
+ */
+export type DeadLetter = Prisma.DeadLetterModel
+/**
+ * Model WebhookSandboxReplay
+ * 
+ */
+export type WebhookSandboxReplay = Prisma.WebhookSandboxReplayModel
+/**
+ * Model DeadLetterAudit
+ * 
+ */
+export type DeadLetterAudit = Prisma.DeadLetterAuditModel
+/**
+ * Model MfaRecoveryCode
+ * 
+ */
+export type MfaRecoveryCode = Prisma.MfaRecoveryCodeModel
+/**
+ * Model RefreshSession
+ * 
+ */
+export type RefreshSession = Prisma.RefreshSessionModel
+/**
+ * Model RefreshTokenHistory
+ * 
+ */
+export type RefreshTokenHistory = Prisma.RefreshTokenHistoryModel

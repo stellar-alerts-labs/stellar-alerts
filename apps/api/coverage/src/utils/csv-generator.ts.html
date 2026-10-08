@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/22</span>
+                <span class='fraction'>20/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/22</span>
+                <span class='fraction'>20/22</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -96,66 +96,66 @@
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
+<span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { LedgerStatementPayment } from './pdf-generator';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const CSV_HEADERS = ['Date', 'Transaction Hash', 'From Address', 'Amount', 'Asset'];</span>
+const CSV_HEADERS = ['Date', 'Transaction Hash', 'From Address', 'Amount', 'Asset'];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >function escapeCsvField(value: string): string {</span>
-<span class="cstat-no" title="statement not covered" >  if (/[",\n]/.test(value)) {</span>
+function escapeCsvField(value: string): string {
+  if (/[",\n]/.test(value)) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 <span class="cstat-no" title="statement not covered" >    return `"${value.replace(/"/g, '""')}"`;</span>
 <span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >  return value;</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  return value;
+}
 &nbsp;
 /**
  * Renders a CSV ledger statement matching the PDF's transaction rows, so the
  * two attachments reconcile for tax auditing.
  */
-<span class="cstat-no" title="statement not covered" >export function generateLedgerStatementCsv(payments: LedgerStatementPayment[]): string {</span>
-<span class="cstat-no" title="statement not covered" >  const rows = payments.map((payment) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    const receivedAt = new Date(payment.receivedAt).toISOString().slice(0, 10);</span>
-<span class="cstat-no" title="statement not covered" >    return [</span>
-<span class="cstat-no" title="statement not covered" >      receivedAt,</span>
-<span class="cstat-no" title="statement not covered" >      payment.txHash,</span>
-<span class="cstat-no" title="statement not covered" >      payment.fromAddress,</span>
-<span class="cstat-no" title="statement not covered" >      String(payment.amount),</span>
-<span class="cstat-no" title="statement not covered" >      payment.asset,</span>
-<span class="cstat-no" title="statement not covered" >    ]</span>
-<span class="cstat-no" title="statement not covered" >      .map(escapeCsvField)</span>
-<span class="cstat-no" title="statement not covered" >      .join(',');</span>
-<span class="cstat-no" title="statement not covered" >  });</span>
+export function generateLedgerStatementCsv(payments: LedgerStatementPayment[]): string {
+  const rows = payments.map((payment) =&gt; {
+    const receivedAt = new Date(payment.receivedAt).toISOString().slice(0, 10);
+    return [
+      receivedAt,
+      payment.txHash,
+      payment.fromAddress,
+      String(payment.amount),
+      payment.asset,
+    ]
+      .map(escapeCsvField)
+      .join(',');
+  });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return [CSV_HEADERS.join(','), ...rows].join('\n');</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+  return [CSV_HEADERS.join(','), ...rows].join('\n');
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -163,7 +163,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-28T05:28:25.359Z
+                at 2026-10-04T18:39:00.811Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

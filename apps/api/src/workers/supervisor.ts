@@ -1,6 +1,9 @@
+import { createLogger } from '../lib/logger';
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { env } from '../config/env';
+
+const log = createLogger({ module: 'Supervisor' });
 
 // How often the supervisor pings a worker over IPC to check it's alive.
 const PING_INTERVAL_MS = 10_000;
@@ -52,12 +55,10 @@ export class WorkerSupervisor {
       pongTimeout: null,
       restartCount: 0,
     };
-
     const child = fork(scriptPath, [], { execArgv });
     worker.child = child;
     this.workers.set(name, worker);
-
-    console.log(`[Supervisor] 🚀 Spawned worker "${name}" (pid ${child.pid})`);
+    log.info(`[Supervisor] 🐎 Spawned worker "${name}" (pid ${child.pid})`);
 
     child.on('message', (message: any) => {
       if (message?.type === 'pong') {
@@ -66,9 +67,9 @@ export class WorkerSupervisor {
     });
 
     child.on('exit', (code, signal) => {
-      console.error(
-        `[Supervisor] ⚠️ Worker "${name}" (pid ${child.pid}) exited — code=${code} signal=${signal}. ` +
-          `Restart #${worker.restartCount + 1} scheduled.`
+      log.error(
+        `[Supervisor] ★‍ Worker "${name}" (pid ${child.pid}) exited — code=${code} signal=${signal}. ` +
+        `Restart #${worker.restartCount + 1} scheduled.`
       );
       this.stopHeartbeat(worker);
       worker.child = null;
@@ -77,7 +78,7 @@ export class WorkerSupervisor {
     });
 
     child.on('error', (err) => {
-      console.error(`[Supervisor] Worker "${name}" (pid ${child.pid}) process error:`, err);
+      log.error({ err: err instanceof Error ? err.message : String(err), worker: name, pid: child.pid }, 'Worker process error');
     });
 
     this.startHeartbeat(worker);
@@ -104,9 +105,9 @@ export class WorkerSupervisor {
       child.send({ type: 'ping' });
 
       worker.pongTimeout = setTimeout(() => {
-        console.error(
-          `[Supervisor] ⏱️ Worker "${worker.name}" (pid ${child.pid}) missed its heartbeat and appears frozen. ` +
-            `Killing so it can be restarted.`
+        log.error(
+          `[Supervisor] ⍟– Worker "${worker.name}" (pid ${child.pid}) missed its heartbeat and appears frozen. ` +
+            'Killing so it can be restarted.'
         );
         child.kill('SIGKILL');
       }, PONG_TIMEOUT_MS);
@@ -130,13 +131,34 @@ export class WorkerSupervisor {
 export function startSupervisor(): WorkerSupervisor {
   const supervisor = new WorkerSupervisor();
   supervisor.spawn('watcher', 'watcher.worker');
+  supervisor.spawn('token-analytics', 'token-analytics.worker');
 
   if (env.SOROBAN_RENT_WORKER_ENABLED === 'true') {
     supervisor.spawn('soroban-rent', 'soroban-rent.worker');
   }
 
+  if (env.SOROBAN_INDEXER_WORKER_ENABLED === 'true') {
+    supervisor.spawn('soroban-indexer', 'soroban-indexer.worker');
+  }
+
   if (env.SOROBAN_STAKING_REWARD_WORKER_ENABLED === 'true') {
     supervisor.spawn('staking-reward', 'staking-reward.worker');
+  }
+
+  if (env.EXPORT_WORKER_ENABLED === 'true') {
+    supervisor.spawn('exports', 'export.worker');
+  }
+
+  if ((env as any).SOROBAN_SAC_WORKER_ENABLED === 'true') {
+    supervisor.spawn('soroban-sac', 'soroban-sac.worker');
+  }
+
+  if ((env as any).SOROBAN_RESTORATION_WORKER_ENABLED === 'true') {
+    supervisor.spawn('soroban-restoration', 'soroban-restoration.worker');
+  }
+
+  if ((env as any).MULTISIG_INACTIVITY_WORKER_ENABLED === 'true') {
+    supervisor.spawn('multisig-inactivity', 'multisig-inactivity-watcher.worker');
   }
 
   return supervisor;

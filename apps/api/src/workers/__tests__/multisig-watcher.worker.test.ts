@@ -21,6 +21,7 @@ vi.mock('../../lib/stellar', async () => {
     ...actual,
     stellar: {
       getAccountSigners: vi.fn(),
+      getRecentSetOptionsOperations: vi.fn().mockResolvedValue([]),
     },
   };
 });
@@ -31,6 +32,7 @@ import {
   processPendingTransaction,
   runMultisigWatcherPass,
   trackPendingTransaction,
+  auditSignerConfiguration,
 } from '../multisig-watcher.worker';
 
 const signerKeypairs = Array.from({ length: 3 }, () => StellarSdk.Keypair.random());
@@ -64,6 +66,50 @@ const treasury = {
     { userId: 'user-c', signerPublicKey: signerKeypairs[2].publicKey() },
   ],
 };
+
+describe('auditSignerConfiguration', () => {
+  it('flags signer weight drift and master key changes for a set_options update', () => {
+    const config = {
+      signers: [
+        { key: signerKeypairs[0].publicKey(), weight: 1 },
+        { key: signerKeypairs[1].publicKey(), weight: 1 },
+      ],
+      thresholds: { low: 1, medium: 2, high: 3 },
+      masterWeight: 1,
+    };
+
+    const findings = auditSignerConfiguration(config, 'medium', {
+      type: 'set_options',
+      signer_key: signerKeypairs[1].publicKey(),
+      signer_weight: 2,
+      master_weight: 2,
+    });
+
+    expect(findings.map((finding) => finding.issueType)).toEqual(
+      expect.arrayContaining([
+        'signer_weight_changed',
+        'master_key_weight_modified',
+      ]),
+    );
+    expect(findings.some((finding) => finding.issueType === 'total_weight_below_threshold')).toBe(false);
+  });
+
+  it('flags when the combined signer and master weights fall below the required threshold', () => {
+    const config = {
+      signers: [
+        { key: signerKeypairs[0].publicKey(), weight: 1 },
+        { key: signerKeypairs[1].publicKey(), weight: 1 },
+      ],
+      thresholds: { low: 1, medium: 3, high: 4 },
+      masterWeight: 0,
+    };
+
+    const findings = auditSignerConfiguration(config, 'medium');
+
+    expect(findings.some((finding) => finding.issueType === 'total_weight_below_threshold')).toBe(true);
+    expect(findings[0].requiredThreshold).toBe(3);
+  });
+});
 
 describe('processPendingTransaction', () => {
   beforeEach(() => {
@@ -177,12 +223,14 @@ describe('runMultisigWatcherPass', () => {
     });
   });
 
-  it('skips a treasury with no pending transactions without calling Horizon', async () => {
+  it('loads a watched treasury even with no pending transactions so it can audit signer configuration', async () => {
     (prisma.multisigTreasury.findMany as any).mockResolvedValue([{ ...treasury, pendingTxs: [] }]);
+    (stellar.getAccountSigners as any).mockResolvedValue({ signers, thresholds, masterWeight: 0 });
 
     await runMultisigWatcherPass(vi.fn());
 
-    expect(stellar.getAccountSigners).not.toHaveBeenCalled();
+    expect(stellar.getAccountSigners).toHaveBeenCalledWith(treasury.publicKey);
+    expect(stellar.getRecentSetOptionsOperations).toHaveBeenCalledWith(treasury.publicKey, { limit: 5 });
   });
 
   it('processes each pending transaction for a treasury and notifies remaining signers', async () => {

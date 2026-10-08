@@ -1,4 +1,5 @@
 set -e
+npm run check:env-examples
 npm run generate:types
 git add openapi.json packages/shared/src/generated/api-types.ts
-
+npm run check:secrets -- --staged

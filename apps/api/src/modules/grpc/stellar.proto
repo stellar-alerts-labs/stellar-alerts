@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package stellar;
+
+service LedgerService {
+  rpc StreamLedgerEvents(LedgerRequest) returns (stream LedgerEvent);
+  rpc StreamWalletAlerts(AlertRequest) returns (stream AlertEvent);
+  rpc BidirectionalStream(stream ClientMessage) returns (stream ServerMessage);
+}
+
+message LedgerRequest {
+  optional string start_ledger = 1;
+  optional string asset_filter = 2;
+}
+
+message LedgerEvent {
+  string ledger_seq = 1;
+  string tx_hash = 2;
+  string timestamp = 3;
+  repeated string operations = 4;
+}
+
+message AlertRequest {
+  string wallet_id = 1;
+  optional string asset_filter = 2;
+  optional double min_amount = 3;
+}
+
+message AlertEvent {
+  string payment_id = 1;
+  string wallet_id = 2;
+  string from_address = 3;
+  string amount = 4;
+  string asset = 5;
+  string received_at = 6;
+  string alert_type = 7;
+}
+
+message ClientMessage {
+  string subscription_id = 1;
+  oneof payload {
+    AlertRequest alert_request = 2;
+    LedgerRequest ledger_request = 3;
+  }
+}
+
+message ServerMessage {
+  string subscription_id = 1;
+  oneof payload {
+    AlertEvent alert_event = 2;
+    LedgerEvent ledger_event = 3;
+    string status = 4;
+  }
+}

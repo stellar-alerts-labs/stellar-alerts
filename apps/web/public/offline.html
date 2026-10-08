@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Stellar Alerts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, #050508 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .icon {
+            margin-bottom: 30px;
+        }
+
+        .icon svg {
+            width: 80px;
+            height: 80px;
+            opacity: 0.9;
+            animation: fadeInScale 0.6s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #a855f7;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #a0a0a0;
+            margin-bottom: 20px;
+            max-width: 400px;
+            line-height: 1.6;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 30px 0;
+            font-size: 14px;
+            color: #ef4444;
+            animation: fadeIn 0.8s ease-out 0.3s both;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 40px;
+            animation: fadeIn 0.8s ease-out 0.4s both;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-retry {
+            background-color: #a855f7;
+            color: white;
+            min-width: 200px;
+        }
+
+        .btn-retry:hover {
+            background-color: #9333ea;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(168, 85, 247, 0.3);
+        }
+
+        .btn-retry:active {
+            transform: translateY(0);
+        }
+
+        .btn-offline-info {
+            background-color: transparent;
+            color: #a855f7;
+            border: 1px solid #a855f7;
+            min-width: 200px;
+            font-size: 13px;
+        }
+
+        .btn-offline-info:hover {
+            background-color: rgba(168, 85, 247, 0.1);
+        }
+
+        .info-box {
+            margin-top: 50px;
+            padding: 20px;
+            background-color: rgba(168, 85, 247, 0.05);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 8px;
+            max-width: 500px;
+            text-align: left;
+            animation: fadeIn 0.8s ease-out 0.5s both;
+        }
+
+        .info-box h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #a855f7;
+            margin-bottom: 12px;
+        }
+
+        .info-box p {
+            font-size: 12px;
+            color: #a0a0a0;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .info-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 12px 0 0 0;
+        }
+
+        .feature-list li {
+            font-size: 12px;
+            color: #a0a0a0;
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .subtitle {
+                font-size: 14px;
+            }
+
+            button {
+                min-width: auto;
+                width: 100%;
+            }
+
+            .info-box {
+                max-width: 100%;
+            }
+
+            .icon svg {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.332a9 9 0 11-4.08-15.332m9.448 10.646l-6.6-6.599m0 0L4.9 4.9" />
+            </svg>
+        </div>
+
+        <h1>You're Offline</h1>
+        
+        <p class="subtitle">
+            We couldn't reach the server, but your data is still here. Stellar Alerts works offline with automatic sync when you're back online.
+        </p>
+
+        <div class="status">
+            <span class="status-dot"></span>
+            <span>Waiting for connection...</span>
+        </div>
+
+        <div class="actions">
+            <button class="btn-retry" onclick="retryConnection()">
+                <span>Retry Connection</span>
+            </button>
+            <button class="btn-offline-info" onclick="toggleOfflineInfo()">
+                How offline mode works
+            </button>
+        </div>
+
+        <div class="info-box" id="offlineInfo" style="display: none;">
+            <h3>Offline Mode Features</h3>
+            <p>Your alerts and watchers continue to work offline:</p>
+            <ul class="feature-list">
+                <li>View cached alert history</li>
+                <li>Create and edit watchers locally</li>
+                <li>Automatic sync when online</li>
+                <li>Background sync in the background</li>
+                <li>No data loss guarantee</li>
+            </ul>
+            <p style="margin-top: 12px; color: #10b981; font-size: 12px;">
+                Changes are safely stored locally and will sync automatically when your connection returns.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Retry connection
+        function retryConnection() {
+            const button = event.target.closest('button');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<span>Checking connection...</span>';
+            button.disabled = true;
+
+            // Check if we're back online
+            fetch('/api/health', { method: 'HEAD', cache: 'no-store' })
+                .then(() => {
+                    // We're back online, reload
+                    window.location.href = '/';
+                })
+                .catch(() => {
+                    // Still offline
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                    showMessage('Still offline. Please check your connection.');
+                });
+        }
+
+        // Toggle offline info
+        function toggleOfflineInfo() {
+            const info = document.getElementById('offlineInfo');
+            info.style.display = info.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Show temporary message
+        function showMessage(msg) {
+            const messageEl = document.createElement('div');
+            messageEl.textContent = msg;
+            messageEl.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: #ef4444;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                animation: slideDown 0.3s ease-out;
+                z-index: 1000;
+            `;
+            document.body.appendChild(messageEl);
+            setTimeout(() => messageEl.remove(), 3000);
+        }
+
+        // Auto-check connection periodically
+        setInterval(() => {
+            fetch('/api/health', { method: 'HEAD', cache: 'no-store' })
+                .then(() => {
+                    showMessage('Connection restored. Reloading...');
+                    setTimeout(() => window.location.href = '/', 1000);
+                })
+                .catch(() => {
+                    // Still offline
+                });
+        }, 5000);
+
+        // Listen for online event
+        window.addEventListener('online', () => {
+            showMessage('Connection restored. Reloading...');
+            setTimeout(() => window.location.href = '/', 1000);
+        });
+    </script>
+</body>
+</html>

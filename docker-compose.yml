@@ -48,7 +48,39 @@ services:
     image: ghcr.io/shopify/toxiproxy:latest
     container_name: stellar_alerts_toxiproxy
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "8474:8474"
+      - "8666:8666"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Distributed tracing backend. Consumes the OTLP/HTTP traces emitted by the
+  # API and the webhook dispatcher (see apps/api/src/lib/telemetry.ts and
+  # docs/WEBHOOK_DISPATCH_TELEMETRY.md). UI: http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: stellar_alerts_jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4318:4318"   # OTLP/HTTP receiver (traces)
+
+  # Metrics store. Scrapes the API's /metrics and the dispatcher's dedicated
+  # scrape port; config in docker/prometheus.yml. UI: http://localhost:9090
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: stellar_alerts_prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
