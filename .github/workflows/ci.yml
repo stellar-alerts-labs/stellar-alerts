@@ -110,6 +110,14 @@ jobs:
       - name: Verify CI workspace matrix covers every workspace
         run: node .github/verify-workspace-matrix.mjs
 
+      # Scan the complete PR commit range (not only the final tree), so a key
+      # added and then removed in a later commit is still rejected.
+      - name: Scan commits for leaked secrets
+        run: npm run check:secrets -- --range "$BASE_SHA" "$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+
       # Fail fast on the dependency-level gates (issue #339) before the slower
       # Prisma/typecheck/build steps: `test:scripts` covers the release tooling
       # and `release:report:check` enforces the license allow/deny policy, so a

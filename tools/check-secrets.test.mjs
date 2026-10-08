@@ -42,6 +42,7 @@ test('detects known token formats and private keys without returning their value
   const secrets = [
     '-----BEGIN ' + 'PRIVATE KEY-----',
     'S' + 'A'.repeat(55),
+    'S' + '0'.repeat(55),
     'ghp_' + 'A1'.repeat(20),
     'AKIA' + 'A1'.repeat(8),
     'sk_' + 'live_' + 'A1'.repeat(10),
@@ -52,7 +53,8 @@ test('detects known token formats and private keys without returning their value
 
   assert.deepEqual(findings.map(({ kind }) => kind), [
     'PEM private key',
-    'Stellar secret seed',
+    'Stellar secret key',
+    'Stellar secret key',
     'GitHub token',
     'AWS access key ID',
     'Stripe live key',
@@ -62,6 +64,18 @@ test('detects known token formats and private keys without returning their value
   const output = findings.map(formatFinding).join('\n');
   for (const secret of secrets) assert.equal(output.includes(secret), false);
   assert.match(output, /added\.env:1: potential PEM private key/);
+});
+
+test('matches the full requested Stellar S-prefix key length and alphabet', () => {
+  const patch = patchFor('keys.txt', [
+    'S' + '9'.repeat(55),
+    'S' + 'A'.repeat(54),
+    'S' + 'A'.repeat(56),
+    'S' + 'a'.repeat(55),
+  ]);
+  assert.deepEqual(findSecretsInPatch(patch), [
+    { kind: 'Stellar secret key', file: 'keys.txt', line: 1 },
+  ]);
 });
 
 test('flags a high-confidence assigned secret but accepts documented placeholders', () => {
@@ -142,7 +156,7 @@ test('staged and commit-range scans fail without printing a detected value', () 
       cwd: directory, encoding: 'utf8',
     });
     assert.equal(staged.status, 1);
-    assert.match(staged.stderr, /Stellar secret seed/);
+    assert.match(staged.stderr, /Stellar secret key/);
     assert.equal(staged.stderr.includes(secret), false);
 
     git('-c', 'user.name=Test', '-c', 'user.email=test@example.test', 'commit', '-qm', 'new secret');
@@ -151,7 +165,7 @@ test('staged and commit-range scans fail without printing a detected value', () 
       cwd: directory, encoding: 'utf8',
     });
     assert.equal(range.status, 1);
-    assert.match(range.stderr, /Stellar secret seed/);
+    assert.match(range.stderr, /Stellar secret key/);
     assert.equal(range.stderr.includes(secret), false);
 
     writeFileSync(path.join(directory, 'config.env'), 'SAFE=true\n');
@@ -162,7 +176,7 @@ test('staged and commit-range scans fail without printing a detected value', () 
       cwd: directory, encoding: 'utf8',
     });
     assert.equal(history.status, 1);
-    assert.match(history.stderr, /Stellar secret seed/);
+    assert.match(history.stderr, /Stellar secret key/);
     assert.equal(history.stderr.includes(secret), false);
   } finally {
     rmSync(directory, { recursive: true, force: true });

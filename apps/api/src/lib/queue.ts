@@ -9,6 +9,7 @@ import { applyWebhookPayloadTemplate } from '../utils/payload-template';
 import { adaptiveWebhookRateLimiter, waitForAdaptiveBackoff } from '../utils/rate-limiter';
 import { generateWebhookSignature } from '../utils/webhook-signer';
 import { dispatchWhatsAppAlert, WhatsAppInvalidNumberError } from '../utils/whatsapp';
+import { matchesWhatsAppPreferences } from '../utils/whatsapp-interactive';
 import { prisma } from './prisma';
 import { createLogger } from './logger';
 import { publishDeliveryEvent } from './realtime';
@@ -734,7 +735,8 @@ export async function processAlertDispatch(data: AlertJobData) {
     // Dispatch a WhatsApp alert via Twilio if the user opted in and Twilio
     // is configured. Deduplicates against a prior successful delivery for
     // this payment so a restarted job never double-sends.
-    if (wallet?.user?.notifyPrefs?.whatsappEnabled && wallet.user.notifyPrefs.whatsappNumber) {
+    if (wallet?.user?.notifyPrefs?.whatsappEnabled && wallet.user.notifyPrefs.whatsappNumber &&
+        matchesWhatsAppPreferences(data, wallet.user.notifyPrefs)) {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
       const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
