@@ -17,6 +17,7 @@ export class WalletsController {
         userId,
         parsed.data.publicKey,
         parsed.data.label,
+        parsed.data.tags,
         parsed.data.zkProof,
         parsed.data.publicSignals
       );
@@ -40,7 +41,7 @@ export class WalletsController {
 
     const userId = (request as any).user.id;
     try {
-      const result = await walletsService.getWallets(userId, parsed.data.limit, parsed.data.cursor);
+      const result = await walletsService.getWallets(userId, parsed.data.limit, parsed.data.cursor, parsed.data.tag);
       return reply.send({ success: true, wallets: result.items, pagination: result.pagination });
     } catch (err) {
       if (err instanceof CursorError) {

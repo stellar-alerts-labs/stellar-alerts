@@ -17,6 +17,11 @@ export async function walletsRoutes(app: FastifyInstance) {
   );
   app.get('/wallets', walletsController.getWallets.bind(walletsController));
   app.get('/wallets/:id/ingestion-status', walletsController.getIngestionStatus.bind(walletsController));
+  app.patch(
+    '/wallets/:id/tags',
+    { preValidation: idempotent.preValidation, onSend: idempotent.onSend, onResponse: idempotent.onResponse },
+    walletsController.updateWalletTags.bind(walletsController)
+  );
   app.delete(
     '/wallets/:id',
     { preValidation: idempotent.preValidation, onSend: idempotent.onSend, onResponse: idempotent.onResponse },

@@ -30,21 +30,33 @@ describe('WalletsService', () => {
       const mockWallet = {
         id: 'w-1',
         userId: 'u-1',
-        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72',
+        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72',
         label: 'Treasury',
+        tags: ['Treasury'],
         createdAt: new Date(),
       };
       vi.mocked(prisma.wallet.create).mockResolvedValue(mockWallet as any);
 
-      const result = await walletsService.addWallet('u-1', 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72', 'Treasury');
+      const result = await walletsService.addWallet('u-1', 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72', 'Treasury', ['Treasury']);
       expect(result).toEqual(mockWallet);
       expect(prisma.wallet.create).toHaveBeenCalledWith({
         data: {
           userId: 'u-1',
-          publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72',
+          publicKey: 'GBPDX2DPUHABCGNHXQRNKMQ6NGV5R7T244HJ5CXAWSVRTZR4WMADE72',
           label: 'Treasury',
+          tags: ['Treasury'],
         },
       });
+    });
+
+    it('defaults tags to an empty array when not provided', async () => {
+      vi.mocked(prisma.wallet.create).mockResolvedValue({ id: 'w-1' } as any);
+
+      await walletsService.addWallet('u-1', 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72');
+
+      expect(prisma.wallet.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ tags: [] }) }),
+      );
     });
 
     it('throws "Wallet already exists" error on Prisma P2002 duplicate key constraint failure', async () => {
@@ -53,8 +65,31 @@ describe('WalletsService', () => {
       vi.mocked(prisma.wallet.create).mockRejectedValue(duplicateError);
 
       await expect(
-        walletsService.addWallet('u-1', 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72')
+        walletsService.addWallet('u-1', 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72')
       ).rejects.toThrow('Wallet already exists');
+    });
+  });
+
+  describe('getWallets', () => {
+    it('filters wallets by tag using a Prisma has filter', async () => {
+      vi.mocked(prismaRead.wallet.findMany).mockResolvedValue([]);
+
+      await walletsService.getWallets('u-1', 20, undefined, 'Payroll');
+
+      expect(prismaRead.wallet.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: 'u-1', tags: { has: 'Payroll' } }),
+        }),
+      );
+    });
+
+    it('does not add a tag filter when no tag is provided', async () => {
+      vi.mocked(prismaRead.wallet.findMany).mockResolvedValue([]);
+
+      await walletsService.getWallets('u-1');
+
+      const call = vi.mocked(prismaRead.wallet.findMany).mock.calls[0][0];
+      expect(call.where).not.toHaveProperty('tags');
     });
   });
 
@@ -63,7 +98,7 @@ describe('WalletsService', () => {
       vi.mocked(prisma.wallet.findUnique).mockResolvedValue({
         id: 'w-1',
         userId: 'u-1',
-        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72',
+        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72',
         cursor: {
           pagingToken: '12345',
           status: 'gap_detected',
@@ -80,7 +115,7 @@ describe('WalletsService', () => {
 
       expect(result).toEqual({
         walletId: 'w-1',
-        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSWVRTZR4WMADE72',
+        publicKey: 'GBPDX2DPUHABCGNHXQRNK5A6NGV5R7T244HJ5CXAWSVRTZR4WMADE72',
         pagingToken: '12345',
         status: 'gap_detected',
         consecutiveFailures: 2,

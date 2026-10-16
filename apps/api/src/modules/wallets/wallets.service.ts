@@ -8,7 +8,7 @@ import {
 } from '../../utils/pagination';
 
 export class WalletsService {
-  async addWallet(userId: string, publicKey: string, label?: string, zkProof?: any, publicSignals?: string[]) {
+  async addWallet(userId: string, publicKey: string, label?: string, tags?: string[], zkProof?: any, publicSignals?: string[]) {
     console.log(`[WalletsService] Adding wallet ${publicKey} for user ${userId}`);
 
     let targetUserId = userId;
@@ -38,6 +38,7 @@ export class WalletsService {
           userId: targetUserId,
           publicKey,
           label,
+          tags: tags ?? [],
         },
       });
       return wallet;
@@ -53,8 +54,12 @@ export class WalletsService {
    * Returns a cursor-paginated list of wallets for the user.
    * Stable ordering: createdAt DESC, id DESC.
    */
-  async getWallets(userId: string, limit: number = 20, cursor?: string) {
+  async getWallets(userId: string, limit: number = 20, cursor?: string, tag?: string) {
     const where: Record<string, any> = { userId };
+
+    if (tag) {
+      where.tags = { has: tag };
+    }
 
     if (cursor) {
       const cursorWhere = buildCursorWhere(cursor);
