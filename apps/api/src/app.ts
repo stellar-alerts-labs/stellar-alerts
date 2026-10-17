@@ -30,6 +30,8 @@ import { exportsRoutes } from './modules/exports/exports.routes';
 import { simulationRoutes } from './modules/simulation/simulation.routes';
 import { openApiOptions } from './openapi.config';
 import { loggerOptions } from './lib/logger';
+import { env } from './config/env';
+import metricsPlugin from './plugins/metrics';
 
 import { checkRedisReadiness, getRedisStatus } from './lib/redis';
 import { dbFailover } from './lib/db-failover';
