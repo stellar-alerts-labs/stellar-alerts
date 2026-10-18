@@ -30,6 +30,8 @@ import { exportsRoutes } from './modules/exports/exports.routes';
 import { simulationRoutes } from './modules/simulation/simulation.routes';
 import { openApiOptions } from './openapi.config';
 import { loggerOptions } from './lib/logger';
+import { env } from './config/env';
+import metricsPlugin from './plugins/metrics';
 
 import { checkRedisReadiness, getRedisStatus } from './lib/redis';
 import { dbFailover } from './lib/db-failover';
@@ -90,7 +92,7 @@ export const buildApp = async () => {
     return { status: 'ok' };
   });
 
-  // Issue #18: Deep Health Inspection Probe — no authentication required
+  // Issue #18 / #566: Deep Health Inspection Probe — no authentication required
   app.get('/health/deep', async (_req, reply) => {
     const checks: { postgres: 'ok' | 'error'; redis: 'ok' | 'error'; horizon: 'ok' | 'error' } = {
       postgres: 'error',
@@ -106,10 +108,13 @@ export const buildApp = async () => {
       // leave as 'error'
     }
 
-    // Redis ping via BullMQ queue's underlying ioredis client
+    // Redis ping via BullMQ queue's underlying ioredis client or Redis readiness check
     try {
-      if (alertQueue && alertQueue.client) {
-        await alertQueue.client.ping();
+      const client = alertQueue ? await alertQueue.client : null;
+      if (client) {
+        await client.ping();
+        checks.redis = 'ok';
+      } else if (await checkRedisReadiness()) {
         checks.redis = 'ok';
       }
     } catch {
