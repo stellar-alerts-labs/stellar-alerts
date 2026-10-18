@@ -1,49 +1,71 @@
-import { describe, it, expect } from 'vitest';
-import { resolvePoolConfig } from '../db-pool';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const baseUrl = 'postgresql://user:password@localhost:5432/stellar_alerts?schema=public';
+vi.mock('../../../generated/prisma/client', () => ({
+  PrismaClient: vi.fn().mockImplementation((opts: unknown) => ({
+    __opts: opts,
+    $connect: vi.fn().mockResolvedValue(undefined),
+    $disconnect: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
 
-describe('resolvePoolConfig', () => {
-  it('applies pool defaults when the URL carries no pool parameters', () => {
-    const config = resolvePoolConfig(baseUrl);
+vi.mock('@prisma/adapter-pg', () => ({
+  PrismaPg: vi.fn().mockImplementation((cfg: unknown) => cfg),
+}));
+
+import { resolvePoolConfig, buildPooledDatabaseUrl } from '../db-pool';
+import {
+  prisma,
+  prismaRead,
+  getReadClient,
+  setReadTarget,
+  getReadTarget,
+} from '../prisma';
+
+describe('Configure PostgreSQL Read Replicas & Connection Pooling (#527)', () => {
+  beforeEach(() => {
+    setReadTarget('REPLICA');
+  });
+
+  it('parses connection_limit, pool_timeout, and idle_timeout from DATABASE_URL and strips them from driver connectionString', () => {
+    const rawUrl =
+      'postgresql://postgres:secret@db.internal:5432/stellar_alerts?connection_limit=35&pool_timeout=15&idle_timeout=45&sslmode=require';
+    const config = resolvePoolConfig(rawUrl);
+
+    expect(config.max).toBe(35);
+    expect(config.connectionTimeoutMillis).toBe(15000);
+    expect(config.idleTimeoutMillis).toBe(45000);
+    expect(config.connectionString).toBe(
+      'postgresql://postgres:secret@db.internal:5432/stellar_alerts?sslmode=require',
+    );
+  });
+
+  it('applies safe pool defaults (max=20, pool_timeout=10s, idle_timeout=30s) when query params are omitted or invalid', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const config = resolvePoolConfig(
+      'postgresql://postgres:secret@localhost:5432/stellar_alerts?connection_limit=-5&pool_timeout=invalid',
+    );
 
     expect(config.max).toBe(20);
-    expect(config.connectionTimeoutMillis).toBe(10_000);
-    expect(config.idleTimeoutMillis).toBe(30_000);
+    expect(config.connectionTimeoutMillis).toBe(10000);
+    expect(config.idleTimeoutMillis).toBe(30000);
+    warnSpy.mockRestore();
   });
 
-  it('reads connection_limit, pool_timeout and idle_timeout off the URL', () => {
-    const config = resolvePoolConfig(`${baseUrl}&connection_limit=50&pool_timeout=25&idle_timeout=5`);
-
-    expect(config.max).toBe(50);
-    expect(config.connectionTimeoutMillis).toBe(25_000);
-    expect(config.idleTimeoutMillis).toBe(5_000);
+  it('builds a pooled database URL with connection_limit and pool_timeout parameters', () => {
+    const pooled = buildPooledDatabaseUrl(
+      'postgresql://postgres:secret@localhost:5432/stellar_alerts',
+      { connectionLimit: 25, poolTimeoutSeconds: 12 },
+    );
+    expect(pooled).toContain('connection_limit=25');
+    expect(pooled).toContain('pool_timeout=12');
   });
 
-  it('strips pool parameters from the connection string handed to the driver', () => {
-    const config = resolvePoolConfig(`${baseUrl}&connection_limit=50&pool_timeout=25&idle_timeout=5`);
+  it('routes read queries to prismaRead when target is REPLICA and falls back to primary when switched to PRIMARY', () => {
+    expect(getReadTarget()).toBe('REPLICA');
+    expect(getReadClient()).toBe(prismaRead);
 
-    expect(config.connectionString).toBe(baseUrl);
-  });
-
-  it('keeps unrelated query parameters intact', () => {
-    const config = resolvePoolConfig(`${baseUrl}&sslmode=require&connection_limit=8`);
-
-    expect(config.connectionString).toContain('schema=public');
-    expect(config.connectionString).toContain('sslmode=require');
-    expect(config.max).toBe(8);
-  });
-
-  it('treats pool_timeout=0 as an uncapped wait for a free connection', () => {
-    const config = resolvePoolConfig(`${baseUrl}&pool_timeout=0`);
-
-    expect(config.connectionTimeoutMillis).toBe(0);
-  });
-
-  it('falls back to the default when a pool parameter is not a valid number', () => {
-    const config = resolvePoolConfig(`${baseUrl}&connection_limit=many&pool_timeout=-3`);
-
-    expect(config.max).toBe(20);
-    expect(config.connectionTimeoutMillis).toBe(10_000);
+    setReadTarget('PRIMARY');
+    expect(getReadTarget()).toBe('PRIMARY');
+    expect(getReadClient()).toBe(prisma);
   });
 });

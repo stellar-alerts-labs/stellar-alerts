@@ -57,3 +57,22 @@ export function resolvePoolConfig(databaseUrl: string): PoolConfig {
     idleTimeoutMillis: idleTimeout * 1000,
   };
 }
+
+export function buildPooledDatabaseUrl(
+  databaseUrl: string,
+  options: { connectionLimit?: number; poolTimeoutSeconds?: number; idleTimeoutSeconds?: number } = {},
+): string {
+  const url = new URL(databaseUrl);
+  const limit = options.connectionLimit ?? DEFAULT_CONNECTION_LIMIT;
+  const poolTimeout = options.poolTimeoutSeconds ?? DEFAULT_POOL_TIMEOUT_SECONDS;
+  if (!url.searchParams.has('connection_limit')) {
+    url.searchParams.set('connection_limit', String(limit));
+  }
+  if (!url.searchParams.has('pool_timeout')) {
+    url.searchParams.set('pool_timeout', String(poolTimeout));
+  }
+  if (options.idleTimeoutSeconds !== undefined && !url.searchParams.has('idle_timeout')) {
+    url.searchParams.set('idle_timeout', String(options.idleTimeoutSeconds));
+  }
+  return url.toString();
+}
