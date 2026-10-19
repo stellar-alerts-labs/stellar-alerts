@@ -291,6 +291,35 @@ export class NotificationsService {
       }
     }
 
+    if (channel === 'discord') {
+      if (!prefs?.discordWebhookUrl) {
+        throw new Error('No Discord webhook URL is configured for this user yet');
+      }
+
+      const { discordNotificationProvider } = await import('./providers/discord.provider');
+      const delivery = await discordNotificationProvider.sendAlert(prefs.discordWebhookUrl, {
+        eventType: 'payment.received',
+        severity: 'info',
+        amount: '0.00',
+        asset: 'XLM',
+        fromAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        toAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        txHash: '0000000000000000000000000000000000000000000000000000000000000000',
+        memo: 'STELLAR-ALERTS-TEST-PING',
+      });
+
+      if (!delivery.success) {
+        return {
+          success: false,
+          message: delivery.error || 'Discord test webhook delivery failed',
+        };
+      }
+      return {
+        success: true,
+        message: 'Discord rich embed test notification dispatched successfully.',
+      };
+    }
+
     throw new Error(`Unsupported test ping channel: ${channel}`);
   }
 }
