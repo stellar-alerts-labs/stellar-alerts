@@ -41,6 +41,10 @@ vi.mock('../../lib/queue', () => ({
   enqueuePaymentAlert: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('../../plugins/prisma', () => ({
+  default: async () => {},
+}));
+
 // ---------------------------------------------------------------------------
 
 import { buildApp } from '../../app';

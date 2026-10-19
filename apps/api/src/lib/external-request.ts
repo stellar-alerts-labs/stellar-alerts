@@ -62,8 +62,11 @@ export function createDeadlineSignal(
   };
 }
 
+import { getCorrelationId } from './correlation-context';
+
 /**
  * Standard fetch with an enforced deadline and AbortSignal cancellation propagation.
+ * Automatically injects the active correlation ID (x-request-id) into downstream headers.
  */
 export async function fetchWithTimeout(
   url: string | URL,
@@ -74,9 +77,16 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const { signal, cleanup, isTimedOut } = createDeadlineSignal(timeoutMs, parentSignal);
 
+  const headers = new Headers(init.headers || {});
+  const correlationId = getCorrelationId();
+  if (correlationId && !headers.has('x-request-id')) {
+    headers.set('x-request-id', correlationId);
+  }
+
   try {
     const response = await fetch(url, {
       ...init,
+      headers,
       signal,
     });
     return response;

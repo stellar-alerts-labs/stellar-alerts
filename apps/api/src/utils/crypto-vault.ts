@@ -1,6 +1,7 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import crypto, { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
+const SEPARATOR = ':';
 
 /**
  * Derives the 32-byte key buffer from the hex env var.
@@ -79,12 +80,36 @@ export function decryptFromString(stored: string): string {
   return decrypt({ iv, authTag, ciphertext });
 }
 
-export interface KeyRotationOptions {
-  newKey: string;
-  newVersion: string;
-  batchSize?: number;
-  dryRun?: boolean;
+export interface EncryptedSecretParts {
+  version: string;
+  iv: string;
+  authTag: string;
+  ciphertext: string;
 }
+
+export class CryptoVault {
+  private currentKey: Buffer;
+  private currentVersion: string;
+  public keys: Map<string, Buffer>;
+
+  constructor(
+    currentKey: string,
+    currentVersion: string = '1',
+    oldKeys: Record<string, string> = {}
+  ) {
+    this.currentVersion = currentVersion;
+    this.currentKey = this.deriveKey(currentKey);
+    this.keys = new Map([[currentVersion, this.currentKey]]);
+
+    for (const [version, key] of Object.entries(oldKeys)) {
+      this.keys.set(version, this.deriveKey(key));
+    }
+  }
+
+  private deriveKey(key: string): Buffer {
+    const safeKey = key || 'default_master_encryption_key_32bytes_long!';
+    return crypto.createHash('sha256').update(safeKey).digest();
+  }
 
   encryptParts(plaintext: string): EncryptedSecretParts {
     const iv = crypto.randomBytes(12);
@@ -137,17 +162,19 @@ export interface KeyRotationOptions {
       throw new Error(`Unknown encryption key version: ${version}`);
     }
 
-  private deriveKey(key: string): Buffer {
-    const safeKey = key || 'default_master_encryption_key_32bytes_long!';
-    return crypto.createHash('sha256').update(safeKey).digest();
-  }
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      key,
+      Buffer.from(iv, 'base64')
+    );
+    decipher.setAuthTag(Buffer.from(authTag, 'base64'));
 
-  generateNewKey(): string {
-    return crypto.randomBytes(32).toString('hex');
-  }
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(ciphertext, 'base64')),
+      decipher.final(),
+    ]);
 
-  getGracePeriodMs(): number {
-    return MasterKeyRotationManager.GRACE_PERIOD_MS;
+    return decrypted.toString('utf8');
   }
 
   decrypt(encrypted: string): string {
@@ -194,3 +221,40 @@ export const cryptoVault = new CryptoVault(
   process.env.MASTER_ENCRYPTION_KEY_VERSION ?? '1',
   parsedOldKeys
 );
+
+export interface KeyRotationOptions {
+  newKey: string;
+  newVersion: string;
+  batchSize?: number;
+  dryRun?: boolean;
+}
+
+export interface KeyRotationResult {
+  success: boolean;
+  rotatedCount: number;
+  failedCount: number;
+  errors: string[];
+  newVersion: string;
+}
+
+export class MasterKeyRotationManager {
+  private static readonly DEFAULT_BATCH_SIZE = 100;
+  public static readonly GRACE_PERIOD_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+  private deriveKey(key: string): Buffer {
+    const safeKey = key || 'default_master_encryption_key_32bytes_long!';
+    return crypto.createHash('sha256').update(safeKey).digest();
+  }
+
+  generateNewKey(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  getGracePeriodMs(): number {
+    return MasterKeyRotationManager.GRACE_PERIOD_MS;
+  }
+}
+
+export const masterKeyRotationManager = new MasterKeyRotationManager();
+export const KeyRotationManager = MasterKeyRotationManager;
+export type KeyRotationManager = MasterKeyRotationManager;

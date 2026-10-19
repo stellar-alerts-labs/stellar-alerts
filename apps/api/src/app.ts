@@ -6,7 +6,9 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { env } from './config/env';
 import prismaPlugin from './plugins/prisma';
+import metricsPlugin from './plugins/metrics';
 import { registerSSEPushPlugin } from './plugins/websocket';
 import { prisma } from './lib/prisma';
 import { alertQueue } from './lib/queue';
@@ -42,7 +44,7 @@ export const buildApp = async () => {
   // Issue #19: Correlation IDs — read x-request-id header or generate a UUID
   const app = Fastify({
     logger: loggerOptions,
-    requestIdLogLabel: 'requestId',
+    requestIdLogLabel: 'reqId',
     pluginTimeout: 30000,
     requestIdHeader: 'x-request-id',
     genReqId: (req) => {
@@ -53,6 +55,8 @@ export const buildApp = async () => {
       return randomUUID();
     },
   });
+
+  await registerCorrelation(app);
 
   await app.register(cors, {
     origin: true // Allow all origins for dev, or specify 'http://localhost:3000'

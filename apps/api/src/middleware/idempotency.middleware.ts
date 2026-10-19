@@ -118,3 +118,12 @@ export async function registerIdempotency(app: FastifyInstance): Promise<void> {
     return payload;
   });
 }
+
+export function idempotencyHooks(options: any = {}) {
+  return {
+    preValidation: async (_request: FastifyRequest, _reply: FastifyReply) => {},
+    onSend: async (_request: FastifyRequest, _reply: FastifyReply, payload: any) => payload,
+    onResponse: async (_request: FastifyRequest, _reply: FastifyReply) => {},
+  };
+}
+

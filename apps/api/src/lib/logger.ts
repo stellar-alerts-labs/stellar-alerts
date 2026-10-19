@@ -12,6 +12,7 @@
  * `createLogger({ module, requestId })`.
  */
 import pino, { type Logger, type LoggerOptions } from 'pino';
+import { getCorrelationId } from './correlation-context';
 
 /** Paths censored in every log line (Pino redact). */
 export const REDACT_PATHS: string[] = [
@@ -104,6 +105,7 @@ export const rootLogger: Logger = pino(loggerOptions);
 
 export type LoggerBindings = {
   requestId?: string;
+  reqId?: string;
   module?: string;
   jobId?: string;
   worker?: string;
@@ -111,6 +113,8 @@ export type LoggerBindings = {
 
 /**
  * Create a child logger bound to optional correlation / module fields.
+ * If no requestId is provided, automatically inherits correlation ID from
+ * active AsyncLocalStorage context if available.
  *
  * @example
  * const log = createLogger({ requestId: job.data.requestId, module: 'WatcherWorker' });
@@ -119,7 +123,11 @@ export type LoggerBindings = {
 export function createLogger(bindings: LoggerBindings = {}): Logger {
   const fields: Record<string, string> = {};
   if (bindings.module) fields.module = bindings.module;
-  if (bindings.requestId) fields.requestId = bindings.requestId;
+  const correlationId = bindings.requestId ?? bindings.reqId ?? getCorrelationId();
+  if (correlationId) {
+    fields.requestId = correlationId;
+    fields.reqId = correlationId;
+  }
   if (bindings.jobId) fields.jobId = bindings.jobId;
   if (bindings.worker) fields.worker = bindings.worker;
   return rootLogger.child(fields);
