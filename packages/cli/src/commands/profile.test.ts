@@ -212,6 +212,13 @@ describe('profile commands – options', () => {
     expect(opts.some((o: any) => o.long === '--network')).toBe(true);
     expect(opts.some((o: any) => o.long === '--log-level')).toBe(true);
   });
+
+  it('"profile list" has --json option', () => {
+    const program = makeProgram();
+    const listCmd = findCmd(program, 'profile', 'list');
+    const opts = listCmd.options;
+    expect(opts.some((o: any) => o.long === '--json')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -254,9 +261,50 @@ describe('profile commands – actions', () => {
     const program = makeProgram();
     await program.parseAsync(['profile', 'list'], { from: 'user' });
 
-    // Should have logged something with the profile name
+    // Should have logged something with the profile name and table borders
     const allLogs = consoleSpy.mock.calls.flat().join(' ');
     expect(allLogs).toContain('testnet');
+    expect(allLogs).toContain('─'.repeat(100));
+  });
+
+  it('profile list --json: outputs valid JSON matching profile schema and omits table borders', async () => {
+    const secondProfile = {
+      ...mockProfile,
+      name: 'mainnet',
+      network: 'mainnet',
+      apiUrl: 'https://api.stellar-alerts.io',
+    };
+    vi.mocked(profileStore.listProfiles).mockReturnValue([mockProfile, secondProfile]);
+    vi.mocked(profileStore.getActiveProfileName).mockReturnValue('testnet');
+
+    const program = makeProgram();
+    await program.parseAsync(['profile', 'list', '--json'], { from: 'user' });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const rawOutput = String(consoleSpy.mock.calls[0][0]);
+    expect(rawOutput).not.toContain('─');
+    expect(rawOutput).not.toContain('Configuration Profiles');
+
+    const parsed = JSON.parse(rawOutput);
+    const expectedData = [
+      { ...mockProfile, active: true },
+      { ...secondProfile, active: false },
+    ];
+    expect(parsed).toEqual(expectedData);
+    expect(rawOutput).toBe(JSON.stringify(expectedData, null, 2));
+  });
+
+  it('profile list --json: outputs empty JSON array [] when no profiles exist', async () => {
+    vi.mocked(profileStore.listProfiles).mockReturnValue([]);
+    vi.mocked(profileStore.getActiveProfileName).mockReturnValue(null);
+
+    const program = makeProgram();
+    await program.parseAsync(['profile', 'list', '--json'], { from: 'user' });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const rawOutput = String(consoleSpy.mock.calls[0][0]);
+    expect(JSON.parse(rawOutput)).toEqual([]);
+    expect(rawOutput).toBe('[]');
   });
 
   // ── profile use ──

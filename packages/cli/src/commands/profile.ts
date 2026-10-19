@@ -243,10 +243,21 @@ export function registerProfileCommands(program: Command): void {
     .command('list')
     .alias('ls')
     .description('List all configuration profiles')
-    .action(async () => {
+    .option('--json', 'Output configuration profiles as formatted JSON')
+    .action(async (options: { json?: boolean }) => {
       try {
         const store = createProfileStore();
         const profiles = listProfiles(store);
+        const activeName = getActiveProfileName(store);
+
+        if (options.json) {
+          const data = profiles.map((profile) => ({
+            ...profile,
+            active: profile.name === activeName,
+          }));
+          console.log(JSON.stringify(data, null, 2));
+          return;
+        }
 
         if (profiles.length === 0) {
           console.log(
@@ -255,7 +266,6 @@ export function registerProfileCommands(program: Command): void {
           return;
         }
 
-        const activeName = getActiveProfileName(store);
         console.log(chalk.blue(`\n🗂  Configuration Profiles (${profiles.length})\n`));
         printProfilesTable(profiles, activeName);
         console.log('');
@@ -284,7 +294,8 @@ export function registerProfileCommands(program: Command): void {
   profileCmd
     .command('show [name]')
     .description('Show profile details (defaults to active profile)')
-    .action(async (name?: string) => {
+    .option('--json', 'Output profile details as formatted JSON')
+    .action(async (name?: string, options?: { json?: boolean }) => {
       try {
         const store = createProfileStore();
         let profile: ProfileConfig;
@@ -296,6 +307,16 @@ export function registerProfileCommands(program: Command): void {
         }
 
         const activeName = getActiveProfileName(store);
+        if (options?.json) {
+          console.log(
+            JSON.stringify(
+              { ...profile, active: profile.name === activeName },
+              null,
+              2,
+            ),
+          );
+          return;
+        }
         printProfileDetail(profile, profile.name === activeName);
       } catch (err) {
         handleProfileError(err);
