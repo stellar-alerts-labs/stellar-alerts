@@ -21,6 +21,14 @@ vi.mock('../../../lib/prisma', () => ({
     $queryRaw: vi.fn(),
     $disconnect: vi.fn(),
   },
+  prismaRead: {
+    $queryRaw: vi.fn(),
+  },
+  replicaPrisma: {
+    $queryRaw: vi.fn(),
+  },
+  setReadTarget: vi.fn(),
+  activeReadTarget: 'PRIMARY',
 }));
 
 vi.mock('../../../lib/queue', () => ({

@@ -50,27 +50,31 @@ const errorResponseSchema = z.object({
  * docs/type-generation.md for the full rationale.
  */
 
+const toJSON = typeof (z as any).toJSONSchema === 'function'
+  ? (z as any).toJSONSchema
+  : (schema: any) => ({ type: 'object' });
+
 export const openApiComponentSchemas = {
-  RequestLinkInput: z.toJSONSchema(requestLinkSchema),
-  VerifyLinkInput: z.toJSONSchema(verifyLinkSchema),
-  DIDChallengeInput: z.toJSONSchema(didChallengeSchema),
-  DIDVerifyInput: z.toJSONSchema(didVerifySchema),
-  CreateWalletInput: z.toJSONSchema(createWalletSchema),
-  CreateWebhookInput: z.toJSONSchema(createWebhookSchema),
-  DeadLetterIdParams: z.toJSONSchema(deadLetterIdSchema),
-  ListDeadLettersQuery: z.toJSONSchema(listDeadLettersQuerySchema),
-  SuppressDeadLetterInput: z.toJSONSchema(suppressDeadLetterSchema),
-  SandboxReplayIdParams: z.toJSONSchema(sandboxReplayIdSchema),
-  SandboxReplayInput: z.toJSONSchema(sandboxReplayInputSchema),
-  ListSandboxReplaysQuery: z.toJSONSchema(listSandboxReplaysQuerySchema),
-  ErrorResponse: z.toJSONSchema(errorResponseSchema),
-  CreateExportInput: z.toJSONSchema(createExportSchema),
-  ExportIdParams: z.toJSONSchema(exportIdSchema),
-  ListExportsQuery: z.toJSONSchema(listExportsQuerySchema),
-  DownloadExportQuery: z.toJSONSchema(downloadExportQuerySchema),
-  AnalyzeSimulationInput: z.toJSONSchema(analyzeSimulationSchema),
-  SimulationIdParams: z.toJSONSchema(simulationIdSchema),
-  ListSimulationsQuery: z.toJSONSchema(listSimulationsQuerySchema),
+  RequestLinkInput: toJSON(requestLinkSchema),
+  VerifyLinkInput: toJSON(verifyLinkSchema),
+  DIDChallengeInput: toJSON(didChallengeSchema),
+  DIDVerifyInput: toJSON(didVerifySchema),
+  CreateWalletInput: toJSON(createWalletSchema),
+  CreateWebhookInput: toJSON(createWebhookSchema),
+  DeadLetterIdParams: toJSON(deadLetterIdSchema),
+  ListDeadLettersQuery: toJSON(listDeadLettersQuerySchema),
+  SuppressDeadLetterInput: toJSON(suppressDeadLetterSchema),
+  SandboxReplayIdParams: toJSON(sandboxReplayIdSchema),
+  SandboxReplayInput: toJSON(sandboxReplayInputSchema),
+  ListSandboxReplaysQuery: toJSON(listSandboxReplaysQuerySchema),
+  ErrorResponse: toJSON(errorResponseSchema),
+  CreateExportInput: toJSON(createExportSchema),
+  ExportIdParams: toJSON(exportIdSchema),
+  ListExportsQuery: toJSON(listExportsQuerySchema),
+  DownloadExportQuery: toJSON(downloadExportQuerySchema),
+  AnalyzeSimulationInput: toJSON(analyzeSimulationSchema),
+  SimulationIdParams: toJSON(simulationIdSchema),
+  ListSimulationsQuery: toJSON(listSimulationsQuerySchema),
 };
 
 export const openApiOptions = {
