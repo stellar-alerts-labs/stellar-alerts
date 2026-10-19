@@ -98,6 +98,8 @@ export class PaymentsController {
     return reply.send({ success: true, summary });
   }
 
+  getPaymentsSummary = this.getSummary.bind(this);
+
   /**
    * POST /payments/estimate-fee
    *

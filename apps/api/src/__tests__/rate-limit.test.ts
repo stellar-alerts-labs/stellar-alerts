@@ -75,4 +75,57 @@ describe('Request Rate Limiting Middleware (@fastify/rate-limit)', () => {
 
     await app.close();
   });
+
+  it('isolates different IP addresses so another client is not blocked', async () => {
+    const app = await buildApp();
+
+    // Max out IP 1
+    for (let i = 1; i <= 100; i++) {
+      await app.inject({
+        method: 'GET',
+        url: '/health',
+        remoteAddress: '198.51.100.10',
+      });
+    }
+
+    // IP 1 should be blocked
+    const ip1Res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      remoteAddress: '198.51.100.10',
+    });
+    expect(ip1Res.statusCode).toBe(429);
+
+    // IP 2 should still be allowed
+    const ip2Res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      remoteAddress: '198.51.100.20',
+    });
+    expect(ip2Res.statusCode).toBe(200);
+    expect(Number(ip2Res.headers['x-ratelimit-remaining'])).toBeGreaterThan(0);
+
+    await app.close();
+  });
+
+  it('supports tiered rate limits partitioned by API key', async () => {
+    const app = await buildApp();
+
+    const apiKey = 'test-client-api-key-999';
+    // Send request with API key
+    const res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: {
+        'x-api-key': apiKey,
+      },
+      remoteAddress: '203.0.113.42', // Even if this IP was used, API key uses its own tier
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(Number(res.headers['x-ratelimit-limit'])).toBe(1000);
+
+    await app.close();
+  });
 });
+

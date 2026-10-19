@@ -7,7 +7,7 @@ export const EXPORT_STATUSES = ['queued', 'running', 'completed', 'failed', 'exp
 export type ExportStatus = (typeof EXPORT_STATUSES)[number];
 
 // ISO date (`2026-01-31`) or date-time with offset (`2026-01-31T00:00:00Z`).
-const isoDateOrDateTime = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
+const isoDateOrDateTime = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.string().datetime({ offset: true })]);
 
 export const createExportSchema = z
   .object({

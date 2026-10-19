@@ -70,6 +70,24 @@ export function getRateLimitDomain(url: string): string {
   } catch {
     return url.toLowerCase();
   }
+}
+
+export class AdaptiveRateLimiter {
+  /** Maps domain -> Unix timestamp (ms) at which the block expires */
+  private blockedUntil = new Map<string, number>();
+
+  /**
+   * Returns true if requests to this domain are currently rate-limited.
+   */
+  isBlocked(domain: string): boolean {
+    const until = this.blockedUntil.get(domain);
+    if (until === undefined) return false;
+    if (Date.now() >= until) {
+      this.blockedUntil.delete(domain);
+      return false;
+    }
+    return true;
+  }
 
   /**
    * Parse a 429 response's headers to determine how long to back off.
