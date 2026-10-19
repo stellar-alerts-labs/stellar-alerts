@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { createWebhookSchema, webhookParamsSchema, listWebhookLogsQuerySchema } from './webhooks.schema';
 import { webhooksService } from './webhooks.service';
+import { validateWebhookUrl } from './webhook.validator';
 import { CursorError } from '../../utils/pagination';
 import { NotFoundError, zodValidationError } from '../../lib/errors';
 
@@ -12,6 +13,11 @@ export class WebhooksController {
     }
 
     const userId = (request as any).user.id;
+    const clientIp = request.ip;
+    const userAgent = request.headers['user-agent'] as string | undefined;
+
+    await validateWebhookUrl(parsed.data.url, { userId, clientIp, userAgent });
+
     const webhook = await webhooksService.addWebhook(userId, parsed.data.url, parsed.data.payloadTemplate);
     return reply.status(201).send({ success: true, webhook });
   }

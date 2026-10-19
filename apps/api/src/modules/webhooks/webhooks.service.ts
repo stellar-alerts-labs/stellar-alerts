@@ -23,6 +23,16 @@ export interface WebhookHealthScorecard {
 
 const WEBHOOK_TEST_TIMEOUT_MS = 10_000;
 
+class KeyRotationManager {
+  private keyStates = new Map<string, any>();
+  setKeyState(id: string, state: any) {
+    this.keyStates.set(id, state);
+  }
+  getKeyState(id: string) {
+    return this.keyStates.get(id);
+  }
+}
+
 export class WebhooksService {
   private keyRotationManager = new KeyRotationManager();
 

@@ -1,4 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('../../../lib/prisma', () => ({
+  prisma: {
+    webhook: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+  },
+}));
+
 import { createHmac } from 'crypto';
 import { WebhooksService } from '../webhooks.service';
 import { KeyRotationManager } from '../../../utils/webhook-signer';
