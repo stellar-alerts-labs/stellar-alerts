@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import { FastifyInstance } from 'fastify';
-import { prisma, prismaRead } from '../lib/prisma';
+import { prisma, prismaRead, connectWithRetry } from '../lib/prisma';
 import { createReadReplicaRouter, ReadReplicaRouter } from '../lib/prisma-read-replica';
 
 declare module 'fastify' {
@@ -12,11 +12,11 @@ declare module 'fastify' {
 
 export default fp(async (server: FastifyInstance) => {
   try {
-    await prisma.$connect();
+    await connectWithRetry({ client: prisma });
     // Test authentication and database connection eagerly
     await prisma.$queryRaw`SELECT 1`;
     if (prismaRead !== prisma) {
-      await prismaRead.$connect();
+      await connectWithRetry({ client: prismaRead });
       await prismaRead.$queryRaw`SELECT 1`;
       server.log.info('🔌 Read replica connection verified successfully.');
     }
