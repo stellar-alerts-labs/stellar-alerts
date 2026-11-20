@@ -11,6 +11,7 @@ import {
   type AlertRuleLike,
 } from '../../../modules/alerts/rules/liquidity-pool.rule';
 import * as StellarSdk from 'stellar-sdk';
+import { buildMockTopics, encodeScValToBase64 } from '../../../testing';
 
 // #717: Soroban AMM Liquidity Pool Deposit & Withdrawal Event Sentinel.
 
@@ -36,9 +37,11 @@ function addressTopic(address: string): string {
 
 describe('ScVal topic decoding (#717)', () => {
   it('decodes base64-XDR symbol topics (raw RPC getEvents shape)', () => {
-    expect(decodeTopicValue(symbolTopic('deposit_liquidity'))).toBe('deposit_liquidity');
-    expect(decodeTopicValue(symbolTopic('withdraw_liquidity'))).toBe('withdraw_liquidity');
-    expect(decodeTopicValue(symbolTopic('swap'))).toBe('swap');
+    // Using factory for consistent XDR encoding
+    const topics = buildMockTopics(['deposit_liquidity', 'withdraw_liquidity', 'swap']);
+    expect(decodeTopicValue(topics[0])).toBe('deposit_liquidity');
+    expect(decodeTopicValue(topics[1])).toBe('withdraw_liquidity');
+    expect(decodeTopicValue(topics[2])).toBe('swap');
   });
 
   it('decodes base64-XDR address topics to contract / account IDs', () => {
@@ -63,10 +66,8 @@ describe('ScVal topic decoding (#717)', () => {
 
 describe('parseLiquidityPoolEvent', () => {
   it('parses a deposit event with i128 XDR data amount payloads', () => {
-    const amountA = StellarSdk.xdr.ScVal.toXDR(
-      StellarSdk.nativeToScVal(50_000_000_000n, { type: 'i128' }),
-      'base64',
-    );
+    // Using factory for consistent XDR encoding
+    const amountA = encodeScValToBase64(50_000_000_000n, 'i128');
     const event = {
       contractId: CONTRACT_ID,
       topic: [symbolTopic('deposit_liquidity'), addressTopic(SENDER)],

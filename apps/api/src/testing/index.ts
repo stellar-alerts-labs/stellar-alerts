@@ -13,3 +13,14 @@ export {
   isRedisAvailable,
   parseRedisUrl,
 } from './test-infra';
+export {
+  buildMockSorobanEvent,
+  buildMockTransferEvent,
+  buildMockSwapEvent,
+  buildMockUpgradeEvent,
+  buildMockSorobanEvents,
+  buildMockTopics,
+  encodeScValToBase64,
+  generateMockContractId,
+  type MockSorobanEventOptions,
+} from './factories/soroban-event.factory';
