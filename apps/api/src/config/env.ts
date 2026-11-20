@@ -104,6 +104,11 @@ const envSchema = z.object({
   // Opt-in Prometheus scrape port for worker processes. Unset by default, in
   // which case no listener is opened.
   WORKER_METRICS_PORT: z.coerce.number().int().positive().optional(),
+  // Zero-downtime watcher handover (modules/watcher/cursor-coordinator.ts). Off by
+  // default: with it on, a node only ingests while it holds the Redis primary
+  // lease, so it must not be enabled without a reachable Redis.
+  WATCHER_HANDOVER_ENABLED: z.string().optional().default("false"),
+  WATCHER_HANDOVER_LEASE_TTL_MS: z.coerce.number().int().min(1000).optional().default(15000),
   // Provider timeouts & deadlines (#303)
   EXTERNAL_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
   HORIZON_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
