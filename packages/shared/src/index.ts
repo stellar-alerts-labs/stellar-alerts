@@ -11,6 +11,7 @@ export * from './soroban/scval-parser';
 // Single source of truth for Stellar StrKey / transaction-hash validation
 // (Ed25519 public keys, contract IDs, muxed addresses, transaction hashes).
 export * from './strkey';
+export * from './utils/muxed';
 export * from './schemas/vesting';
 export * from './schemas/defi';
 export * from './schemas/alerts';
