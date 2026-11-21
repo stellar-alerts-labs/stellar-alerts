@@ -6,17 +6,43 @@
   --glass-bg: rgba(15, 23, 42, 0.55);
   --glass-border: rgba(124, 58, 237, 0.12);
   --accent: #7c3aed;
+
+  --alert-low-background: #dbeafe;
+  --alert-low-foreground: #1e3a8a;
+  --alert-medium-background: #fef3c7;
+  --alert-medium-foreground: #713f12;
+  --alert-high-background: #ffe4e6;
+  --alert-high-foreground: #881337;
+  --alert-critical-background: #fee2e2;
+  --alert-critical-foreground: #7f1d1d;
 }
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-alert-low-bg: var(--alert-low-background);
+  --color-alert-low-fg: var(--alert-low-foreground);
+  --color-alert-medium-bg: var(--alert-medium-background);
+  --color-alert-medium-fg: var(--alert-medium-foreground);
+  --color-alert-high-bg: var(--alert-high-background);
+  --color-alert-high-fg: var(--alert-high-foreground);
+  --color-alert-critical-bg: var(--alert-critical-background);
+  --color-alert-critical-fg: var(--alert-critical-foreground);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #050508;
     --foreground: #e6eef8;
+
+    --alert-low-background: #1e3a8a;
+    --alert-low-foreground: #dbeafe;
+    --alert-medium-background: #713f12;
+    --alert-medium-foreground: #fef3c7;
+    --alert-high-background: #881337;
+    --alert-high-foreground: #ffe4e6;
+    --alert-critical-background: #7f1d1d;
+    --alert-critical-foreground: #fee2e2;
   }
 }
 
