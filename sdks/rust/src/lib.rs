@@ -8,5 +8,5 @@
 mod events;
 mod verifier;
 
-pub use events::{PaymentAlert, SorobanEvent, StellarAlertEvent};
+pub use events::{PaymentAlert, SorobanEvent, SorobanSaturationAlert, StellarAlertEvent};
 pub use verifier::{VerificationResult, WebhookVerifier, DEFAULT_TOLERANCE_MS};

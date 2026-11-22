@@ -32,6 +32,7 @@ import { deduplicationPipeline } from '../lib/deduplicator';
 import { allowanceSentinelService } from '../modules/soroban/allowance-sentinel.service';
 import { flashLoanDetector } from '../modules/soroban/flash-loan-detector';
 import { contractGovernanceSentinel } from '../modules/soroban/governance-sentinel.service';
+import { hostSaturationProfilerService } from '../modules/soroban/host-saturation-profiler.service';
 
 export const watcherLifecycle = new WorkerLifecycleManager({
   workerName: 'WatcherWorker',
@@ -1309,6 +1310,21 @@ export async function inspectTransactionForFlashLoans(input: {
  */
 export async function inspectContractGovernance(event: any) {
   return contractGovernanceSentinel.parseGovernanceEvent(event);
+}
+
+/**
+ * Soroban host CPU instruction and ledger byte limit saturation profiler (#972).
+ */
+export async function inspectInvocationHostSaturation(
+  source: unknown,
+  options?: {
+    txHash?: string;
+    ledgerSeq?: number;
+    warningThreshold?: number;
+    criticalThreshold?: number;
+  },
+) {
+  return hostSaturationProfilerService.profile(source, options);
 }
 
 export interface WatcherShutdownResources {

@@ -37,6 +37,20 @@ pub struct SorobanEvent {
     pub value: serde_json::Value,
 }
 
+/// A Soroban host resource saturation alert event (#972).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SorobanSaturationAlert {
+    pub contract_id: String,
+    #[serde(default)]
+    pub tx_hash: Option<String>,
+    #[serde(default)]
+    pub ledger_seq: Option<u32>,
+    pub severity: String,
+    pub overall_saturation_percent: f64,
+    #[serde(default)]
+    pub saturated_dimensions: Vec<String>,
+}
+
 /// The typed alert payload a Stellar Alerts webhook delivers, discriminated
 /// by its `event` field. Deserializing into this type (rather than raw
 /// `serde_json::Value`) lets a consumer `match` on the alert kind instead
@@ -50,6 +64,8 @@ pub enum StellarAlertEvent {
     PaymentAlert(PaymentAlert),
     #[serde(rename = "soroban.contract_event")]
     SorobanContractEvent(SorobanEvent),
+    #[serde(rename = "soroban.host_saturation_alert")]
+    SorobanHostSaturationAlert(SorobanSaturationAlert),
 }
 
 #[cfg(test)]
@@ -97,6 +113,28 @@ mod tests {
                 assert_eq!(evt.topic, vec!["transfer", "from", "to"]);
             }
             other => panic!("expected SorobanContractEvent, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn deserializes_a_soroban_host_saturation_alert() {
+        let json = r#"{
+            "event": "soroban.host_saturation_alert",
+            "contract_id": "CA1234...",
+            "severity": "CRITICAL",
+            "overall_saturation_percent": 96.5,
+            "saturated_dimensions": ["cpu", "write_bytes"]
+        }"#;
+
+        let event: StellarAlertEvent = serde_json::from_str(json).unwrap();
+        match event {
+            StellarAlertEvent::SorobanHostSaturationAlert(alert) => {
+                assert_eq!(alert.contract_id, "CA1234...");
+                assert_eq!(alert.severity, "CRITICAL");
+                assert_eq!(alert.overall_saturation_percent, 96.5);
+                assert_eq!(alert.saturated_dimensions, vec!["cpu", "write_bytes"]);
+            }
+            other => panic!("expected SorobanHostSaturationAlert, got {other:?}"),
         }
     }
 
