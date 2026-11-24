@@ -1,10 +1,14 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
+import tsParser from '@typescript-eslint/parser';
 import noSecretLogging from '../../scripts/eslint-rules/no-secret-logging.js';
 
 export default defineConfig([
   globalIgnores(['dist/**', 'coverage/**', 'generated/**', 'src/**/__tests__/**', 'src/**/*.test.ts']),
   {
     files: ['src/**/*.js', 'src/**/*.mjs', 'src/**/*.cjs', 'src/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+    },
     plugins: {
       'no-secret-logging': {
         rules: {

@@ -1,12 +1,31 @@
 import { FastifyInstance } from 'fastify';
 import { alertRulesController } from './alert-rules.controller';
+import { rulesController } from '../rules/rules.controller';
 import { authenticate, requireScopes } from '../../middleware/rbac.middleware';
 
 export async function alertRulesRoutes(app: FastifyInstance) {
   app.get(
     '/rules/presets',
     { preHandler: [authenticate, requireScopes('alerts:write')] },
-    alertRulesController.getPresets.bind(alertRulesController)
+    rulesController.getPresets.bind(rulesController)
+  );
+
+  app.post(
+    '/rules/backtest',
+    { preHandler: [authenticate, requireScopes('alerts:write')] },
+    rulesController.backtest.bind(rulesController)
+  );
+
+  app.post(
+    '/alert-rules/backtest',
+    { preHandler: [authenticate, requireScopes('alerts:write')] },
+    rulesController.backtest.bind(rulesController)
+  );
+
+  app.post(
+    '/alert-rules/:id/backtest',
+    { preHandler: [authenticate, requireScopes('alerts:write')] },
+    rulesController.backtestWithRuleId.bind(rulesController)
   );
 
   app.post(

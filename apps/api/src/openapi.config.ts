@@ -21,6 +21,7 @@ import {
   simulationIdSchema,
   listSimulationsQuerySchema,
 } from './modules/simulation/simulation.schema';
+import { backtestRuleSchema } from './modules/rules/rules.schema';
 
 /**
  * The one envelope shape every thrown AppError (lib/errors.ts) is
@@ -71,6 +72,7 @@ export const openApiComponentSchemas = {
   AnalyzeSimulationInput: z.toJSONSchema(analyzeSimulationSchema),
   SimulationIdParams: z.toJSONSchema(simulationIdSchema),
   ListSimulationsQuery: z.toJSONSchema(listSimulationsQuerySchema),
+  BacktestRuleInput: z.toJSONSchema(backtestRuleSchema),
 };
 
 export const openApiOptions = {
@@ -90,6 +92,7 @@ export const openApiOptions = {
       { name: 'webhook-sandbox', description: 'Sandbox replay of dead letters against a mock webhook receiver with response inspection' },
       { name: 'exports', description: 'Asynchronous CSV/PDF export jobs with progress and signed downloads' },
       { name: 'simulations', description: 'Pre-execution transaction envelope simulation with explainable threat scoring' },
+      { name: 'rules', description: 'Alert rules and deterministic historical backtesting replay' },
     ],
     components: {
       schemas: openApiComponentSchemas as Record<string, any>,

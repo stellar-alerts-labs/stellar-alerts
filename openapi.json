@@ -1330,6 +1330,264 @@
           "pageSize"
         ],
         "additionalProperties": false
+      },
+      "BacktestRuleInput": {
+        "type": "object",
+        "properties": {
+          "ruleId": {
+            "description": "Optional ID of an existing persisted AlertRule to backtest",
+            "type": "string"
+          },
+          "rule": {
+            "description": "Draft alert rule configuration to evaluate in sandbox",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "walletId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "assets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "minAmount": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxAmount": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "memo": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "channels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "conditions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "startLedger": {
+            "description": "Starting Stellar ledger sequence (inclusive)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "endLedger": {
+            "description": "Ending Stellar ledger sequence (inclusive)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "startDate": {
+            "description": "ISO-8601 start date for historical time-travel range",
+            "type": "string"
+          },
+          "endDate": {
+            "description": "ISO-8601 end date for historical time-travel range",
+            "type": "string"
+          },
+          "walletId": {
+            "description": "Optional wallet ID filter override",
+            "type": "string"
+          },
+          "baselineRuleId": {
+            "description": "Optional persisted rule ID to use as precision/noise baseline",
+            "type": "string"
+          },
+          "baselineRule": {
+            "description": "Baseline rule to compare false positives and trigger deltas against",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "walletId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "assets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "minAmount": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxAmount": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "memo": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "channels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "conditions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxEventsLimit": {
+            "default": 25000,
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100000
+          },
+          "maxLedgersLimit": {
+            "default": 50000,
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 200000
+          },
+          "sampleSizeLimit": {
+            "default": 50,
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 200
+          },
+          "seededEvents": {
+            "description": "In-memory historical ledger events fixture for deterministic simulation",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "maxEventsLimit",
+          "maxLedgersLimit",
+          "sampleSizeLimit"
+        ],
+        "additionalProperties": false
       }
     }
   },
@@ -1366,6 +1624,10 @@
     {
       "name": "simulations",
       "description": "Pre-execution transaction envelope simulation with explainable threat scoring"
+    },
+    {
+      "name": "rules",
+      "description": "Alert rules and deterministic historical backtesting replay"
     }
   ]
 }

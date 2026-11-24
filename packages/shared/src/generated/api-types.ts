@@ -293,6 +293,60 @@ export interface components {
             band?: "SAFE" | "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
             sourceAccount?: string;
         };
+        BacktestRuleInput: {
+            /** @description Optional ID of an existing persisted AlertRule to backtest */
+            ruleId?: string;
+            /** @description Draft alert rule configuration to evaluate in sandbox */
+            rule?: {
+                id?: string;
+                name?: string;
+                walletId?: string | null;
+                assets?: string[];
+                minAmount?: (number | string) | null;
+                maxAmount?: (number | string) | null;
+                memo?: string | null;
+                channels?: string[];
+                conditions?: {
+                    [key: string]: unknown;
+                } | null;
+            };
+            /** @description Starting Stellar ledger sequence (inclusive) */
+            startLedger?: number;
+            /** @description Ending Stellar ledger sequence (inclusive) */
+            endLedger?: number;
+            /** @description ISO-8601 start date for historical time-travel range */
+            startDate?: string;
+            /** @description ISO-8601 end date for historical time-travel range */
+            endDate?: string;
+            /** @description Optional wallet ID filter override */
+            walletId?: string;
+            /** @description Optional persisted rule ID to use as precision/noise baseline */
+            baselineRuleId?: string;
+            /** @description Baseline rule to compare false positives and trigger deltas against */
+            baselineRule?: {
+                id?: string;
+                name?: string;
+                walletId?: string | null;
+                assets?: string[];
+                minAmount?: (number | string) | null;
+                maxAmount?: (number | string) | null;
+                memo?: string | null;
+                channels?: string[];
+                conditions?: {
+                    [key: string]: unknown;
+                } | null;
+            };
+            /** @default 25000 */
+            maxEventsLimit: number;
+            /** @default 50000 */
+            maxLedgersLimit: number;
+            /** @default 50 */
+            sampleSizeLimit: number;
+            /** @description In-memory historical ledger events fixture for deterministic simulation */
+            seededEvents?: {
+                [key: string]: unknown;
+            }[];
+        };
     };
     responses: never;
     parameters: never;
