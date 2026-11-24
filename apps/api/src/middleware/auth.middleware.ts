@@ -3,6 +3,7 @@ import { verifyToken, UserPayload } from '../utils/jwt';
 import { isTokenRevoked } from '../lib/tokenBlocklist';
 import { isFamilyRevoked } from '../lib/session-manager';
 import { AuthenticationError } from '../lib/errors';
+import { enterCausalContext } from '../lib/prisma-causal-router';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -62,4 +63,13 @@ export async function authenticateHook(request: FastifyRequest, reply: FastifyRe
   }
 
   request.user = decoded;
+
+  // Bind the authenticated user to the async request chain so every Prisma
+  // mutation records an RYOW watermark and every replica read can be checked
+  // against it (see lib/prisma-causal-router.ts).
+  const tenantHeader = request.headers['x-tenant-id'];
+  const tenantId =
+    (decoded as UserPayload & { tenantId?: string }).tenantId ??
+    (Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader);
+  enterCausalContext({ userId: decoded.id, ...(tenantId ? { tenantId } : {}) });
 }

@@ -8,6 +8,7 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import { ExternalRequestTimeoutError } from '../external-request';
+import { TransportGuardError } from '../../workers/dispatcher/transport-guard';
 import {
   buildTraceparent,
   computePhases,
@@ -504,6 +505,93 @@ describe('webhook dispatch telemetry', () => {
         server.close();
       }
     });
+  });
+});
+
+describe('transport-guard limits in the instrumented dispatcher transport', () => {
+  afterEach(() => {
+    trace.disable();
+    setWebhookDispatchClockForTesting(null);
+  });
+
+  it('rejects an oversized declared content-length before consuming the body', async () => {
+    const { server, url } = await startEchoServer((_req, res) => {
+      res.writeHead(200, { 'Content-Length': '5000' });
+      res.end('small');
+    });
+    try {
+      await expect(
+        instrumentedWebhookFetch(url, {
+          body: '{}',
+          keepAlive: false,
+          maxResponseBytes: 1024,
+        }),
+      ).rejects.toMatchObject({
+        code: 'RESPONSE_TOO_LARGE',
+        name: 'TransportGuardError',
+      } as Partial<TransportGuardError>);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('aborts a streamed body once it exceeds the configured byte cap', async () => {
+    const { server, url } = await startEchoServer((_req, res) => {
+      res.writeHead(200);
+      res.write('x'.repeat(600));
+      res.write('x'.repeat(600));
+      res.end();
+    });
+    try {
+      await expect(
+        instrumentedWebhookFetch(url, {
+          body: '{}',
+          keepAlive: false,
+          maxResponseBytes: 1024,
+        }),
+      ).rejects.toMatchObject({ code: 'RESPONSE_TOO_LARGE' });
+    } finally {
+      server.closeAllConnections();
+      server.close();
+    }
+  });
+
+  it('aborts a slowloris drip once the average rate falls below the floor', async () => {
+    const { server, url } = await startEchoServer((_req, res) => {
+      res.writeHead(200);
+      const drip = setInterval(() => res.write('x'), 50);
+      res.on('close', () => clearInterval(drip));
+    });
+    try {
+      await expect(
+        instrumentedWebhookFetch(url, {
+          body: '{}',
+          keepAlive: false,
+          timeoutMs: 3000,
+          minByteRateBytesPerSecond: 100,
+          stallGraceMs: 100,
+        }),
+      ).rejects.toMatchObject({ code: 'TRANSFER_STALLED' });
+    } finally {
+      server.closeAllConnections();
+      server.close();
+    }
+  });
+
+  it('accepts a normal small response with the guard limits enabled', async () => {
+    const { server, url } = await startEchoServer();
+    try {
+      const response = await instrumentedWebhookFetch(url, {
+        body: '{}',
+        keepAlive: false,
+        maxResponseBytes: 16 * 1024,
+        minByteRateBytesPerSecond: 64,
+      });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe(JSON.stringify({ ok: true }));
+    } finally {
+      server.close();
+    }
   });
 });
 
