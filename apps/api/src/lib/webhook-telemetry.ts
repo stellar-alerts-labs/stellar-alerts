@@ -41,6 +41,12 @@ import {
   type WebhookDispatchOutcome,
   type WebhookDispatchPhase,
 } from './webhook-metrics';
+import {
+  TransportGuardError,
+  DEFAULT_MAX_RESPONSE_BYTES,
+  DEFAULT_MIN_BYTE_RATE_BYTES_PER_SECOND,
+  DEFAULT_STALL_GRACE_MS,
+} from '../workers/dispatcher/transport-guard';
 
 const TRACER_NAME = 'stellar-alerts.webhook';
 const TRACER_VERSION = '1.0.0';
@@ -110,6 +116,12 @@ export interface WebhookDispatchOptions {
   parentContext?: Context;
   /** Reuse pooled sockets. Defaults to true. */
   keepAlive?: boolean;
+  /** Abort a response body that grows past this size. Defaults to 16KB. */
+  maxResponseBytes?: number;
+  /** Abort drip transfers whose average rate stays below this B/s. */
+  minByteRateBytesPerSecond?: number;
+  /** Grace window before the rate floor applies. Defaults to 2s. */
+  stallGraceMs?: number;
 }
 
 const agents = new Map<string, http.Agent | https.Agent>();
@@ -295,6 +307,12 @@ export async function instrumentedWebhookFetch(
     let socketReused = false;
     let settled = false;
     let request: http.ClientRequest | undefined;
+    let watchdog: ReturnType<typeof setInterval> | undefined;
+
+    const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    const minByteRateBytesPerSecond =
+      options.minByteRateBytesPerSecond ?? DEFAULT_MIN_BYTE_RATE_BYTES_PER_SECOND;
+    const stallGraceMs = options.stallGraceMs ?? DEFAULT_STALL_GRACE_MS;
 
     const { signal, cleanup, isTimedOut } = createDeadlineSignal(timeoutMs);
 
@@ -319,6 +337,10 @@ export async function instrumentedWebhookFetch(
       if (settled) return;
       settled = true;
       cleanup();
+      if (watchdog) {
+        clearInterval(watchdog);
+        watchdog = undefined;
+      }
 
       const phases = computePhases(marks, startAt);
 
@@ -375,8 +397,79 @@ export async function instrumentedWebhookFetch(
       (res) => {
         marks.ttfb = clock();
 
+        const declaredLength = Number.parseInt(String(res.headers['content-length'] ?? ''), 10);
+        if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
+          const error = new TransportGuardError(
+            'RESPONSE_TOO_LARGE',
+            `Declared response size ${declaredLength} exceeds ${maxResponseBytes} bytes`,
+            url,
+          );
+          finish('failed', error);
+          reject(error);
+          res.destroy();
+          request?.destroy(error);
+          return;
+        }
+
         const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        const transferStartedAt = clock();
+        let bytesReceived = 0;
+
+        /**
+         * Low average transfer rate is the signature of a slow-drip attack:
+         * each chunk is small enough to avoid a single-chunk size failure, but
+         * the connection is held open far longer than a legitimate response.
+         * We allow an initial grace window so a fast response that completes
+         * under the floor is not penalised.
+         */
+        const checkTransferRate = (at: number): TransportGuardError | null => {
+          if (minByteRateBytesPerSecond <= 0) return null;
+          const elapsedMs = at - transferStartedAt;
+          if (elapsedMs < stallGraceMs) return null;
+          const rate = bytesReceived / (elapsedMs / 1000);
+          if (rate >= minByteRateBytesPerSecond) return null;
+          return new TransportGuardError(
+            'TRANSFER_STALLED',
+            `Transfer rate ${rate.toFixed(1)} B/s is below the ${minByteRateBytesPerSecond} B/s minimum`,
+            url,
+          );
+        };
+
+        const abortWithGuardError = (error: TransportGuardError): void => {
+          finish('failed', error);
+          reject(error);
+          request?.destroy(error);
+        };
+
+        // A silent server emits no `data` events at all, so a data-driven check
+        // alone would miss it. The watchdog enforces the same rate floor while
+        // the response is open and is cleared on every terminal path in
+        // `finish()`.
+        watchdog = setInterval(() => {
+          if (settled) return;
+          const error = checkTransferRate(clock());
+          if (error) abortWithGuardError(error);
+        }, Math.max(50, stallGraceMs / 2));
+
+        res.on('data', (chunk: Buffer) => {
+          if (settled) return;
+          bytesReceived += chunk.byteLength;
+          chunks.push(chunk);
+
+          if (bytesReceived > maxResponseBytes) {
+            abortWithGuardError(
+              new TransportGuardError(
+                'RESPONSE_TOO_LARGE',
+                `Response body exceeded ${maxResponseBytes} bytes`,
+                url,
+              ),
+            );
+            return;
+          }
+
+          const error = checkTransferRate(clock());
+          if (error) abortWithGuardError(error);
+        });
         res.on('error', (err) => {
           if (settled) return;
           const error = err as Error;
@@ -392,6 +485,7 @@ export async function instrumentedWebhookFetch(
           reject(error);
         });
         res.on('end', () => {
+          if (settled) return;
           marks.stream = clock();
 
           const body = Buffer.concat(chunks).toString('utf8');
