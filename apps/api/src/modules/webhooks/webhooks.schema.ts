@@ -1,8 +1,14 @@
 import { z } from 'zod';
+import { MAX_WEBHOOK_URL_LENGTH, validateWebhookTargetUrl } from '@stellar-alerts/shared';
 import { cursorSchema, limitSchema } from '../../utils/pagination';
 
 export const createWebhookSchema = z.object({
-  url: z.string().url().max(2048),
+  url: z
+    .string()
+    .max(MAX_WEBHOOK_URL_LENGTH)
+    .refine(validateWebhookTargetUrl, {
+      message: 'URL must be a valid HTTP(S) URL without credentials and use an allowed port',
+    }),
   payloadTemplate: z.string().max(16384).optional(),
 });
 

@@ -8,6 +8,7 @@ export type { components as ApiComponents, paths as ApiPaths } from './generated
 export * from './config/index';
 export * from './merkle';
 export * from './utils/predicates';
+export * from './utils/url-validator';
 export * from './soroban/scval-parser';
 // Single source of truth for Stellar StrKey / transaction-hash validation
 // (Ed25519 public keys, contract IDs, muxed addresses, transaction hashes).
